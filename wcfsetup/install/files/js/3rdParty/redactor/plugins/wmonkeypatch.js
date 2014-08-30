@@ -149,26 +149,27 @@ RedactorPlugins.wmonkeypatch = {
 		var parent = this.getParent();
 		parent = (parent === false) ? null : $(parent);
 		
-		if (parent && parent.closest('ul', this.$editor.get()[0]).length != 0) {
-			this.$toolbar.find('a.re-indent, a.re-outdent').removeClass('redactor_button_disabled');
-		}
-		else {
-			this.$toolbar.find('a.re-indent, a.re-outdent').addClass('redactor_button_disabled');
-		}
+		var self = this;
+		var $editor = this.$editor.get()[0];
+		var $toggleButtons = function(searchFor, buttonSelector, inverse, className, skipInSourceMode) {
+			var $buttons = self.$toolbar.find(buttonSelector);
+			if (parent && parent.closest(searchFor, $editor).length != 0) {
+				$buttons[(inverse ? 'removeClass' : 'addClass')](className);
+			}
+			else {
+				if (skipInSourceMode && !self.opts.visual) {
+					return;
+				}
+				
+				$buttons[(inverse ? 'addClass' : 'removeClass')](className);
+			}
+		};
 		
-		if (parent && parent.closest('inline.inlineCode', this.$editor.get()[0]).length != 0) {
-			this.$toolbar.find('a.re-__wcf_tt').addClass('redactor_act');
-		}
-		else {
-			this.$toolbar.find('a.re-__wcf_tt').removeClass('redactor_act');
-		}
-		
-		if (parent && parent.closest('blockquote.quoteBox', this.$editor.get()[0]).length != 0) {
-			this.$toolbar.find('a.re-__wcf_quote').addClass('redactor_button_disabled');
-		}
-		else {
-			this.$toolbar.find('a.re-__wcf_quote').removeClass('redactor_button_disabled');
-		}
+		$toggleButtons('ul', 'a.re-indent, a.re-outdent', true, 'redactor_button_disabled');
+		$toggleButtons('inline.inlineCode', 'a.re-__wcf_tt', false, 'redactor_act');
+		$toggleButtons('blockquote.quoteBox', 'a.re-__wcf_quote', false, 'redactor_button_disabled', true);
+		$toggleButtons('sub', 'a.re-subscript', false, 'redactor_act');
+		$toggleButtons('sup', 'a.re-superscript', false, 'redactor_act');
 	},
 	
 	/**
@@ -482,6 +483,31 @@ RedactorPlugins.wmonkeypatch = {
 		{
 			this.linkObserverTooltipClose(e);
 		}, this));
+	},
+	
+	/**
+	 * Overwrites $.Redactor.observeImages() to prevent smileys being recognized as ordinary images.
+	 * 
+	 * @see	$.Redactor.observeImages()
+	 */
+	observeImages: function() {
+		if (this.opts.observeImages === false) return false;
+
+		this.$editor.find('img:not(.smiley)').each($.proxy(function(i, elem)
+		{
+			if (this.browser('msie')) $(elem).attr('unselectable', 'on');
+
+			var parent = $(elem).parent();
+			if (!parent.hasClass('royalSlider') && !parent.hasClass('fotorama'))
+			{
+				this.imageResize(elem);
+			}
+
+		}, this));
+
+		// royalSlider and fotorama
+		this.$editor.find('.fotorama, .royalSlider').on('click', $.proxy(this.editGallery, this));
+
 	},
 	
 	/**

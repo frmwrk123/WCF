@@ -622,14 +622,6 @@ WCF.Message.SmileyCategories = Class.extend({
 		this._wysiwygSelector = wysiwygSelector;
 		
 		$('#smilies-' + this._wysiwygSelector).on('messagetabmenushow', $.proxy(this._click, this));
-		
-		// handle onload
-		/*var self = this;
-		new WCF.PeriodicalExecuter(function(pe) {
-			pe.stop();
-			
-			self._click({ }, { newTab: $('#smilies > .menu li.ui-state-active') });
-		}, 100);*/
 	},
 	
 	/**
@@ -682,6 +674,8 @@ WCF.Message.SmileyCategories = Class.extend({
 
 /**
  * Handles smiley clicks.
+ * 
+ * @param	string		wysiwygSelector
  */
 WCF.Message.Smilies = Class.extend({
 	/**
@@ -690,6 +684,10 @@ WCF.Message.Smilies = Class.extend({
 	 */
 	_redactor: null,
 	
+	/**
+	 * wysiwyg container id
+	 * @var	string
+	 */
 	_wysiwygSelector: '',
 	
 	/**
@@ -703,8 +701,7 @@ WCF.Message.Smilies = Class.extend({
 		WCF.System.Dependency.Manager.register('Redactor_' + this._wysiwygSelector, $.proxy(function() {
 			this._redactor = $('#' + this._wysiwygSelector).redactor('getObject');
 			
-			// add smiley click handler
-			$(document).on('click', '.jsSmiley', $.proxy(this._smileyClick, this));
+			$('.messageTabMenu[data-wysiwyg-container-id=' + this._wysiwygSelector + ']').on('click', '.jsSmiley', $.proxy(this._smileyClick, this));
 		}, this));
 	},
 	
@@ -891,7 +888,11 @@ WCF.Message.QuickReply = Class.extend({
 		}
 		
 		if ($.browser.redactor) {
-			this._messageField.redactor('insertDynamic', data.returnValues.template);
+			var $html = WCF.String.unescapeHTML(data.returnValues.template);
+			$html = this._messageField.redactor('transformQuote', $html);
+			
+			this._messageField.redactor('selectionEndOfEditor');
+			this._messageField.redactor('insertDynamic', $html, data.returnValues.template);
 		}
 		else {
 			this._messageField.val(data.returnValues.template);
@@ -2706,19 +2707,19 @@ WCF.Message.Quote.Manager = Class.extend({
 		var $quote = $.trim($listItem.children('div.jsFullQuote').text());
 		var $message = $listItem.parents('article.message');
 		
-		// build quote tag
-		$quote = "[quote='" + $message.attr('data-username') + "','" + $message.data('link') + "']" + $quote + "[/quote]";
-		
 		// insert into editor
 		if ($.browser.redactor) {
 			if (this._editorElementAlternative === null) {
-				this._editorElement.redactor('insertDynamic', $quote);
+				this._editorElement.redactor('insertQuoteBBCode', $message.attr('data-username'), $message.data('link'), $quote, $quote);// $quote);
 			}
 			else {
-				this._editorElementAlternative.redactor('insertDynamic', $quote);
+				this._editorElementAlternative.redactor('insertQuoteBBCode', $message.attr('data-username'), $message.data('link'), $quote, $quote);// $quote);
 			}
 		}
 		else {
+			// build quote tag
+			$quote = "[quote='" + $message.attr('data-username') + "','" + $message.data('link') + "']" + $quote + "[/quote]";
+			
 			// plain textarea
 			var $textarea = (this._editorElementAlternative === null) ? this._editorElement : this._editorElementAlternative;
 			var $value = $textarea.val();

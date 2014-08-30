@@ -170,7 +170,7 @@ RedactorPlugins.wutil = {
 	 */
 	reset: function() {
 		if (this.inWysiwygMode()) {
-			this.$editor.empty();
+			this.$editor.html('<p>' + this.opts.invisibleSpace + '</p>');
 			this.sync();
 		}
 		else {
@@ -243,10 +243,7 @@ RedactorPlugins.wutil = {
 		var $text = localStorage.getItem($options.key);
 		if ($text !== null) {
 			if (this.inWysiwygMode()) {
-				this.toggle(false);
-				this.$source.val($text);
-				this.toggle(false);
-				this.focusEnd();
+				this.setOption('wOriginalValue', $text);
 			}
 			else {
 				this.$source.val($text);
@@ -325,5 +322,31 @@ RedactorPlugins.wutil = {
 	 */
 	getName: function() {
 		return this.$source.wcfIdentify();
+	},
+	
+	/**
+	 * Sets the selection after the last direct children of the editor.
+	 */
+	selectionEndOfEditor: function() {
+		this.selectionEnd(this.$editor.children(':last')[0]);
+	},
+	
+	/**
+	 * Replaces the current content with the provided value.
+	 * 
+	 * @param	string		value
+	 */
+	replaceText: function(value) {
+		var $wasInWysiwygMode = false;
+		if (this.inWysiwygMode()) {
+			this.toggle();
+			$wasInWysiwygMode = true;
+		}
+		
+		this.$source.val(value);
+		
+		if ($wasInWysiwygMode) {
+			this.toggle();
+		}
 	}
 };

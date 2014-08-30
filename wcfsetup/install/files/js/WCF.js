@@ -5305,30 +5305,36 @@ WCF.Effect.BalloonTooltip = Class.extend({
 			$arrow.css('top', $tooltipDimensions.height);
 		}
 		
+		$property = (WCF.Language.get('wcf.global.pageDirection') == 'rtl' ? 'right' : 'left');
+		
 		// calculate left offset
 		switch ($alignment) {
 			case 'center':
 				var $left = Math.round($elementOffsets.left - $tooltipHalfWidth + ($elementDimensions.width / 2));
 				
-				$arrow.css({
-					left: ($tooltipDimensionsInner.width / 2 - $arrowWidth / 2) + "px"
-				});
+				$arrow.css($property, ($tooltipDimensionsInner.width / 2 - $arrowWidth / 2) + 'px');
 			break;
 			
 			case 'left':
 				var $left = $elementOffsets.left;
 				
-				$arrow.css({
-					left: "5px"
-				});
+				if ($property === 'right') {
+					$arrow.css($property, ($tooltipDimensionsInner.width - $arrowWidth - 5) + 'px');
+				}
+				else {
+					$arrow.css($property, '5px');
+				}
 			break;
 			
 			case 'right':
 				var $left = $elementOffsets.left + $elementDimensions.width - $tooltipDimensions.width;
 				
-				$arrow.css({
-					left: ($tooltipDimensionsInner.width - $arrowWidth - 5) + "px"
-				});
+				if ($property === 'right') {
+					$arrow.css($property, '5px');
+				}
+				else {
+					$arrow.css($property, ($tooltipDimensionsInner.width - $arrowWidth - 5) + 'px');
+				}
 			break;
 		}
 		
@@ -8104,6 +8110,7 @@ WCF.InlineEditor = Class.extend({
 	 * @param	object		event
 	 */
 	_show: function(event) {
+		event.preventDefault();
 		var $elementID = $(event.currentTarget).data('elementID');
 		
 		// build dropdown
@@ -9141,7 +9148,7 @@ WCF.Popover = Class.extend({
 			width: 450
 		};
 		this._defaultOrientation = {
-			x: 'right',
+			x: (WCF.Language.get('wcf.global.pageDirection') === 'rtl' ? 'left' : 'right'),
 			y: 'top'
 		};
 		this._delay = {
@@ -9935,7 +9942,9 @@ WCF.Sitemap = Class.extend({
 	/**
 	 * Handles clicks on the sitemap icon.
 	 */
-	_click: function() {
+	_click: function(event) {
+		event.preventDefault();
+		
 		if (this._dialog === null) {
 			this._dialog = $('<div id="sitemapDialog" />').appendTo(document.body);
 			
@@ -10159,7 +10168,7 @@ WCF.Style.Chooser = Class.extend({
 	 * Initializes the style chooser class.
 	 */
 	init: function() {
-		$('<li class="styleChooser"><a>' + WCF.Language.get('wcf.style.changeStyle') + '</a></li>').appendTo($('#footerNavigation > ul.navigationItems')).click($.proxy(this._showDialog, this));
+		$('<li class="styleChooser"><a href="#">' + WCF.Language.get('wcf.style.changeStyle') + '</a></li>').appendTo($('#footerNavigation > ul.navigationItems')).click($.proxy(this._showDialog, this));
 		
 		this._proxy = new WCF.Action.Proxy({
 			success: $.proxy(this._success, this)
@@ -10170,6 +10179,8 @@ WCF.Style.Chooser = Class.extend({
 	 * Displays the style chooser dialog.
 	 */
 	_showDialog: function() {
+		event.preventDefault();
+		
 		if (this._dialog === null) {
 			this._dialog = $('<div id="styleChooser" />').hide().appendTo(document.body);
 			this._loadDialog();
@@ -10287,7 +10298,7 @@ WCF.UserPanel = Class.extend({
 		this._container.addClass('dropdown');
 		this._link = this._container.children('a').remove();
 		
-		var $button = $('<a class="dropdownToggle">' + this._link.html() + '</a>').appendTo(this._container).click($.proxy(this._click, this));
+		var $button = $('<a href="' + this._link.attr('href') + '" class="dropdownToggle">' + this._link.html() + '</a>').appendTo(this._container).click($.proxy(this._click, this));
 		var $dropdownMenu = $('<ul class="dropdownMenu" />').appendTo(this._container);
 		$('<li class="jsDropdownPlaceholder"><span>' + WCF.Language.get('wcf.global.loading') + '</span></li>').appendTo($dropdownMenu);
 		
@@ -10319,8 +10330,12 @@ WCF.UserPanel = Class.extend({
 	
 	/**
 	 * Handles clicks on the dropdown item.
+	 * 
+	 * @param	object		event
 	 */
-	_click: function() {
+	_click: function(event) {
+		event.preventDefault();
+		
 		if (this._didLoad) {
 			return;
 		}
