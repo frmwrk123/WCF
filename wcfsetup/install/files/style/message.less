@@ -427,7 +427,7 @@
 	position: absolute;
 	text-transform: uppercase;
 	top: 24px;
-			
+	
 	.boxShadow(1px, 1px, rgba(0, 0, 0, .2), 3px);
 	.linearGradient(darken(@wcfTabularBoxBackgroundColor, 10%), @wcfTabularBoxBackgroundColor, darken(@wcfTabularBoxBackgroundColor, 10%));
 	.textShadow(darken(@wcfTabularBoxBackgroundColor, 10%));
@@ -477,9 +477,13 @@
 	display: block;
 	line-height: 1.5;
 	
-	> div:not(.messageFooter):not(.redactor_box):not(.messageTabMenu) {
+	> div:not(.messageFooter):not(.redactor-box):not(.messageTabMenu) {
 		overflow: hidden;
 		padding-bottom: @wcfGapMedium;
+		
+		img {
+			max-width: 100%;
+		}
 	}
 	
 	> footer {
@@ -499,6 +503,11 @@
 			margin-top: @wcfGapSmall;
 		}
 	}
+	
+	.nativeList {
+		list-style-position: inside;
+		margin-left: 20px; 
+	}
 }
 
 @messageFooterNoteGradientColor: fade(@wcfContainerBorderColor, 20%);
@@ -508,7 +517,7 @@
 	color: @wcfDimmedColor;
 	font-size: @wcfSmallFontSize;
 	padding: @wcfGapTiny @wcfGapSmall;
-		
+	
 	.linearGradientNative(~"90deg, @{messageFooterNoteGradientColor} 0%, @{messageFooterNoteGradientColor2} 40%");
 }
 
@@ -519,7 +528,7 @@ html[dir='rtl'] {
 	}
 }
 
-.messageHeader + .messageBody > div:first-child:not(.redactor_box),
+.messageHeader + .messageBody > div:first-child:not(.redactor-box),
 .messageBody > div:not(.messageFooter):not(.messageTabMenu):not(:first-child) {
 	border-top: 1px dotted @wcfContainerBorderColor;
 	padding: @wcfGapMedium 0;
@@ -829,9 +838,17 @@ li:nth-child(2n+1) .message {
 }
 
 #quoteManagerCopy {
-	cursor: pointer;
+	> span:not(.pointer) {
+		cursor: pointer;
+	}
 	
-	.pointer {
+	> .jsQuoteManagerQuoteAndInsert {
+		border-left: 1px solid @wcfTooltipColor;
+		margin-left: 4px;
+		padding-left: 4px;
+	}
+	
+	> .pointer {
 		border-width: 5px 5px 0;
 		bottom: -5px;
 		margin-left: -5px;
@@ -928,13 +945,15 @@ li:nth-child(2n+1) .message {
 	}
 }
 
-.likeButton.active {
+.likeButton.active, /* deprecated */
+.wcfLikeButton.active {
 	.icon {
 		color: rgba(0, 153, 0, 1);
 	}
 }
 
-.dislikeButton.active {
+.dislikeButton.active, /* deprecated */
+.wcfDislikeButton.active {
 	.icon {
 		color: rgba(204, 0, 0, 1);
 	}
@@ -965,7 +984,7 @@ li:nth-child(2n+1) .message {
 	.message .messageBody .messageSignature,
 	.message .messageSidebar .userCredits {
 		display: none;
-	}	
+	}
 	
 	.message .messageSidebar {
 		padding: 7px;
@@ -998,22 +1017,22 @@ li:nth-child(2n+1) .message {
 	
 	/* reduce paddings */
 	.message .messageContent .messageHeader {
-		padding: 7px 7px 0;
+		padding: @wcfGapSmall @wcfGapSmall 0;
 	}
 	
 	.message .messageBody {
-		padding: 7px;
+		padding: @wcfGapSmall;
 	}
 	
-	.message .messageBody > div:not(.messageFooter) {
-		padding: 7px 0;
+	.message .messageBody > div:not(.messageFooter):not(.messageTabMenu):not(.redactor-box) {
+		padding: @wcfGapSmall 0;
 	}
 	
 	.message .messageBody > footer {
 		padding: 0;
 		position: absolute;
-		right: 7px;
-		top: 7px;
+		right: @wcfGapSmall;
+		top: @wcfGapSmall;
 	}
 	
 	.message .messageOptions nav {
@@ -1057,6 +1076,33 @@ li:nth-child(2n+1) .message {
 			.columnLastChangeTime {
 				display: none;
 			}
+		}
+	}
+}
+
+/* edit history */
+.editHistoryDiff {
+	> .sideBySide:first-child {
+		margin-bottom: @wcfGapLarge;
+		text-align: center;
+	}
+	
+	.sideBySide {
+		> div:first-child {
+			padding-right: @wcfGapMedium;
+		}
+		
+		> div:last-child {
+			padding-left: @wcfGapMedium;
+		}
+	}
+}
+
+@media only screen and (max-width: 800px) {
+	.editHistoryVersionList {
+		.columnUser,
+		.columnEditReason {
+			display: none;
 		}
 	}
 }

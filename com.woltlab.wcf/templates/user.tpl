@@ -1,7 +1,7 @@
 {include file='documentHeader'}
 
 <head>
-	<title>{lang}wcf.user.profile{/lang} - {lang}wcf.user.members{/lang} - {PAGE_TITLE|language}</title>
+	<title>{$user->username} - {lang}wcf.user.members{/lang} - {PAGE_TITLE|language}</title>
 	
 	{include file='headInclude'}
 	
@@ -37,14 +37,6 @@
 				});
 				
 				new WCF.User.Profile.Editor({@$user->userID}, {if $editOnInit}true{else}false{/if});
-			{/if}
-			
-			{if $user->activityPoints}
-				WCF.Language.addObject({
-					'wcf.user.activityPoint': '{lang}wcf.user.activityPoint{/lang}'
-				});
-				
-				WCF.User.Profile.ActivityPointList.init();
 			{/if}
 			
 			{if $followingCount > 10}
@@ -162,7 +154,7 @@
 >
 	<span class="framed invisible">{@$user->getAvatar()->getImageTag(48)}</span>
 	
-	<h1>{$user->username}{if MODULE_USER_RANK && $user->getUserTitle()} <span class="badge userTitleBadge{if $user->getRank() && $user->getRank()->cssClassName} {@$user->getRank()->cssClassName}{/if}">{$user->getUserTitle()}</span>{/if}</h1>
+	<h1>{$user->username}{if $user->banned} <span class="icon icon16 fa-lock jsTooltip jsUserBanned" title="{lang}wcf.user.banned{/lang}"></span>{/if}{if MODULE_USER_RANK && $user->getUserTitle()} <span class="badge userTitleBadge{if $user->getRank() && $user->getRank()->cssClassName} {@$user->getRank()->cssClassName}{/if}">{$user->getUserTitle()}</span>{/if}</h1>
 	
 	<ul class="dataList">
 		{if $user->isVisibleOption('gender') && $user->gender}<li>{lang}wcf.user.gender.{if $user->gender == 1}male{else}female{/if}{/lang}</li>{/if}
@@ -183,7 +175,7 @@
 		<ul id="profileButtonContainer" class="buttonGroup">
 			{hascontent}
 				<li class="dropdown">
-					<a class="button dropdownToggle jsTooltip" title="{lang}wcf.user.searchUserContent{/lang}"><span class="icon icon16 icon-search"></span> <span class="invisible">{lang}wcf.user.searchUserContent{/lang}</span></a>
+					<a href="#" class="button dropdownToggle jsTooltip" title="{lang}wcf.user.searchUserContent{/lang}"><span class="icon icon16 icon-search"></span> <span class="invisible">{lang}wcf.user.searchUserContent{/lang}</span></a>
 					<ul class="dropdownMenu">
 						{content}
 							{event name='quickSearchItems'}
@@ -193,7 +185,7 @@
 			{/hascontent}
 			
 			{if $__wcf->session->getPermission('user.profile.canReportContent')}
-				<li class="jsReportUser jsOnly" data-object-id="{@$user->userID}"><a title="{lang}wcf.user.profile.report{/lang}" class="button jsTooltip"><span class="icon icon16 icon-warning-sign"></span> <span class="invisible">{lang}wcf.user.profile.report{/lang}</span></a></li>
+				<li class="jsReportUser jsOnly" data-object-id="{@$user->userID}"><a href="#" title="{lang}wcf.user.profile.report{/lang}" class="button jsTooltip"><span class="icon icon16 icon-warning-sign"></span> <span class="invisible">{lang}wcf.user.profile.report{/lang}</span></a></li>
 			{/if}
 			
 			{if $user->userID != $__wcf->user->userID}

@@ -8,6 +8,7 @@ use wcf\system\menu\page\PageMenu;
 use wcf\system\request\RequestHandler;
 use wcf\system\WCF;
 use wcf\util\HeaderUtil;
+use wcf\util\StringUtil;
 
 /**
  * Abstract implementation of a page which fires the default event actions of a
@@ -86,7 +87,7 @@ abstract class AbstractPage implements IPage, ITrackablePage {
 	public $useTemplate = true;
 	
 	/**
-	 * @see	\wcf\form\IPage::__run()
+	 * @see	\wcf\page\IPage::__run()
 	 */
 	public final function __construct() { }
 	
@@ -181,21 +182,36 @@ abstract class AbstractPage implements IPage, ITrackablePage {
 		
 		// check if current request URL matches the canonical URL
 		if ($this->canonicalURL && empty($_POST)) {
-			$canoncialURL = parse_url($this->canonicalURL);
-			$requestURL = parse_url(WCF::getRequestURI());
+			$canoncialURL = parse_url(preg_replace('~[?&]s=[a-f0-9]{40}~', '', $this->canonicalURL));
+			
+			// use $_SERVER['REQUEST_URI'] because it represents the URL used to access the site and not the internally rewritten one
+			$requestURI = preg_replace('~[?&]s=[a-f0-9]{40}~', '', $_SERVER['REQUEST_URI']);
+			if (strpos($requestURI, '%') !== false) {
+				$requestURI = urldecode($requestURI);
+			}
+			if (!StringUtil::isUTF8($requestURI)) {
+				$requestURI = StringUtil::convertEncoding('ISO-8859-1', 'UTF-8', $requestURI);
+			}
+			
+			$requestURL = parse_url($requestURI);
 			
 			$redirect = false;
 			if ($canoncialURL['path'] != $requestURL['path']) {
 				$redirect = true;
 			}
 			else if (isset($canoncialURL['query'])) {
-				parse_str($canoncialURL['query'], $cQueryString);
-				parse_str($requestURL['query'], $rQueryString);
-				
-				foreach ($cQueryString as $key => $value) {
-					if (!isset($rQueryString[$key]) || $rQueryString[$key] != $value) {
-						$redirect = true;
-						break;
+				if (!isset($requestURL['query'])) {
+					$redirect = true;
+				}
+				else {
+					parse_str($canoncialURL['query'], $cQueryString);
+					parse_str($requestURL['query'], $rQueryString);
+					
+					foreach ($cQueryString as $key => $value) {
+						if (!isset($rQueryString[$key]) || $rQueryString[$key] != $value) {
+							$redirect = true;
+							break;
+						}
 					}
 				}
 			}
@@ -231,7 +247,10 @@ abstract class AbstractPage implements IPage, ITrackablePage {
 					}
 				}
 				
-				HeaderUtil::redirect($redirectURL);
+				// force a permanent redirect as recommended by Google
+				// https://support.google.com/webmasters/answer/6033086?hl=en#a_note_about_redirects
+				@header('HTTP/1.0 301 Moved Permanently');
+				HeaderUtil::redirect($redirectURL, false);
 				exit;
 			}
 		}

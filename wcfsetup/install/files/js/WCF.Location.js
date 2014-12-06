@@ -1,3 +1,5 @@
+"use strict";
+
 /**
  * Location-related classes for WCF
  * 
@@ -385,6 +387,12 @@ WCF.Location.GoogleMaps.LargeMap = WCF.Location.GoogleMaps.Map.extend({
 	_actionClassName: null,
 	
 	/**
+	 * additional parameters for executing the 'getMapMarkers' action
+	 * @var	object
+	 */
+	_additionalParameters: { },
+	
+	/**
 	 * indicates if the maps center can be set by location search
 	 * @var	WCF.Location.GoogleMaps.LocationSearch
 	 */
@@ -423,11 +431,12 @@ WCF.Location.GoogleMaps.LargeMap = WCF.Location.GoogleMaps.Map.extend({
 	/**
 	 * @see	WCF.Location.GoogleMaps.Map.init()
 	 */
-	init: function(mapContainerID, mapOptions, actionClassName, locationSearchInputSelector) {
+	init: function(mapContainerID, mapOptions, actionClassName, locationSearchInputSelector, additionalParameters) {
 		this._super(mapContainerID, mapOptions);
 		
 		this._actionClassName = actionClassName;
 		this._locationSearchInputSelector = locationSearchInputSelector || '';
+		this._additionalParameters = additionalParameters || { };
 		this._objectIDs = [ ];
 		
 		if (this._locationSearchInputSelector) {
@@ -479,7 +488,11 @@ WCF.Location.GoogleMaps.LargeMap = WCF.Location.GoogleMaps.Map.extend({
 	},
 	
 	/**
-	 * Loads markers if the map is reloaded.
+	 * Loads markers if the map is reloaded. Returns true if new markers will
+	 * be loaded and false if for the current map bounds, the markers have already
+	 * been loaded.
+	 * 
+	 * @return	boolean
 	 */
 	_loadMarkers: function() {
 		var $northEast = this._map.getBounds().getNorthEast();
@@ -488,7 +501,7 @@ WCF.Location.GoogleMaps.LargeMap = WCF.Location.GoogleMaps.Map.extend({
 		// check if the user has zoomed in, then all markers are already
 		// displayed
 		if (this._previousNorthEast && this._previousNorthEast.lat() >= $northEast.lat() && this._previousNorthEast.lng() >= $northEast.lng() && this._previousSouthWest.lat() <= $southWest.lat() && this._previousSouthWest.lng() <= $southWest.lng()) {
-			return;
+			return false;
 		}
 		
 		this._previousNorthEast = $northEast;
@@ -497,15 +510,17 @@ WCF.Location.GoogleMaps.LargeMap = WCF.Location.GoogleMaps.Map.extend({
 		this._proxy.setOption('data', {
 			actionName: 'getMapMarkers',
 			className: this._actionClassName,
-			parameters: {
+			parameters: $.extend(this._additionalParameters, {
 				excludedObjectIDs: this._objectIDs,
 				eastLongitude: $northEast.lng(),
 				northLatitude: $northEast.lat(),
 				southLatitude: $southWest.lat(),
 				westLongitude: $southWest.lng()
-			}
+			})
 		});
 		this._proxy.sendRequest();
+		
+		return true;
 	},
 	
 	/**
@@ -541,6 +556,128 @@ WCF.Location.GoogleMaps.LargeMap = WCF.Location.GoogleMaps.Map.extend({
 		this._markerSpiderfier.addMarker($marker);
 		
 		return $marker;
+	}
+});
+
+/**
+ * Extends the large map implementation by treating non-draggable markers as location
+ * suggestions.
+ */
+WCF.Location.GoogleMaps.SuggestionMap = WCF.Location.GoogleMaps.LargeMap.extend({
+	/**
+	 * maps control showing/hiding location suggestions
+	 * @var	jQuery
+	 */
+	_locationSuggestionsButton: null,
+	
+	/**
+	 * function called when a location is selected
+	 * @var	function
+	 */
+	_suggestionSelectionCallback: null,
+	
+	/**
+	 * @see	WCF.Location.GoogleMaps.LargeMap.init()
+	 */
+	init: function(mapContainerID, mapOptions, actionClassName, locationSearchInputSelector, additionalParameters) {
+		this._super(mapContainerID, mapOptions, actionClassName, locationSearchInputSelector, additionalParameters);
+		
+		var $locationSuggestionDiv = $('<div class="gmnoprint googleMapsCustomControlContainer"><div class="gm-style-mtc"><div class="googleMapsCustomControl">'  + WCF.Language.get('wcf.map.showLocationSuggestions') + '</div></div></div>');
+		this._locationSuggestionsButton = $locationSuggestionDiv.find('.googleMapsCustomControl').click($.proxy(this._toggleLocationSuggestions, this));
+		
+		this._map.controls[google.maps.ControlPosition.TOP_RIGHT].push($locationSuggestionDiv.get(0));
+	},
+	
+	/**
+	 * @see	WCF.Location.GoogleMaps.LargeMap._loadMarkers()
+	 */
+	_loadMarkers: function() {
+		if (!this._locationSuggestionsButton.hasClass('active')) return;
+		
+		if (!this._super()) {
+			this._loadSuggestions = false;
+		}
+	},
+	
+	/**
+	 * @see	WCF.Location.GoogleMaps.LargeMap._loadMarkers()
+	 */
+	_success: function(data, textStatus, jqXHR) {
+		var $oldLength = this._markers.length;
+		this._super(data, textStatus, jqXHR);
+		
+		if (this._loadSuggestions && $oldLength == this._markers.length) {
+			this._loadSuggestions = false;
+			new WCF.System.Notification(WCF.Language.get('wcf.map.noLocationSuggestions'), 'info').show();
+		}
+	},
+	
+	/**
+	 * Handles clicks on the location suggestions button.
+	 */
+	_toggleLocationSuggestions: function() {
+		var $showSuggestions = !this._locationSuggestionsButton.hasClass('active');
+		if ($showSuggestions) {
+			this._loadSuggestions = true;
+		}
+		
+		this.showSuggestions($showSuggestions);
+	},
+	
+	/**
+	 * @see	WCF.Location.GoogleMaps.Map.addMarker()
+	 */
+	addMarker: function(latitude, longitude, title, icon, information) {
+		var $infoWindow = $(information);
+		var $useLocation = $('<a class="googleMapsUseLocationSuggestionLink" />').text(WCF.Language.get('wcf.map.useLocationSuggestion')).click(this._suggestionSelectionCallback);
+		$infoWindow.append($('<p class="marginTopTiny" />').append($useLocation));
+		
+		var $marker = this._super(latitude, longitude, title, '//mt.google.com/vt/icon/name=icons/spotlight/spotlight-waypoint-a.png', $infoWindow.get(0));
+		
+		$useLocation.data('marker', $marker);
+		
+		return $marker;
+	},
+	
+	/**
+	 * Sets the function called when a location is selected.
+	 * 
+	 * @param	function		callback
+	 */
+	setSuggestionSelectionCallback: function(callback) {
+		this._suggestionSelectionCallback = callback;
+	},
+	
+	/**
+	 * Shows or hides the location suggestions.
+	 * 
+	 * @param	boolean		showSuggestions
+	 */
+	showSuggestions: function(showSuggestions) {
+		// missing argument means showing the suggestions
+		if (showSuggestions === undefined) showSuggestions = true;
+		
+		this._locationSuggestionsButton.toggleClass('active', showSuggestions);
+		
+		var $clusterMarkers = [ ];
+		for (var $i = 0, $length = this._markers.length; $i < $length; $i++) {
+			var $marker = this._markers[$i];
+			
+			// ignore draggable markers
+			if (!$marker.draggable) {
+				$marker.setVisible(showSuggestions);
+				if (showSuggestions) {
+					$clusterMarkers.push($marker);
+				}
+			}
+		}
+		
+		this._markerClusterer.clearMarkers();
+		if (showSuggestions) {
+			this._markerClusterer.addMarkers($clusterMarkers);
+		}
+		
+		this._loadMarkers();
 	}
 });
 
@@ -686,11 +823,21 @@ WCF.Location.GoogleMaps.LocationInput = Class.extend({
 	 * @param	string		mapContainerID
 	 * @param	object		mapOptions
 	 * @param	string		searchInput
-	 * @param	function	callback
+	 * @param	float		latitude
+	 * @param	float		longitude
+	 * @param	string		actionClassName
 	 */
-	init: function(mapContainerID, mapOptions, searchInput, latitude, longitude) {
+	init: function(mapContainerID, mapOptions, searchInput, latitude, longitude, actionClassName) {
 		this._searchInput = searchInput;
-		this._map = new WCF.Location.GoogleMaps.Map(mapContainerID, mapOptions);
+		
+		if (actionClassName) {
+			this._map = new WCF.Location.GoogleMaps.SuggestionMap(mapContainerID, mapOptions, actionClassName);
+			this._map.setSuggestionSelectionCallback($.proxy(this._useSuggestion, this));
+		}
+		else {
+			this._map = new WCF.Location.GoogleMaps.Map(mapContainerID, mapOptions);
+		}
+		
 		this._locationSearch = new WCF.Location.GoogleMaps.LocationSearch(searchInput, $.proxy(this._setMarkerByLocation, this));
 		
 		if (latitude && longitude) {
@@ -711,21 +858,19 @@ WCF.Location.GoogleMaps.LocationInput = Class.extend({
 	},
 	
 	/**
-	 * Returns the related map.
+	 * Uses a suggestion by clicking on the "Use suggestion" link in the marker's
+	 * info window.
 	 * 
-	 * @return	WCF.Location.GoogleMaps.Map
+	 * @param	Event		event
 	 */
-	getMap: function() {
-		return this._map;
-	},
-	
-	/**
-	 * Returns the draggable marker used to set the location.
-	 * 
-	 * @return	google.maps.Marker
-	 */
-	getMarker: function() {
-		return this._marker;
+	_useSuggestion: function(event) {
+		var $marker = $(event.currentTarget).data('marker');
+		
+		this._marker.setPosition($marker.getPosition());
+		this._updateLocation();
+		
+		// hide suggestions
+		this._map.showSuggestions(false);
 	},
 	
 	/**
@@ -749,6 +894,24 @@ WCF.Location.GoogleMaps.LocationInput = Class.extend({
 		WCF.Location.GoogleMaps.Util.focusMarker(this._marker);
 		
 		$(this._searchInput).val(data.label);
+	},
+	
+	/**
+	 * Returns the related map.
+	 * 
+	 * @return	WCF.Location.GoogleMaps.Map
+	 */
+	getMap: function() {
+		return this._map;
+	},
+	
+	/**
+	 * Returns the draggable marker used to set the location.
+	 * 
+	 * @return	google.maps.Marker
+	 */
+	getMarker: function() {
+		return this._marker;
 	}
 });
 

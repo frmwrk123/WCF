@@ -61,55 +61,33 @@
 			</header>
 			
 			<div class="container marginTop">
-				<ul class="containerList"{* id="userNotificationItemList"*}>
+				<ul class="containerList userNotificationItemList">
 		{/if}
-				<li class="jsNotificationItem{if $notification[authors] > 1} groupedNotificationItem{/if}" data-notification-id="{@$notification[notificationID]}" data-link="{$notification[event]->getLink()}" data-is-grouped="{if $notification[authors] > 1}true{else}false{/if}">
-					<div class="box48">
+				<li class="jsNotificationItem notificationItem{if $notification[authors] > 1} groupedNotificationItem{/if}{if !$notification[event]->isConfirmed()} notificationUnconfirmed{/if}" data-notification-id="{@$notification[notificationID]}" data-link="{$notification[event]->getLink()}" data-confirm-link="{link controller='NotificationConfirm' id=$notification[notificationID]}{/link}" data-is-grouped="{if $notification[authors] > 1}true{else}false{/if}" data-is-confirmed="{if $notification[event]->isConfirmed()}true{else}false{/if}">
+					<div class="box24">
 						{if $notification[authors] < 2}
-							{if $notification[event]->getAuthor()->userID}
-								<a href="{link controller='User' object=$notification[event]->getAuthor()}{/link}" title="{$notification[event]->getAuthor()->username}" class="framed">{@$notification[event]->getAuthor()->getAvatar()->getImageTag(48)}</a>
-							{else}
-								<span class="framed">{@$notification[event]->getAuthor()->getAvatar()->getImageTag(48)}</span>
-							{/if}	
+							<div class="framed">
+								{@$notification[event]->getAuthor()->getAvatar()->getImageTag(24)}
+							</div>
 							
 							<div class="details">
-								<div class="containerHeadline">
-									<h3>
-										{if !$notification[confirmed]}<span class="badge label newContentBadge">{lang}wcf.message.new{/lang}</span>{/if}
-										
-										{if $notification[event]->getAuthor()->userID}
-											<a href="{link controller='User' object=$notification[event]->getAuthor()}{/link}" class="userLink" data-user-id="{@$notification[event]->getAuthor()->userID}">{$notification[event]->getAuthor()->username}</a>
-										{else}
-											{$notification[event]->getAuthor()->username}
-										{/if}
-									</h3> 
-									<small>{@$notification[time]|time}</small>
-								</div>
-								
-								<p>{@$notification[event]->getMessage()}</p>
-								
-								{if !$notification[confirmed]}
-									<nav class="jsMobileNavigation buttonGroupNavigation">
-										<ul class="buttonList iconList jsOnly">
-											<li><a class="jsMarkAsConfirmed jsTooltip" title="{lang}wcf.user.notification.markAsConfirmed{/lang}"><span class="icon icon16 fa-check"></span></a></li>
-										</ul>
-									</nav>
-								{/if}
+								<p>
+									{if !$notification[confirmed]}<span class="badge label newContentBadge">{lang}wcf.message.new{/lang}</span>{/if}
+									{@$notification[event]->getMessage()}
+								</p>
+								<p><small>{@$notification[time]|time}</small></p>
 							</div>
 						{else}
-							<span class="icon icon48 fa-users"></span>
+							<div class="framed">
+								<span class="icon icon24 fa-users"></span>
+							</div>
 							
 							<div class="details">
-								<div class="containerHeadline">
-									<h3>
-										{if !$notification[confirmed]}<span class="badge label newContentBadge">{lang}wcf.message.new{/lang}</span>{/if}
-										
-										{$notification[event]->getTitle()}
-									</h3>
-									<small>{@$notification[time]|time}</small>
-								</div>
-								
-								<p>{@$notification[event]->getMessage()}</p>
+								<p>
+									{if !$notification[confirmed]}<span class="badge label newContentBadge">{lang}wcf.message.new{/lang}</span>{/if}
+									{@$notification[event]->getMessage()}
+								</p>
+								<p><small>{@$notification[time]|time}</small></p>
 								
 								<ul class="marginTopTiny">
 									{foreach from=$notification[event]->getAuthors() item=author}
@@ -118,14 +96,6 @@
 										{/if}
 									{/foreach}
 								</ul>
-								
-								{if !$notification[confirmed]}
-									<nav class="jsMobileNavigation buttonGroupNavigation">
-										<ul class="buttonList iconList jsOnly">
-											<li><a class="jsMarkAsConfirmed jsTooltip" title="{lang}wcf.user.notification.markAsConfirmed{/lang}"><span class="icon icon16 fa-check"></span></a></li>
-										</ul>
-									</nav>
-								{/if}
 							</div>
 						{/if}
 					</div>

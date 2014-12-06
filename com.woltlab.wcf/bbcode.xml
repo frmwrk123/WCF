@@ -32,12 +32,10 @@
 			<allowedchildren>all^sup</allowedchildren>
 		</bbcode>
 		<bbcode name="email">
-			<htmlopen>a</htmlopen>
-			<htmlclose>a</htmlclose>
+			<classname><![CDATA[wcf\system\bbcode\EmailBBCode]]></classname>
 			<allowedchildren>none^img,b,i,u,s,sub,sup,color,size,font</allowedchildren>
 			<attributes>
 				<attribute name="0">
-					<html>href="mailto:%s"</html>
 					<required>1</required>
 					<usetext>1</usetext>
 					<validationpattern>^[^\s]+@[^\s]+$</validationpattern>
@@ -102,9 +100,9 @@
 			<classname><![CDATA[wcf\system\bbcode\CodeBBCode]]></classname>
 			<allowedchildren>none</allowedchildren>
 			<attributes>
-				<attribute name="0">
-					<validationpattern>^\d+$</validationpattern>
-				</attribute>
+				<attribute name="0"></attribute>
+				<attribute name="1"></attribute>
+				<attribute name="2"></attribute>
 			</attributes>
 			<sourcecode>1</sourcecode>
 			<wysiwygicon>fa-code</wysiwygicon>
@@ -120,7 +118,10 @@
 					<validationpattern>^.+$</validationpattern>
 				</attribute>
 				<attribute name="1">
-					<validationpattern>^(left|right)$</validationpattern>
+					<validationpattern>^(left|right|none)$</validationpattern>
+				</attribute>
+				<attribute name="2">
+					<validationpattern>^\d+$</validationpattern>
 				</attribute>
 			</attributes>
 		</bbcode>
@@ -177,7 +178,10 @@
 					<usetext>1</usetext>
 				</attribute>
 				<attribute name="1">
-					<validationpattern>^(left|right)$</validationpattern>
+					<validationpattern>^(left|right|none)$</validationpattern>
+				</attribute>
+				<attribute name="2">
+					<validationpattern>^\d+$</validationpattern>
 				</attribute>
 			</attributes>
 		</bbcode>

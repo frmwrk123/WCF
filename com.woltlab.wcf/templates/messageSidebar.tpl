@@ -1,15 +1,4 @@
 {if !$__messageSidebarJavascript|isset}
-	<script data-relocate="true">
-		//<![CDATA[
-		$(function() {
-			WCF.Language.addObject({
-				'wcf.user.activityPoint': '{lang}wcf.user.activityPoint{/lang}'
-			});
-			
-			WCF.User.Profile.ActivityPointList.init();
-		});
-		//]]>
-	</script>
 	{assign var=__messageSidebarJavascript value=true}
 {/if}
 
@@ -23,6 +12,7 @@
 					<a href="{link controller='User' object=$userProfile->getDecoratedObject()}{/link}" class="userLink" data-user-id="{@$userProfile->userID}" rel="author">
 						<span itemprop="name">{if MESSAGE_SIDEBAR_ENABLE_USER_ONLINE_MARKING}{@$userProfile->getFormattedUsername()}{else}{$username}{/if}</span>
 					</a>
+					{if $userProfile->banned}<span class="icon icon16 fa-lock jsTooltip jsUserBanned" title="{lang user=$userProfile}wcf.user.banned{/lang}"></span>{/if}
 				</h2>
 				
 				{event name='header'}
@@ -76,7 +66,7 @@
 							{/if}
 							
 							{if MESSAGE_SIDEBAR_ENABLE_ACTIVITY_POINTS && $userProfile->activityPoints}
-								<dt><a class="activityPointsDisplay jsTooltip" title="{lang user=$userProfile}wcf.user.activityPoint.showActivityPoints{/lang}" data-user-id="{@$userProfile->userID}">{lang}wcf.user.activityPoint{/lang}</a></dt>
+								<dt><a href="#" class="activityPointsDisplay jsTooltip" title="{lang user=$userProfile}wcf.user.activityPoint.showActivityPoints{/lang}" data-user-id="{@$userProfile->userID}">{lang}wcf.user.activityPoint{/lang}</a></dt>
 								<dd>{#$userProfile->activityPoints}</dd>
 							{/if}
 							{event name='userCredits'}

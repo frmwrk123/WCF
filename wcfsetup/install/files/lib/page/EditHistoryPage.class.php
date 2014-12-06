@@ -4,8 +4,10 @@ use wcf\data\edit\history\entry\EditHistoryEntry;
 use wcf\data\edit\history\entry\EditHistoryEntryList;
 use wcf\data\object\type\ObjectTypeCache;
 use wcf\system\exception\IllegalLinkException;
+use wcf\system\request\LinkHandler;
 use wcf\system\WCF;
 use wcf\util\Diff;
+use wcf\util\HeaderUtil;
 use wcf\util\StringUtil;
 
 /**
@@ -19,6 +21,11 @@ use wcf\util\StringUtil;
  * @category	Community Framework
  */
 class EditHistoryPage extends AbstractPage {
+	/**
+	 * @see \wcf\page\AbstractPage::$neededModules
+	 */
+	public $neededModules = array('MODULE_EDIT_HISTORY');
+	
 	/**
 	 * DatabaseObjectList object
 	 * @var \wcf\data\DatabaseObjectList
@@ -112,6 +119,7 @@ class EditHistoryPage extends AbstractPage {
 		if (!$this->objectType) throw new IllegalLinkException();
 		$processor = $this->objectType->getProcessor();
 		$this->object = $processor->getObjectByID($this->objectID);
+		if (!$this->object->getObjectID()) throw new IllegalLinkException();
 		$processor->checkPermissions($this->object);
 		$this->activeMenuItem = $processor->getActivePageMenuItem();
 		$this->object->addBreadcrumbs();
@@ -119,6 +127,16 @@ class EditHistoryPage extends AbstractPage {
 		if (isset($_REQUEST['newID']) && !$this->new) {
 			$this->new = $this->object;
 			$this->newID = 'current';
+		}
+		
+		if (!empty($_POST)) {
+			HeaderUtil::redirect(LinkHandler::getInstance()->getLink('EditHistory', array(
+				'objectID' => $this->objectID,
+				'objectType' => $this->objectType->objectType,
+				'newID' => $this->newID,
+				'oldID' => $this->oldID
+			)));
+			exit;
 		}
 	}
 	
@@ -139,6 +157,15 @@ class EditHistoryPage extends AbstractPage {
 			$a = explode("\n", StringUtil::unifyNewlines($this->old->getMessage()));
 			$b = explode("\n", StringUtil::unifyNewlines($this->new->getMessage()));
 			$this->diff = new Diff($a, $b);
+		}
+		
+		// set default values
+		if (!isset($_REQUEST['oldID']) && !isset($_REQUEST['newID'])) {
+			foreach ($this->objectList as $object) {
+				$this->oldID = $object->entryID;
+				break;
+			}
+			$this->newID = 'current';
 		}
 	}
 	

@@ -45,7 +45,7 @@ class PreparedStatement {
 	 * Creates a new PreparedStatement object.
 	 * 
 	 * @param	\wcf\system\database\Database	$database
-	 * @param	PDOStatement			$pdoStatement
+	 * @param	\PDOStatement			$pdoStatement
 	 * @param	string				$query		SQL query
 	 */
 	public function __construct(Database $database, \PDOStatement $pdoStatement, $query = '') {
@@ -75,15 +75,13 @@ class PreparedStatement {
 	}
 	
 	/**
-	 * Executes a prepared statement within a transaction.
-	 * CAUTION: Transactions disabled for now, use manual transaction if you like
+	 * Executes a prepared statement.
 	 * 
 	 * @param	array		$parameters
 	 */
 	public function execute(array $parameters = array()) {
 		$this->parameters = $parameters;
 		$this->database->incrementQueryCount();
-		//$this->database->beginTransaction();
 		
 		try {
 			if (WCF::benchmarkIsEnabled()) Benchmark::getInstance()->start($this->query, Benchmark::TYPE_SQL_QUERY);
@@ -92,11 +90,10 @@ class PreparedStatement {
 			else $this->pdoStatement->execute($parameters);
 			
 			if (WCF::benchmarkIsEnabled()) Benchmark::getInstance()->stop();
-			
-			//$this->database->commitTransaction();
 		}
 		catch (\PDOException $e) {
-			//$this->database->rollBackTransaction();
+			if (WCF::benchmarkIsEnabled()) Benchmark::getInstance()->stop();
+			
 			throw new DatabaseException('Could not execute prepared statement: '.$e->getMessage(), $this->database, $this);
 		}
 	}
@@ -104,23 +101,11 @@ class PreparedStatement {
 	/**
 	 * Executes a prepared statement.
 	 * 
+	 * @deprecated	2.1 - Please use execute() instead
 	 * @param	array		$parameters
 	 */
 	public function executeUnbuffered(array $parameters = array()) {
-		$this->parameters = $parameters;
-		$this->database->incrementQueryCount();
-		
-		try {
-			if (WCF::benchmarkIsEnabled()) Benchmark::getInstance()->start($this->query, Benchmark::TYPE_SQL_QUERY);
-			
-			if (empty($parameters)) $this->pdoStatement->execute();
-			else $this->pdoStatement->execute($parameters);
-			
-			if (WCF::benchmarkIsEnabled()) Benchmark::getInstance()->stop();
-		}
-		catch (\PDOException $e) {
-			throw new DatabaseException('Could not execute prepared statement: '.$e->getMessage(), $this->database, $this);
-		}
+		$this->execute($parameters);
 	}
 	
 	/**

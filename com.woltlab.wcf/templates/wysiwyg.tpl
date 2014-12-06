@@ -9,11 +9,27 @@ $(function() {
 	WCF.Language.addObject({
 		'wcf.attachment.dragAndDrop.dropHere': '{lang}wcf.attachment.dragAndDrop.dropHere{/lang}',
 		'wcf.attachment.dragAndDrop.dropNow': '{lang}wcf.attachment.dragAndDrop.dropNow{/lang}',
+		'wcf.bbcode.button.fontColor': '{lang}wcf.bbcode.button.fontColor{/lang}',
+		'wcf.bbcode.button.fontFamily': '{lang}wcf.bbcode.button.fontFamily{/lang}',
+		'wcf.bbcode.button.fontSize': '{lang}wcf.bbcode.button.fontSize{/lang}',
+		'wcf.bbcode.button.image': '{lang}wcf.bbcode.button.image{/lang}',
+		'wcf.bbcode.button.subscript': '{lang}wcf.bbcode.button.subscript{/lang}',
+		'wcf.bbcode.button.superscript': '{lang}wcf.bbcode.button.superscript{/lang}',
+		'wcf.bbcode.button.toggleBBCode': '{lang}wcf.bbcode.button.toggleBBCode{/lang}',
+		'wcf.bbcode.button.toggleHTML': '{lang}wcf.bbcode.button.toggleHTML{/lang}',
 		'wcf.bbcode.quote.edit': '{lang}wcf.bbcode.quote.edit{/lang}',
 		'wcf.bbcode.quote.edit.author': '{lang}wcf.bbcode.quote.edit.author{/lang}',
 		'wcf.bbcode.quote.edit.link': '{lang}wcf.bbcode.quote.edit.link{/lang}',
+		'wcf.bbcode.quote.insert': '{lang}wcf.bbcode.quote.insert{/lang}',
 		'wcf.bbcode.quote.title.clickToSet': '{lang}wcf.bbcode.quote.title.clickToSet{/lang}',
-		'wcf.bbcode.quote.title.javascript': '{lang}wcf.bbcode.quote.title.javascript{/lang}'
+		'wcf.bbcode.quote.title.javascript': '{lang}wcf.bbcode.quote.title.javascript{/lang}',
+		'wcf.global.noSelection': '{lang}wcf.global.noSelection{/lang}',
+		'wcf.message.autosave.restored': '{lang}wcf.message.autosave.restored{/lang}',
+		'wcf.message.autosave.restored.confirm': '{lang}wcf.message.autosave.restored.confirm{/lang}',
+		'wcf.message.autosave.restored.revert': '{lang}wcf.message.autosave.restored.revert{/lang}',
+		'wcf.message.autosave.restored.revert.confirmMessage': '{lang}wcf.message.autosave.restored.revert.confirmMessage{/lang}',
+		'wcf.message.autosave.restored.version': '{lang __literal=true}wcf.message.autosave.restored.version{/lang}',
+		'wcf.message.autosave.saved': '{lang}wcf.message.autosave.saved{/lang}'
 	});
 	
 	var $editorName = '{if $wysiwygSelector|isset}{$wysiwygSelector|encodeJS}{else}text{/if}';
@@ -27,30 +43,47 @@ $(function() {
 		
 		var $autosave = $textarea.data('autosave');
 		var $config = {
+			autosave: false,
 			buttons: $buttons,
-			convertDivs: false,
+			buttonSource: true,
 			convertImageLinks: false,
-			convertLinks: false,
+			convertUrlLinks: false,
 			convertVideoLinks: false,
 			direction: '{lang}wcf.global.pageDirection{/lang}',
 			lang: '{@$__wcf->getLanguage()->getFixedLanguageCode()}',
+			maxHeight: 500,
 			minHeight: 200,
-			imageResizable: false,
-			plugins: [ 'wutil',  'wmonkeypatch', 'wbutton', 'wbbcode',  'wfontcolor', 'wfontfamily', 'wfontsize', 'wupload' ],
-			wautosave: {
-				active: ($autosave) ? true : false,
-				key: ($autosave) ? '{@$__wcf->getAutosavePrefix()}_' + $autosave : '',
-				saveOnInit: {if !$errorField|empty}true{else}false{/if}
-			},
-			wOriginalValue: $textarea.val()
+			plugins: [ 'wutil',  'wmonkeypatch', 'table', 'wbutton', 'wbbcode',  'wfontcolor', 'wfontfamily', 'wfontsize', 'wupload' ],
+			removeEmpty: false,
+			replaceDivs: false,
+			tabifier: false,
+			toolbarFixed: false,
+			woltlab: {
+				autosave: {
+					active: ($autosave) ? true : false,
+					key: ($autosave) ? '{@$__wcf->getAutosavePrefix()}_' + $autosave : '',
+					prefix: '{@$__wcf->getAutosavePrefix()}',
+					saveOnInit: {if !$errorField|empty}true{else}false{/if}
+				},
+				originalValue: $textarea.val()
+			}
 		};
+		
+		if ($.browser.iOS) {
+			// using a zero-width space breaks iOS' detection of the start of a sentence, causing the first word to be lowercased
+			$config.emptyHtml = '<p><br></p>';
+		}
 		
 		{if MODULE_ATTACHMENT && !$attachmentHandler|empty && $attachmentHandler->canUpload()}
 			$config.plugins.push('wupload');
-			$config.wAttachmentUrl = '{link controller='Attachment' id=987654321}thumbnail=1{/link}';
+			$config.woltlab.attachmentUrl = '{link controller='Attachment' id=987654321}{/link}';
+			$config.woltlab.attachmentThumbnailUrl = '{link controller='Attachment' id=987654321}thumbnail=1{/link}';
 		{/if}
 		
 		{event name='javascriptInit'}
+		
+		// clear textarea before init
+		$textarea.val('');
 		
 		$textarea.redactor($config);
 	});
@@ -61,6 +94,10 @@ $(function() {
 		{if !ENABLE_DEBUG_MODE}
 			'{@$__wcf->getPath()}js/3rdParty/redactor/plugins/wcombined.min.js?v={@LAST_UPDATE_TIME}',
 		{else}
+			{* official *}
+			'{@$__wcf->getPath()}js/3rdParty/redactor/plugins/table.js?v={@LAST_UPDATE_TIME}',
+			
+			{* WoltLab *}
 			'{@$__wcf->getPath()}js/3rdParty/redactor/plugins/wbbcode.js?v={@LAST_UPDATE_TIME}',
 			'{@$__wcf->getPath()}js/3rdParty/redactor/plugins/wbutton.js?v={@LAST_UPDATE_TIME}',
 			'{@$__wcf->getPath()}js/3rdParty/redactor/plugins/wfontcolor.js?v={@LAST_UPDATE_TIME}',

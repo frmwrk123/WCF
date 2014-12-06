@@ -1,3 +1,5 @@
+"use strict";
+
 /**
  * User-related classes.
  * 
@@ -237,6 +239,7 @@ WCF.User.Profile.ActivityPointList = {
 	 * @param	object		event
 	 */
 	_click: function(event) {
+		event.preventDefault();
 		var $userID = $(event.currentTarget).data('userID');
 		
 		if (this._cache[$userID] === undefined) {
@@ -335,14 +338,15 @@ WCF.User.Profile.Follow = Class.extend({
 	 * Creates the (un-)follow button
 	 */
 	_createButton: function () {
-		this._button = $('<li id="followUser"><a class="button jsTooltip" title="'+WCF.Language.get('wcf.user.button.'+(this._following ? 'un' : '')+'follow')+'"><span class="icon icon16 icon-plus"></span> <span class="invisible">'+WCF.Language.get('wcf.user.button.'+(this._following ? 'un' : '')+'follow')+'</span></a></li>').prependTo($('#profileButtonContainer'));
+		this._button = $('<li id="followUser"><a href="#" class="button jsTooltip" title="'+WCF.Language.get('wcf.user.button.'+(this._following ? 'un' : '')+'follow')+'"><span class="icon icon16 icon-plus"></span> <span class="invisible">'+WCF.Language.get('wcf.user.button.'+(this._following ? 'un' : '')+'follow')+'</span></a></li>').prependTo($('#profileButtonContainer'));
 		this._button.click($.proxy(this._execute, this));
 	},
 	
 	/**
 	 * Follows or unfollows an user.
 	 */
-	_execute: function () {
+	_execute: function (event) {
+		event.preventDefault();
 		var $actionName = (this._following) ? 'unfollow' : 'follow';
 		this._proxy.setOption('data', {
 			'actionName': $actionName,
@@ -438,7 +442,8 @@ WCF.User.Profile.IgnoreUser = Class.extend({
 	/**
 	 * Handle clicks, might cause 'ignore' or 'unignore' to be triggered.
 	 */
-	_click: function() {
+	_click: function(event) {
+		event.preventDefault();
 		var $action = (this._isIgnoredUser) ? 'unignore' : 'ignore';
 		
 		this._proxy.setOption('data', {
@@ -474,7 +479,7 @@ WCF.User.Profile.IgnoreUser = Class.extend({
 	 */
 	_updateButton: function() {
 		if (this._button === null) {
-			this._button = $('<li id="ignoreUser"><a class="button jsTooltip" title="'+WCF.Language.get('wcf.user.button.'+(this._isIgnoredUser ? 'un' : '')+'ignore')+'"><span class="icon icon16 icon-ban-circle"></span> <span class="invisible">'+WCF.Language.get('wcf.user.button.'+(this._isIgnoredUser ? 'un' : '')+'ignore')+'</span></a></li>').prependTo($('#profileButtonContainer'));
+			this._button = $('<li id="ignoreUser"><a href="#" class="button jsTooltip" title="'+WCF.Language.get('wcf.user.button.'+(this._isIgnoredUser ? 'un' : '')+'ignore')+'"><span class="icon icon16 icon-ban-circle"></span> <span class="invisible">'+WCF.Language.get('wcf.user.button.'+(this._isIgnoredUser ? 'un' : '')+'ignore')+'</span></a></li>').prependTo($('#profileButtonContainer'));
 		}
 		
 		this._button.find('.button').data('tooltip', WCF.Language.get('wcf.user.button.' + (this._isIgnoredUser ? 'un' : '') + 'ignore'));
@@ -725,7 +730,7 @@ WCF.User.Profile.Editor = Class.extend({
 				
 				case 'textarea':
 					if ($element.data('redactor')) {
-						$value = $element.redactor('getText');
+						$value = $element.redactor('wutil.getText');
 					}
 				break;
 			}
@@ -828,7 +833,7 @@ WCF.User.Profile.Editor = Class.extend({
 		this._tab.find('textarea').each(function(index, container) {
 			var $container = $(container);
 			if ($container.data('redactor')) {
-				$container.redactor('destroy');
+				$container.redactor('core.destroy');
 			}
 		});
 	}
@@ -1244,7 +1249,103 @@ WCF.User.Registration.LostPassword = Class.extend({
  * @copyright	2001-2014 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  */
-WCF.Notification = {};
+WCF.Notification = { };
+
+/**
+ * Handles the notification list.
+ */
+WCF.Notification.List = Class.extend({
+	/**
+	 * action proxy
+	 * @var	WCF.Action.Proxy
+	 */
+	_proxy: null,
+	
+	/**
+	 * Initializes the WCF.Notification.List object.
+	 */
+	init: function() {
+		this._proxy = new WCF.Action.Proxy({
+			success: $.proxy(this._success, this)
+		});
+		
+		// handle 'mark all as confirmed' buttons
+		$('.contentNavigation .jsMarkAllAsConfirmed').click(function() {
+			WCF.System.Confirmation.show(WCF.Language.get('wcf.user.notification.markAllAsConfirmed.confirmMessage'), function(action) {
+				if (action === 'confirm') {
+					new WCF.Action.Proxy({
+						autoSend: true,
+						data: {
+							actionName: 'markAllAsConfirmed',
+							className: 'wcf\\data\\user\\notification\\UserNotificationAction'
+						},
+						success: function() { window.location.reload(); }
+					});
+				}
+			});
+		});
+		
+		// handle regular items
+		this._convertList();
+	},
+	
+	/**
+	 * Converts the notification item list to be in sync with the notification dropdown.
+	 */
+	_convertList: function() {
+		$('.userNotificationItemList > .notificationItem').each((function(index, item) {
+			var $item = $(item);
+			var $isConfirmed = $item.data('isConfirmed');
+			
+			if (!$isConfirmed) {
+				$item.find('a:not(.userLink)').prop('href', $item.data('confirmLink'));
+				
+				if (!$.browser.mobile) {
+					var $markAsConfirmed = $('<a href="#" class="icon icon24 fa-check green notificationItemMarkAsConfirmed jsTooltip" title="' + WCF.Language.get('wcf.user.notification.markAsConfirmed') + '" />').prependTo($item.find('> div.box24 > .framed'));
+					$markAsConfirmed.click($.proxy(this._markAsConfirmed, this));
+				}
+			}
+		}).bind(this));
+		
+		WCF.DOMNodeInsertedHandler.execute();
+	},
+	
+	/**
+	 * Marks a single notification as confirmed.
+	 * 
+	 * @param	object		event
+	 */
+	_markAsConfirmed: function(event) {
+		event.preventDefault();
+		
+		var $notificationID = $(event.currentTarget).parents('.notificationItem:eq(0)').data('notificationID');
+		
+		this._proxy.setOption('data', {
+			actionName: 'markAsConfirmed',
+			className: 'wcf\\data\\user\\notification\\UserNotificationAction',
+			objectIDs: [ $notificationID ]
+		});
+		this._proxy.sendRequest();
+		
+		return false;
+	},
+	
+	/**
+	 * Handles successful AJAX requests.
+	 * 
+	 * @param	object		data
+	 * @param	string		textStatus
+	 * @param	jQuery		jqXHR
+	 */
+	_success: function(data, textStatus, jqXHR) {
+		var $item = $('.userNotificationItemList > .notificationItem[data-notification-id=' + data.returnValues.notificationID + ']');
+		
+		$item.data('isConfirmed', true);
+		$item.find('.notificationItemMarkAsConfirmed').remove();
+		$item.find('.newContentBadge').remove();
+		$item.removeClass('notificationUnconfirmed');
+	}
+});
 
 /**
  * Loads notification for the user panel.
@@ -1274,10 +1375,15 @@ WCF.Notification.UserPanel = WCF.UserPanel.extend({
 	 * @see	WCF.UserPanel.init()
 	 */
 	init: function(showAllLink) {
-		this._favico = new Favico({
-			animation: 'none',
-			type: 'circle',
-		});
+		this._favico = null;
+		
+		try {
+			this._favico = new Favico({
+				animation: 'none',
+				type: 'circle',
+			});
+		}
+		catch (e) { /* ignore for now */ }
 		
 		this._noItems = 'wcf.user.notification.noMoreNotifications';
 		this._proxy = new WCF.Action.Proxy({
@@ -1288,7 +1394,7 @@ WCF.Notification.UserPanel = WCF.UserPanel.extend({
 		this._super('userNotifications');
 		
 		// update page title
-		if (this._container.data('count')) {
+		if (this._container.data('count') && this._favico !== null) {
 			this._favico.badge(this._container.data('count'));
 		}
 		
@@ -1316,10 +1422,75 @@ WCF.Notification.UserPanel = WCF.UserPanel.extend({
 	},
 	
 	/**
+	 * @see	WCF.UserPanel._click()
+	 */
+	_click: function(event) {
+		if (this._didLoad) {
+			var $badge = this._container.find('.badge');
+			if ($badge.length && parseInt($badge.text()) > 0) {
+				var $dropdownMenu = WCF.Dropdown.getDropdownMenu(this._container.wcfIdentify());
+				
+				// check if there is at least one unconfirmed item
+				var $count = $dropdownMenu.children('li.notificationUnconfirmed').length;
+				if (!$count && $count != $badge.text() && !$dropdownMenu.is(':visible')) {
+					this._resetList();
+					
+					this._super(event);
+				}
+			}
+		}
+		else {
+			this._super(event);
+		}
+	},
+	
+	/**
 	 * @see	WCF.UserPanel._after()
 	 */
 	_after: function(dropdownMenu) {
-		WCF.Dropdown.getDropdownMenu(this._container.wcfIdentify()).children('li.jsNotificationItem').click($.proxy(this._markAsConfirmed, this));
+		var $items = WCF.Dropdown.getDropdownMenu(this._container.wcfIdentify()).children('li.jsNotificationItem');
+		
+		var $insertAfter = null;
+		$items.each((function(index, item) {
+			var $item = $(item);
+			var $isConfirmed = $item.data('isConfirmed');
+			
+			if (!$.browser.msie) {
+				$item.addClass('notificationItemLink');
+				$('<a href="' + ($isConfirmed ? $item.data('link') : $item.data('confirmLink')) + '" />').appendTo($item);
+			}
+			
+			if (!$isConfirmed) {
+				$item.find('a:not(.userLink)').prop('href', $item.data('confirmLink'));
+				
+				if (!$.browser.mobile) {
+					var $markAsConfirmed = $('<a href="#" class="icon icon24 fa-check green notificationItemMarkAsConfirmed jsTooltip" title="' + WCF.Language.get('wcf.user.notification.markAsConfirmed') + '" />').prependTo($item.find('> span.box24 > .framed'));
+					$markAsConfirmed.click($.proxy(this._markAsConfirmed, this));
+				}
+			}
+			
+			if (!$item.data('isConfirmed')) {
+				$insertAfter = $item;
+			}
+			
+			$item.click(function(event) {
+				if (event.target.tagName !== 'A') {
+					window.location = $item.data('link');
+				}
+			});
+		}).bind(this));
+		
+		if ($insertAfter !== null) {
+			// check if it is followed by a confirmed item
+			if ($insertAfter.next('.notificationItem').length) {
+				$('<li class="dropdownDivider" />').insertAfter($insertAfter);
+			}
+		}
+		
+		var $badge = this._container.find('.badge');
+		if (!$badge.length) {
+			this._removeMarkAllAsConfirmed();
+		}
 	},
 	
 	/**
@@ -1328,14 +1499,18 @@ WCF.Notification.UserPanel = WCF.UserPanel.extend({
 	 * @param	object		event
 	 */
 	_markAsConfirmed: function(event) {
+		event.preventDefault();
+		
+		var $notificationID = $(event.currentTarget).parents('.notificationItem:eq(0)').data('notificationID');
+		
 		this._proxy.setOption('data', {
 			actionName: 'markAsConfirmed',
 			className: 'wcf\\data\\user\\notification\\UserNotificationAction',
-			parameters: {
-				notificationID: $(event.currentTarget).data('notificationID')
-			}
+			objectIDs: [ $notificationID ]
 		});
 		this._proxy.sendRequest();
+		
+		return false;
 	},
 	
 	/**
@@ -1358,26 +1533,35 @@ WCF.Notification.UserPanel = WCF.UserPanel.extend({
 	 */
 	_success: function(data, textStatus, jqXHR) {
 		switch (data.actionName) {
-			case 'markAllAsConfirmed':
-				$('.jsNotificationItem').remove();
-			// fall through
-			case 'getOutstandingNotifications':
-				if (!data.returnValues || !data.returnValues.template) {
-					$('#userNotificationsMarkAllAsConfirmed').prev('.dropdownDivider').remove();
-					$('#userNotificationsMarkAllAsConfirmed').remove();
-				}
-				
-				this._super(data, textStatus, jqXHR);
-			break;
-			
 			case 'markAsConfirmed':
 				WCF.Dropdown.getDropdownMenu(this._container.wcfIdentify()).children('li.jsNotificationItem').each(function(index, item) {
 					var $item = $(item);
-					if (data.returnValues.notificationID == $item.data('notificationID')) {
-						window.location = $item.data('link');
+					if ($item.data('notificationID') == data.returnValues.notificationID) {
+						$item.data('isConfirmed', true);
+						$item.find('.notificationItemMarkAsConfirmed').remove();
+						$item.find('.newContentBadge').remove();
+						$item.removeClass('notificationUnconfirmed');
+						
 						return false;
 					}
 				});
+				
+				this._updateBadge(data.returnValues.totalCount);
+			break;
+			
+			case 'markAllAsConfirmed':
+				this._resetList();
+				
+				this._updateBadge(0);
+				this._removeMarkAllAsConfirmed();
+			break;
+			
+			case 'getOutstandingNotifications':
+				if (!data.returnValues || !data.returnValues.template) {
+					this._removeMarkAllAsConfirmed();
+				}
+				
+				this._super(data, textStatus, jqXHR);
 			break;
 		}
 	},
@@ -1390,7 +1574,32 @@ WCF.Notification.UserPanel = WCF.UserPanel.extend({
 		
 		this._super(count);
 		
-		this._favico.badge(count);
+		if (this._favico !== null) {
+			this._favico.badge(count);
+		}
+		
+		if (count === 0) {
+			this._removeMarkAllAsConfirmed();
+		}
+	},
+	
+	/**
+	 * Resets the notification list to its initial state.
+	 */
+	_resetList: function() {
+		var $dropdownMenu = WCF.Dropdown.getDropdownMenu(this._container.wcfIdentify());
+		$dropdownMenu.children('li.jsNotificationItem').remove();
+		
+		$('<li class="jsDropdownPlaceholder"><span>' + WCF.Language.get('wcf.global.loading') + '</span></li>').prependTo($dropdownMenu);
+		
+		// remove double separators
+		$dropdownMenu.children('.dropdownDivider + .dropdownDivider').remove();
+		
+		this._didLoad = false;
+	},
+	
+	_removeMarkAllAsConfirmed: function() {
+		$('#userNotificationsMarkAllAsConfirmed').hide().prev('.dropdownDivider').hide();
 	},
 	
 	/**
@@ -1403,150 +1612,13 @@ WCF.Notification.UserPanel = WCF.UserPanel.extend({
 		WCF.Dropdown.close('userNotifications');
 		
 		// revert dropdown to initial state
-		var $dropdownMenu = WCF.Dropdown.getDropdownMenu('userNotifications');
-		var $item = $dropdownMenu.find('.dropdownDivider:eq(0)');
-		$item.prevAll().remove();
-		$('<li class="jsDropdownPlaceholder"><span>' + WCF.Language.get('wcf.global.loading') + '</span></li>').insertBefore($item);
-		this._didLoad = false;
+		this._resetList();
 		
 		// update badge
 		this._updateBadge(count);
-	}
-});
-
-/**
- * Handles notification list actions.
- */
-WCF.Notification.List = Class.extend({
-	/**
-	 * notification count
-	 * @var	jQuery
-	 */
-	_badge: null,
-	
-	/**
-	 * list of notification items
-	 * @var	object
-	 */
-	_items: { },
-	
-	/**
-	 * action proxy
-	 * @var	WCF.Action.Proxy
-	 */
-	_proxy: null,
-	
-	/**
-	 * Initializes the notification list.
-	 */
-	init: function() {
-		var $containers = $('li.jsNotificationItem');
-		if (!$containers.length) {
-			return;
-		}
 		
-		$containers.each($.proxy(function(index, container) {
-			var $container = $(container);
-			this._items[$container.data('notificationID')] = $container;
-			
-			$container.find('.jsMarkAsConfirmed').data('notificationID', $container.data('notificationID')).click($.proxy(this._click, this));
-			if (!$container.data('isGrouped')) {
-				$container.find('p').html(function(index, oldHTML) {
-					return '<a>' + oldHTML + '</a>';
-				}).children('a').data('notificationID', $container.data('notificationID')).click($.proxy(this._clickLink, this));
-			}
-		}, this));
-		
-		this._badge = $('.jsNotificationsBadge:eq(0)');
-		this._proxy = new WCF.Action.Proxy({
-			success: $.proxy(this._success, this)
-		});
-		
-		// mark all as confirmed button
-		$('.contentNavigation .jsMarkAllAsConfirmed').click($.proxy(this._markAllAsConfirmed, this));
-	},
-	
-	/**
-	 * Handles clicks on the text link.
-	 * 
-	 * @param	object		event
-	 */
-	_clickLink: function(event) {
-		this._items[$(event.currentTarget).data('notificationID')].data('redirect', true);
-		this._click(event);
-	},
-	
-	/**
-	 * Handles button actions.
-	 * 
-	 * @param	object		event
-	 */
-	_click: function(event) {
-		this._proxy.setOption('data', {
-			actionName: 'markAsConfirmed',
-			className: 'wcf\\data\\user\\notification\\UserNotificationAction',
-			parameters: {
-				notificationID: $(event.currentTarget).data('notificationID')
-			}
-		});
-		this._proxy.sendRequest();
-	},
-	
-	/**
-	 * Marks all notifications as confirmed.
-	 */
-	_markAllAsConfirmed: function() {
-		WCF.System.Confirmation.show(WCF.Language.get('wcf.user.notification.markAllAsConfirmed.confirmMessage'), $.proxy(function(action) {
-			if (action === 'confirm') {
-				this._proxy.setOption('data', {
-					actionName: 'markAllAsConfirmed',
-					className: 'wcf\\data\\user\\notification\\UserNotificationAction'
-				});
-				this._proxy.sendRequest();
-			}
-		}, this));
-	},
-	
-	/**
-	 * Handles successful button actions.
-	 * 
-	 * @param	object		data
-	 * @param	string		textStatus
-	 * @param	jQuery		jqXHR
-	 */
-	_success: function(data, textStatus, jqXHR) {
-		switch (data.actionName) {
-			case 'markAllAsConfirmed':
-				window.location.reload();
-			break;
-			
-			case 'markAsConfirmed':
-				var $item = this._items[data.returnValues.notificationID];
-				if ($item.data('redirect')) {
-					window.location = $item.data('link');
-					return;
-				}
-				
-				this._items[data.returnValues.notificationID].find('.newContentBadge').remove();
-				this._items[data.returnValues.notificationID].find('.jsMarkAsConfirmed').parents('nav:eq(0)').remove();
-				
-				// remove previous notification count
-				document.title = document.title.replace(/^\(([0-9]+)\) /, '');
-				
-				// update page title
-				if (data.returnValues.totalCount > 0) {
-					document.title = '(' + data.returnValues.totalCount + ') ' + document.title;
-				}
-				else {
-					var $listItem = $('.contentNavigation .jsMarkAllAsConfirmed').parent();
-					var $list = $listItem.parent();
-					$listItem.remove();
-					
-					if (!$list.children('li').length) {
-						$list.parents('nav:eq(0)').remove();
-					}
-				}
-			break;
+		if (parseInt(count) > 0) {
+			$('#userNotificationsMarkAllAsConfirmed').show().prev('.dropdownDivider').show();
 		}
 	}
 });
@@ -1636,7 +1708,7 @@ WCF.User.RecentActivityLoader = Class.extend({
 		}
 		
 		if (WCF.User.userID) {
-			$('.jsRecentActivitySwitchContext').click($.proxy(this._switchContext, this));
+			$('.jsRecentActivitySwitchContext .button').click($.proxy(this._switchContext, this));
 		}
 	},
 	
@@ -1647,6 +1719,7 @@ WCF.User.RecentActivityLoader = Class.extend({
 		this._loadButton.enable();
 		
 		var $parameters = {
+			lastEventID: this._container.data('lastEventID'),
 			lastEventTime: this._container.data('lastEventTime')
 		};
 		if (this._userID) {
@@ -1667,17 +1740,22 @@ WCF.User.RecentActivityLoader = Class.extend({
 	/**
 	 * Switches recent activity context.
 	 */
-	_switchContext: function() {
-		new WCF.Action.Proxy({
-			autoSend: true,
-			data: {
-				actionName: 'switchContext',
-				className: 'wcf\\data\\user\\activity\\event\\UserActivityEventAction'
-			},
-			success: function() {
-				window.location.reload();
-			}
-		});
+	_switchContext: function(event) {
+		event.preventDefault();
+		
+		if (!$(event.currentTarget).hasClass('active')) {
+			new WCF.Action.Proxy({
+				autoSend: true,
+				data: {
+					actionName: 'switchContext',
+					className: 'wcf\\data\\user\\activity\\event\\UserActivityEventAction'
+				},
+				success: function() {
+					window.location.hash = '#dashboardBoxRecentActivity';
+					window.location.reload();
+				}
+			});
+		}
 	},
 	
 	/**
@@ -1692,6 +1770,7 @@ WCF.User.RecentActivityLoader = Class.extend({
 			$(data.returnValues.template).insertBefore(this._loadButton.parent());
 			
 			this._container.data('lastEventTime', data.returnValues.lastEventTime);
+			this._container.data('lastEventID', data.returnValues.lastEventID);
 			this._loadButton.enable();
 		}
 		else {
@@ -1803,6 +1882,11 @@ WCF.User.LikeLoader = Class.extend({
 			this._likeValue = $button.data('likeValue');
 			$('#likeValue .button').removeClass('active');
 			$button.addClass('active');
+			
+			// change button labels
+			$('#likeType > li:first-child > .button').text(WCF.Language.get('wcf.like.' + (this._likeValue == -1 ? 'dis' : '') + 'likesReceived'));
+			$('#likeType > li:last-child > .button').text(WCF.Language.get('wcf.like.' + (this._likeValue == -1 ? 'dis' : '') + 'likesGiven'));
+			
 			this._reload();
 		}
 	},
@@ -2004,6 +2088,7 @@ WCF.User.Action.Follow = Class.extend({
 	 * @param	object		event
 	 */
 	_click: function(event) {
+		event.preventDefault();
 		var link = $(event.target);
 		if (!link.is('a')) {
 			link = link.closest('a');
@@ -2116,6 +2201,7 @@ WCF.User.Action.Ignore = Class.extend({
 	 * @param	object		event
 	 */
 	_click: function(event) {
+		event.preventDefault();
 		var link = $(event.target);
 		if (!link.is('a')) {
 			link = link.closest('a');
@@ -2960,7 +3046,7 @@ WCF.User.InlineEditor = WCF.InlineEditor.extend({
 		
 		var $banExpires = '';
 		if (!$('#' + $optionName + 'NeverExpires').is(':checked')) {
-			var $banExpires = $('#' + $optionName + 'ExpiresDatePicker').val();
+			$banExpires = $('#' + $optionName + 'ExpiresDatePicker').val();
 			if (!$banExpires) {
 				this._dialog.find('#' + $optionName + 'ExpiresSettings > dd > small').prepend($('<small class="innerError" />').text(WCF.Language.get('wcf.global.form.error.empty')));
 				return
@@ -3095,6 +3181,10 @@ WCF.User.InlineEditor = WCF.InlineEditor.extend({
 		
 		if (data.actionName == 'ban' || data.actionName == 'disableAvatar' || data.actionName == 'disableSignature') {
 			this._dialog.wcfDialog('close');
+		}
+		
+		if (data.actionName == 'unban') {
+			$('.userHeadline .jsUserBanned').remove();
 		}
 	},
 	

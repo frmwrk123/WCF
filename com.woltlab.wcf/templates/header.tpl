@@ -1,5 +1,7 @@
 <a id="top"></a>
 
+{event name='beforePageHeader'}
+
 <header id="pageHeader" class="{if $__wcf->getStyleHandler()->getStyle()->getVariable('useFluidLayout')}layoutFluid{else}layoutFixed{/if}{if $sidebarOrientation|isset && $sidebar|isset} sidebarOrientation{@$sidebarOrientation|ucfirst}{if $sidebarOrientation == 'right' && $sidebarCollapsed} sidebarCollapsed{/if}{/if}">
 	<div>
 		<nav id="topMenu" class="userPanel">
@@ -18,14 +20,14 @@
 		</nav>
 		
 		<div id="logo" class="logo">
+			{if MODULE_WCF_AD}{@$__wcf->getAdHandler()->getAds('com.woltlab.wcf.logo')}{/if}
+			
 			<a href="{link}{/link}">
 				{if $__wcf->getStyleHandler()->getStyle()->getPageLogo()}
 					<img src="{$__wcf->getStyleHandler()->getStyle()->getPageLogo()}" alt="" />
 				{/if}
 				{event name='headerLogo'}
 			</a>
-			
-			{if MODULE_AD}{@$__wcf->getAdHandler()->getAds('com.woltlab.wcf.logo')}{/if}
 		</div>
 		
 		{event name='headerContents'}
@@ -54,7 +56,7 @@
 				{if $sidebar|isset}
 					<aside class="sidebar"{if $sidebarOrientation|isset && $sidebarOrientation == 'right'} data-is-open="{if $sidebarCollapsed}false{else}true{/if}" data-sidebar-name="{$sidebarName}"{/if}>
 						<div>
-							{if MODULE_AD}{@$__wcf->getAdHandler()->getAds('com.woltlab.wcf.sidebar.top')}{/if}
+							{if MODULE_WCF_AD}{@$__wcf->getAdHandler()->getAds('com.woltlab.wcf.sidebar.top')}{/if}
 							
 							{event name='sidebarBoxesTop'}
 							
@@ -62,7 +64,7 @@
 							
 							{event name='sidebarBoxesBottom'}
 							
-							{if MODULE_AD}{@$__wcf->getAdHandler()->getAds('com.woltlab.wcf.sidebar.bottom')}{/if}
+							{if MODULE_WCF_AD}{@$__wcf->getAdHandler()->getAds('com.woltlab.wcf.sidebar.bottom')}{/if}
 						</div>
 					</aside>
 					
@@ -83,7 +85,7 @@
 			{/if}
 			
 			<section id="content" class="content">
-				{if MODULE_AD}{@$__wcf->getAdHandler()->getAds('com.woltlab.wcf.header.content')}{/if}
+				{if MODULE_WCF_AD}{@$__wcf->getAdHandler()->getAds('com.woltlab.wcf.header.content')}{/if}
 				
 				{event name='contents'}
 				

@@ -19,6 +19,7 @@
 	<script data-relocate="true" src="{@$__wcf->getPath()}js/3rdParty/jquery.ui.touch-punch.min.js?v={@LAST_UPDATE_TIME}"></script>
 	<script data-relocate="true" src="{@$__wcf->getPath()}js/3rdParty/jquery-ui.nestedSortable.min.js?v={@LAST_UPDATE_TIME}"></script>
 	<script data-relocate="true" src="{@$__wcf->getPath()}js/3rdParty/jquery-ui.timepicker.min.js?v={@LAST_UPDATE_TIME}"></script>
+	<script data-relocate="true" src="{@$__wcf->getPath()}js/WCF.Assets.js?v={@LAST_UPDATE_TIME}"></script>
 	<script data-relocate="true" src="{@$__wcf->getPath()}js/WCF.js?v={@LAST_UPDATE_TIME}"></script>
 	<script data-relocate="true" src="{@$__wcf->getPath()}acp/js/WCF.ACP.js?v={@LAST_UPDATE_TIME}"></script>
 	<script data-relocate="true">
@@ -73,6 +74,7 @@
 				'wcf.global.button.disabledI18n': '{lang}wcf.global.button.disabledI18n{/lang}',
 				'wcf.global.button.edit': '{lang}wcf.global.button.edit{/lang}',
 				'wcf.global.button.enable': '{lang}wcf.global.button.enable{/lang}',
+				'wcf.global.button.hide': '{lang}wcf.global.button.hide{/lang}',
 				'wcf.global.button.next': '{lang}wcf.global.button.next{/lang}',
 				'wcf.global.button.preview': '{lang}wcf.global.button.preview{/lang}',
 				'wcf.global.button.reset': '{lang}wcf.global.button.reset{/lang}',
@@ -100,7 +102,8 @@
 				'wcf.global.success': '{lang}wcf.global.success{/lang}',
 				'wcf.global.success.add': '{lang}wcf.global.success.add{/lang}',
 				'wcf.global.success.edit': '{lang}wcf.global.success.edit{/lang}',
-				'wcf.global.thousandsSeparator': '{capture assign=thousandsSeparator}{lang}wcf.global.thousandsSeparator{/lang}{/capture}{@$thousandsSeparator|encodeJS}'
+				'wcf.global.thousandsSeparator': '{capture assign=thousandsSeparator}{lang}wcf.global.thousandsSeparator{/lang}{/capture}{@$thousandsSeparator|encodeJS}',
+				'wcf.page.pagePosition': '{lang __literal=true}wcf.page.pagePosition{/lang}'
 				{event name='javascriptLanguageImport'}
 			});
 			

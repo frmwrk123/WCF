@@ -401,6 +401,7 @@ DROP TABLE IF EXISTS wcf1_label_group;
 CREATE TABLE wcf1_label_group (
 	groupID INT(10) NOT NULL AUTO_INCREMENT PRIMARY KEY,
 	groupName VARCHAR(80) NOT NULL,
+	groupDescription VARCHAR(255) NOT NULL DEFAULT '',
 	forceSelection TINYINT(1) NOT NULL DEFAULT 0,
 	showOrder INT(10) NOT NULL DEFAULT 0
 );
@@ -794,6 +795,48 @@ CREATE TABLE wcf1_page_menu_item (
 	UNIQUE KEY (packageID, menuItem)
 );
 
+DROP TABLE IF EXISTS wcf1_paid_subscription;
+CREATE TABLE wcf1_paid_subscription (
+	subscriptionID INT(10) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+	title VARCHAR(255) NOT NULL DEFAULT '',
+	description TEXT,
+	isDisabled TINYINT(1) NOT NULL DEFAULT 0,
+	showOrder INT(10) NOT NULL DEFAULT 0,
+	cost DECIMAL(10,2) NOT NULL DEFAULT 0,
+	currency VARCHAR(3) NOT NULL DEFAULT 'EUR',
+	subscriptionLength SMALLINT(3) NOT NULL DEFAULT 0,
+	subscriptionLengthUnit ENUM('', 'D', 'M', 'Y') NOT NULL DEFAULT '',
+	isRecurring TINYINT(1) NOT NULL DEFAULT 0,
+	groupIDs TEXT,
+	excludedSubscriptionIDs TEXT
+);
+
+DROP TABLE IF EXISTS wcf1_paid_subscription_user;
+CREATE TABLE wcf1_paid_subscription_user (
+	subscriptionUserID INT(10) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+	subscriptionID INT(10) NOT NULL,
+	userID INT(10) NOT NULL,
+	startDate INT(10) NOT NULL DEFAULT 0,
+	endDate INT(10) NOT NULL DEFAULT 0,
+	isActive TINYINT(1) NOT NULL DEFAULT 1,
+	
+	UNIQUE KEY (subscriptionID, userID),
+	KEY (isActive)
+);
+
+DROP TABLE IF EXISTS wcf1_paid_subscription_transaction_log;
+CREATE TABLE wcf1_paid_subscription_transaction_log (
+	logID INT(10) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+	subscriptionUserID INT(10),
+	userID INT(10),
+	subscriptionID INT(10),
+	paymentMethodObjectTypeID INT(10) NOT NULL,
+	logTime INT(10) NOT NULL DEFAULT 0,
+	transactionID VARCHAR(255) NOT NULL DEFAULT '',
+	transactionDetails MEDIUMTEXT,
+	logMessage VARCHAR(255) NOT NULL DEFAULT ''
+);
+
 DROP TABLE IF EXISTS wcf1_poll;
 CREATE TABLE wcf1_poll (
 	pollID INT(10) NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -840,24 +883,6 @@ CREATE TABLE wcf1_search (
 	KEY searchHash (searchHash)
 );
 
-DROP TABLE IF EXISTS wcf1_search_index;
-CREATE TABLE wcf1_search_index (
-	objectTypeID INT(10) NOT NULL,
-	objectID INT(10) NOT NULL,
-	subject VARCHAR(255) NOT NULL DEFAULT '',
-	message MEDIUMTEXT,
-	metaData MEDIUMTEXT,
-	time INT(10) NOT NULL DEFAULT 0,
-	userID INT(10),
-	username VARCHAR(255) NOT NULL DEFAULT '',
-	languageID INT(10) NOT NULL DEFAULT 0,
-	UNIQUE KEY (objectTypeID, objectID, languageID),
-	FULLTEXT INDEX fulltextIndex (subject, message, metaData),
-	FULLTEXT INDEX fulltextIndexSubjectOnly (subject),
-	KEY (userID, objectTypeID, time),
-	KEY (objectTypeID)
-);
-
 DROP TABLE IF EXISTS wcf1_search_keyword;
 CREATE TABLE wcf1_search_keyword (
 	keywordID INT(10) NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -885,7 +910,7 @@ CREATE TABLE wcf1_session (
 	sessionVariables MEDIUMTEXT,
 	spiderID INT(10),
 	KEY packageID (lastActivityTime, spiderID),
-	UNIQUE KEY userID (userID)
+	UNIQUE KEY uniqueUserID (userID)
 );
 
 DROP TABLE IF EXISTS wcf1_session_virtual;
@@ -1260,6 +1285,7 @@ CREATE TABLE wcf1_user_notification (
 	packageID INT(10) NOT NULL, -- DEPRECATED
 	eventID INT(10) NOT NULL,
 	objectID INT(10) NOT NULL DEFAULT 0,
+	baseObjectID INT(10) NOT NULL DEFAULT 0, -- base object ID for generic implementations referencing the origin, e.g. the object being liked
 	eventHash VARCHAR(40) NOT NULL DEFAULT '',
 	authorID INT(10) NULL,
 	timesTriggered INT(10) NOT NULL DEFAULT 0,
@@ -1267,9 +1293,10 @@ CREATE TABLE wcf1_user_notification (
 	userID INT(10) NOT NULL,
 	time INT(10) NOT NULL DEFAULT 0,
 	mailNotified TINYINT(1) NOT NULL DEFAULT 0,
-	confirmed TINYINT(1) NOT NULL DEFAULT 0,
+	confirmTime INT(10) NOT NULL DEFAULT 0,
 	additionalData TEXT,
-	KEY (userID, eventID, objectID, confirmed)
+	KEY (userID, eventID, objectID, confirmTime),
+	KEY (userID, confirmTime)
 );
 
 -- notification authors (stacking)
@@ -1301,6 +1328,7 @@ CREATE TABLE wcf1_user_notification_event (
 	permissions TEXT,
 	options TEXT,
 	preset TINYINT(1) NOT NULL DEFAULT 0,
+	presetMailNotificationType ENUM('none', 'instant', 'daily') NOT NULL DEFAULT 'none',
 	UNIQUE KEY eventName (eventName, objectTypeID)
 );
 
@@ -1536,6 +1564,14 @@ ALTER TABLE wcf1_package_update_optional ADD FOREIGN KEY (packageUpdateVersionID
 
 ALTER TABLE wcf1_package_update_version ADD FOREIGN KEY (packageUpdateID) REFERENCES wcf1_package_update (packageUpdateID) ON DELETE CASCADE;
 
+ALTER TABLE wcf1_paid_subscription_user ADD FOREIGN KEY (subscriptionID) REFERENCES wcf1_paid_subscription (subscriptionID) ON DELETE CASCADE;
+ALTER TABLE wcf1_paid_subscription_user ADD FOREIGN KEY (userID) REFERENCES wcf1_user (userID) ON DELETE CASCADE;
+
+ALTER TABLE wcf1_paid_subscription_transaction_log ADD FOREIGN KEY (subscriptionUserID) REFERENCES wcf1_paid_subscription_user (subscriptionUserID) ON DELETE SET NULL;
+ALTER TABLE wcf1_paid_subscription_transaction_log ADD FOREIGN KEY (userID) REFERENCES wcf1_user (userID) ON DELETE SET NULL;
+ALTER TABLE wcf1_paid_subscription_transaction_log ADD FOREIGN KEY (subscriptionID) REFERENCES wcf1_paid_subscription (subscriptionID) ON DELETE SET NULL;
+ALTER TABLE wcf1_paid_subscription_transaction_log ADD FOREIGN KEY (paymentMethodObjectTypeID) REFERENCES wcf1_object_type (objectTypeID) ON DELETE CASCADE;
+
 ALTER TABLE wcf1_page_menu_item ADD FOREIGN KEY (packageID) REFERENCES wcf1_package (packageID) ON DELETE CASCADE;
 
 ALTER TABLE wcf1_search ADD FOREIGN KEY (userID) REFERENCES wcf1_user (userID) ON DELETE CASCADE;
@@ -1693,9 +1729,6 @@ ALTER TABLE wcf1_tag_to_object ADD FOREIGN KEY (objectTypeID) REFERENCES wcf1_ob
 
 ALTER TABLE wcf1_stat_daily ADD FOREIGN KEY (objectTypeID) REFERENCES wcf1_object_type (objectTypeID) ON DELETE CASCADE;
 
-ALTER TABLE wcf1_search_index ADD FOREIGN KEY (objectTypeID) REFERENCES wcf1_object_type (objectTypeID) ON DELETE CASCADE;
-ALTER TABLE wcf1_search_index ADD FOREIGN KEY (languageID) REFERENCES wcf1_language (languageID) ON DELETE SET NULL;
-
 ALTER TABLE wcf1_poll ADD FOREIGN KEY (objectTypeID) REFERENCES wcf1_object_type (objectTypeID) ON DELETE CASCADE;
 
 ALTER TABLE wcf1_poll_option ADD FOREIGN KEY (pollID) REFERENCES wcf1_poll (pollID) ON DELETE CASCADE;
@@ -1743,7 +1776,7 @@ INSERT INTO wcf1_style_variable (variableName, defaultValue) VALUES ('wcfContain
 INSERT INTO wcf1_style_variable (variableName, defaultValue) VALUES ('wcfContainerAccentBackgroundColor', 'rgba(249, 249, 249, 1)');
 INSERT INTO wcf1_style_variable (variableName, defaultValue) VALUES ('wcfContainerHoverBackgroundColor', 'rgba(244, 244, 244, 1)');
 INSERT INTO wcf1_style_variable (variableName, defaultValue) VALUES ('wcfContainerBorderColor', 'rgba(221, 221, 221, 1)');
-INSERT INTO wcf1_style_variable (variableName, defaultValue) VALUES ('wcfContainerBorderRadius', '0');
+INSERT INTO wcf1_style_variable (variableName, defaultValue) VALUES ('wcfContainerBorderRadius', '0px');
 INSERT INTO wcf1_style_variable (variableName, defaultValue) VALUES ('wcfTabularBoxBackgroundColor', 'rgba(63, 127, 191, 1)');
 INSERT INTO wcf1_style_variable (variableName, defaultValue) VALUES ('wcfTabularBoxColor', 'rgba(255, 255, 255, 1)');
 INSERT INTO wcf1_style_variable (variableName, defaultValue) VALUES ('wcfTabularBoxHoverColor', 'rgba(255, 255, 255, 1)');
@@ -1836,7 +1869,7 @@ INSERT INTO wcf1_style_variable (variableName, defaultValue) VALUES ('messageSid
 -- media providers
 -- Videos
 	-- Youtube
-	INSERT INTO wcf1_bbcode_media_provider (title, regex, html) VALUES ('YouTube', 'https?://(?:.+?\\.)?youtu(?:\\.be/|be\\.com/(?:#/)?watch\\?(?:.*?&)?v=)(?P<ID>[a-zA-Z0-9_-]+)(?P<start>(?:#a?t=(?:\\d+|(?:\\d+h(?:\\d+m)?(?:\\d+s)?)|(?:\\d+m(?:\\d+s)?)|(?:\\d+s))$)?)', '<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/{$ID}?wmode=transparent{$start}" allowfullscreen></iframe>');
+	INSERT INTO wcf1_bbcode_media_provider (title, regex, html) VALUES ('YouTube', 'https?://(?:.+?\\.)?youtu(?:\\.be/|be\\.com/(?:#/)?watch\\?(?:.*?&)?v=)(?P<ID>[a-zA-Z0-9_-]+)(?P<start>(?:#a?t=(?:\\d+|(?:\\d+h(?:\\d+m)?(?:\\d+s)?)|(?:\\d+m(?:\\d+s)?)|(?:\\d+s))$)?)', '<iframe style="max-width:100%;" width="560" height="315" src="https://www.youtube-nocookie.com/embed/{$ID}?wmode=transparent{$start}" allowfullscreen></iframe>');
 	-- Vimeo
 	INSERT INTO wcf1_bbcode_media_provider (title, regex, html) VALUES ('Vimeo', 'http://vimeo\\.com/(?P<ID>\\d+)', '<iframe src="http://player.vimeo.com/video/{$ID}" width="400" height="225" webkitAllowFullScreen mozallowfullscreen allowFullScreen></iframe>');
 	-- MyVideo
@@ -1851,8 +1884,10 @@ INSERT INTO wcf1_style_variable (variableName, defaultValue) VALUES ('messageSid
 	-- github gist
 	INSERT INTO wcf1_bbcode_media_provider (title, regex, html) VALUES ('github gist', 'https://gist.github.com/(?P<ID>[^/]+/[0-9a-zA-Z]+)', '<script src="https://gist.github.com/{$ID}.js"> </script>');
 	-- soundcloud
-	INSERT INTO wcf1_bbcode_media_provider (title, regex, html) VALUES ('Soundcloud', 'https?://soundcloud.com/(?P<artist>[a-zA-Z0-9_-]+)/(?P<song>[a-zA-Z0-9_-]+)', '<iframe width="100%" height="166" scrolling="no" src="https://w.soundcloud.com/player/?url=http%3A%2F%2Fsoundcloud.com%2F{$artist}%2F{$song}"></iframe>');
-
+	INSERT INTO wcf1_bbcode_media_provider (title, regex, html) VALUES ('Soundcloud', 'https?://soundcloud.com/(?P<artist>[a-zA-Z0-9_-]+)/(?!sets/)(?P<song>[a-zA-Z0-9_-]+)', '<iframe width="100%" height="166" scrolling="no" src="https://w.soundcloud.com/player/?url=http%3A%2F%2Fsoundcloud.com%2F{$artist}%2F{$song}"></iframe>');
+	-- soundcloud set
+	INSERT INTO wcf1_bbcode_media_provider (title, regex, html) VALUES ('Soundcloud set', 'https?://soundcloud.com/(?P<artist>[a-zA-Z0-9_-]+)/sets/(?P<name>[a-zA-Z0-9_-]+)', '<iframe width="100%" height="450" scrolling="no" src="https://w.soundcloud.com/player/?url=http%3A%2F%2Fsoundcloud.com%2F{$artist}%2Fsets%2F{$name}"></iframe>');
+	
 -- default priorities
 UPDATE wcf1_user_group SET priority = 10 WHERE groupID = 3;
 UPDATE wcf1_user_group SET priority = 1000 WHERE groupID = 4;

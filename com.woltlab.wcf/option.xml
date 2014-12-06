@@ -54,6 +54,9 @@
 					<category name="general.system.image">
 						<parent>general.system</parent>
 					</category>
+					<category name="general.system.search">
+						<parent>general.system</parent>
+					</category>
 					<category name="general.system.date">
 						<parent>general.system</parent>
 					</category>
@@ -80,6 +83,12 @@
 					</category>
 					<category name="general.cache.memcached">
 						<parent>general.cache</parent>
+					</category>
+				<category name="general.payment">
+					<parent>general</parent>
+				</category>
+					<category name="general.payment.paidSubscription">
+						<parent>general.payment</parent>
 					</category>
 			<!-- /general -->
 			
@@ -155,7 +164,6 @@
 					</category>
 					<category name="security.antispam.recaptcha">
 						<parent>security.antispam</parent>
-						<options>module_system_recaptcha</options>
 					</category>
 				
 				<category name="security.censorship">
@@ -227,6 +235,13 @@
 				<hidden>1</hidden>
 			</option>
 			
+			<option name="wcf_uuid">
+				<categoryname>general</categoryname>
+				<optiontype>string</optiontype>
+				<defaultvalue>bd096261-15f4-5dc1-9767-01ce08d7c80b</defaultvalue> <!-- automatically replaced during WCFSetup -->
+				<hidden>1</hidden>
+			</option>
+			
 			<option name="module_master_password">
 				<categoryname>module.system</categoryname>
 				<optiontype>boolean</optiontype>
@@ -264,10 +279,11 @@
 				<defaultvalue>0</defaultvalue>
 			</option>
 			
-			<option name="module_system_recaptcha">
+			<option name="module_system_recaptcha"><!-- @deprecated -->
 				<categoryname>module.system</categoryname>
 				<optiontype>boolean</optiontype>
 				<defaultvalue>1</defaultvalue>
+				<hidden>1</hidden>
 			</option>
 			
 			<option name="module_privacy_policy_page">
@@ -325,7 +341,7 @@
 				<defaultvalue>1</defaultvalue>
 			</option>
 			<option name="module_dashboard_page">
-				<categoryname>module.community</categoryname>
+				<categoryname>module.display</categoryname>
 				<optiontype>boolean</optiontype>
 				<defaultvalue>1</defaultvalue>
 			</option>
@@ -354,10 +370,10 @@
 				<defaultvalue>1</defaultvalue>
 			</option>
 			
-			<option name="module_ad">
-				<categoryname>module.content</categoryname>
+			<option name="module_wcf_ad">
+				<categoryname>module.display</categoryname>
 				<optiontype>boolean</optiontype>
-				<defaultvalue>0</defaultvalue>
+				<defaultvalue>1</defaultvalue>
 			</option>
 			
 			<!-- general.page -->
@@ -408,7 +424,6 @@
 				<categoryname>general.page.seo</categoryname>
 				<optiontype>boolean</optiontype>
 				<defaultvalue>0</defaultvalue>
-				<enableoptions><![CDATA[url_omit_index_php]]></enableoptions>
 			</option>
 			<option name="url_omit_index_php">
 				<categoryname>general.page.seo</categoryname>
@@ -455,11 +470,20 @@ imagick:wcf.acp.option.image_adapter_type.imagick]]>
 			</option>
 			<!-- /general.system.image -->
 			
+			<!-- general.system.search -->
+			<option name="search_engine">
+				<categoryname>general.system.search</categoryname>
+				<optiontype>radioButton</optiontype>
+				<defaultvalue><![CDATA[mysql]]></defaultvalue>
+				<selectoptions><![CDATA[mysql:wcf.acp.option.search_engine.mysql]]></selectoptions>
+			</option>
+			<!-- /general.system.search -->
+			
 			<!-- general.system.cookie -->
 			<option name="cookie_prefix">
 				<categoryname>general.system.cookie</categoryname>
 				<optiontype>text</optiontype>
-				<defaultvalue>wcf_</defaultvalue>
+				<defaultvalue>wcf21_</defaultvalue>
 				<validationpattern>.+</validationpattern>
 			</option>
 			<!-- /general.system.cookie-->
@@ -630,8 +654,7 @@ imagick:wcf.acp.option.image_adapter_type.imagick]]>
 				<categoryname>security.antispam.recaptcha</categoryname>
 				<optiontype>text</optiontype>
 				<validationpattern>^[^/]*$</validationpattern>
-				<!-- wcf-recaptcha.woltlab.com global key -->
-				<defaultvalue>6LfOlMYSAAAAADvo3s4puBAYDqI-6YK2ybe7BJE5</defaultvalue>
+				<defaultvalue></defaultvalue>
 				<showorder>1</showorder>
 			</option>
 			<option name="recaptcha_privatekey">
@@ -639,7 +662,7 @@ imagick:wcf.acp.option.image_adapter_type.imagick]]>
 				<optiontype>text</optiontype>
 				<validationpattern>^[^/]*$</validationpattern>
 				<!-- wcf-recaptcha.woltlab.com global key -->
-				<defaultvalue>6LfOlMYSAAAAAKR3m_EFxmDv1xS8PCfeaSZ2LdG9</defaultvalue>
+				<defaultvalue></defaultvalue>
 				<showorder>2</showorder>
 			</option>
 			<!-- /security.antispam.recaptcha -->
@@ -803,11 +826,9 @@ debug:mail_debug_logfile_path,!mail_use_f_param,!mail_smtp_host,!mail_smtp_port,
 				<optiontype>radioButton</optiontype>
 				<defaultvalue><![CDATA[disk]]></defaultvalue>
 				<selectoptions><![CDATA[disk:wcf.acp.option.cache_source_type.disk
-memcached:wcf.acp.option.cache_source_type.memcached
-no:wcf.acp.option.cache_source_type.no]]></selectoptions>
+memcached:wcf.acp.option.cache_source_type.memcached]]></selectoptions>
 				<enableoptions><![CDATA[disk:!cache_source_memcached_host
-memcached:cache_source_memcached_host
-no:!cache_source_memcached_host]]></enableoptions>
+memcached:cache_source_memcached_host]]></enableoptions>
 			</option>
 			
 			<option name="cache_source_memcached_host">
@@ -815,6 +836,34 @@ no:!cache_source_memcached_host]]></enableoptions>
 				<optiontype>textarea</optiontype>
 			</option>
 			<!-- /general.cache -->
+			
+			<!-- general.payment -->
+			<option name="available_payment_methods">
+				<categoryname>general.payment</categoryname>
+				<optiontype>paymentMethodSelect</optiontype>
+			</option>
+			
+			<option name="paypal_email_address">
+				<categoryname>general.payment</categoryname>
+				<optiontype>text</optiontype>
+			</option>
+			
+			<option name="module_paid_subscription">
+				<categoryname>general.payment.paidSubscription</categoryname>
+				<optiontype>boolean</optiontype>
+			</option>
+			
+			<option name="paid_subscription_enable_tos_confirmation">
+				<categoryname>general.payment.paidSubscription</categoryname>
+				<optiontype>boolean</optiontype>
+				<enableoptions><![CDATA[paid_subscription_tos_url]]></enableoptions>
+			</option>
+			
+			<option name="paid_subscription_tos_url">
+				<categoryname>general.payment.paidSubscription</categoryname>
+				<optiontype>text</optiontype>
+			</option>
+			<!-- /general.payment -->
 			
 			<option name="attachment_storage">
 				<categoryname>message.attachment</categoryname>
@@ -873,6 +922,12 @@ no:!cache_source_memcached_host]]></enableoptions>
 			<!-- /message.general -->
 			
 			<!-- message.general.edit -->
+			<option name="module_edit_history">
+				<categoryname>message.general.edit</categoryname>
+				<optiontype>boolean</optiontype>
+				<defaultvalue>1</defaultvalue>
+				<enableoptions>edit_history_expiration</enableoptions>
+			</option>
 			<option name="edit_history_expiration">
 				<categoryname>message.general.edit</categoryname>
 				<optiontype>integer</optiontype>
@@ -956,6 +1011,28 @@ no:!cache_source_memcached_host]]></enableoptions>
 			<!-- /user.ban -->
 			
 			<!-- user.register -->
+			<option name="register_disabled">
+				<categoryname>user.register</categoryname>
+				<optiontype>boolean</optiontype>
+				<enableoptions><![CDATA[!register_enable_disclaimer,!register_admin_notification,!register_activation_method]]></enableoptions>
+			</option>
+			<option name="register_enable_disclaimer">
+				<categoryname>user.register</categoryname>
+				<optiontype>boolean</optiontype>
+				<defaultvalue><![CDATA[1]]></defaultvalue>
+			</option>
+			<option name="register_admin_notification">
+				<categoryname>user.register</categoryname>
+				<optiontype>boolean</optiontype>
+			</option>
+			<option name="register_activation_method">
+				<categoryname>user.register</categoryname>
+				<optiontype>radioButton</optiontype>
+				<defaultvalue><![CDATA[1]]></defaultvalue>
+				<selectoptions><![CDATA[0:wcf.acp.option.register_activation_method.disabled
+1:wcf.acp.option.register_activation_method.byUser
+2:wcf.acp.option.register_activation_method.byAdmin]]></selectoptions>
+			</option>
 			<option name="register_username_min_length">
 				<categoryname>user.register</categoryname>
 				<optiontype>integer</optiontype>
@@ -980,29 +1057,6 @@ no:!cache_source_memcached_host]]></enableoptions>
 				<optiontype>integer</optiontype>
 				<defaultvalue>0</defaultvalue>
 				<minvalue>0</minvalue>
-			</option>
-			
-			<option name="register_disabled">
-				<categoryname>user.register</categoryname>
-				<optiontype>boolean</optiontype>
-				<enableoptions><![CDATA[!register_enable_disclaimer,!register_admin_notification,!register_activation_method]]></enableoptions>
-			</option>
-			<option name="register_enable_disclaimer">
-				<categoryname>user.register</categoryname>
-				<optiontype>boolean</optiontype>
-				<defaultvalue><![CDATA[1]]></defaultvalue>
-			</option>
-			<option name="register_admin_notification">
-				<categoryname>user.register</categoryname>
-				<optiontype>boolean</optiontype>
-			</option>
-			<option name="register_activation_method">
-				<categoryname>user.register</categoryname>
-				<optiontype>radioButton</optiontype>
-				<defaultvalue><![CDATA[1]]></defaultvalue>
-				<selectoptions><![CDATA[0:wcf.acp.option.register_activation_method.disabled
-1:wcf.acp.option.register_activation_method.byUser
-2:wcf.acp.option.register_activation_method.byAdmin]]></selectoptions>
 			</option>
 			<!-- /user.register -->
 			

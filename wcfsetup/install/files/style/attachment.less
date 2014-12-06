@@ -1,6 +1,6 @@
 /* attachment thumbnail list */
 .attachmentThumbnailList, .attachmentFileList {
-	padding-top: 7px !important;
+	padding-top: @wcfGapSmall !important;
 	
 	> fieldset {
 		padding: 0;
@@ -8,13 +8,13 @@
 		> legend {
 			border-bottom: 0;
 			font-size: @wcfTitleFontSize;
-			padding-bottom: 7px;
+			padding-bottom: @wcfGapSmall;
 		}
 	}
 }
 
 .attachmentThumbnailList {
-	padding-bottom: 7px !important;
+	padding-bottom: @wcfGapSmall !important;
 	
 	> fieldset {
 		> ul {
@@ -84,10 +84,11 @@
 /* attachment form */
 .formAttachmentList {
 	border-bottom: 1px solid @wcfContainerBorderColor;
-	padding-bottom: @wcfGapSmall;
-		
+	margin-bottom: @wcfGapSmall;
+	padding-bottom: @wcfGapMedium;
+	
 	> li {
-		min-height: 60px;
+		min-height: 76px;
 		
 		> div {
 			> div {
@@ -108,10 +109,33 @@
 			}
 			
 			> ul {
+				margin-top: @wcfGapSmall;
+				
 				> li {
 					display: inline-block;
 				}
 			}
+		}
+	}
+	
+	&.sortableList {
+		list-style-type: none;
+		margin-left: 0;
+	}
+}
+
+.formAttachmentContent {
+	.jsButtonAttachmentInsertAll {
+		vertical-align: baseline;
+	}
+	
+	.uploadButton {
+		vertical-align: bottom;
+	}
+	
+	> dl {
+		div + small {
+			margin-top: @wcfGapSmall !important;
 		}
 	}
 }
@@ -120,12 +144,12 @@
 	.formAttachmentList {
 		> li {
 			float: left;
-			width: 33%;
+			width: 50%;
 		}
 	}
 }
 
-.box48 .attachmentTinyThumbnail {
-	max-height: 48px;
-	max-width: 48px;
+.box64 .attachmentTinyThumbnail {
+	max-height: 64px;
+	max-width: 64px;
 }

@@ -17,7 +17,7 @@ fieldset {
 			display: inline-block;
 			margin-bottom: @wcfGapTiny;
 			position: relative;
-			top: -7px;
+			top: -@wcfGapSmall;
 		}
 	}
 	
@@ -120,6 +120,12 @@ dl:not(.plain) {
 		> .innerError + label {
 			margin-top: 2px;
 		}
+		
+		&:after {
+			clear: left;
+			content: "";
+			display: block;
+		}
 	}
 	
 	/* wide */
@@ -177,14 +183,14 @@ dl:not(.plain) {
 	}
 	
 	fieldset > dl:not(:first-of-type) {
-		margin-top: 14px;
+		margin-top: @wcfGapMedium;
 	}
 }
 
 /* sidebar */
 .sidebar {
 	dl:not(.plain) {
-		&:not(:last-child) {		
+		&:not(:last-child) {
 			margin-bottom: @wcfGapMedium;
 		}
 		
@@ -258,6 +264,11 @@ select {
 
 input[type='number'] {
 	text-align: right;
+}
+
+/* reset textarea font size */
+textarea {
+	font-size: 1rem;
 }
 
 /* normal state */
@@ -506,7 +517,7 @@ select > option {
 /* reCaptcha */
 .reCaptcha {
 	input.marginTop {
-		margin-top: 14px;
+		margin-top: @wcfGapMedium;
 	}
 }
 
@@ -528,7 +539,8 @@ select > option {
 	input[type="search"],
 	input[type="tel"],
 	input[type="color"],
-	.cke_editable {
+	.cke_editable,
+	.redactor-editor {
 		font-size: 16px;
 	}
 }

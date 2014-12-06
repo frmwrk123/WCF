@@ -8,8 +8,6 @@
 	<script data-relocate="true">
 		//<![CDATA[
 		$(function() {
-			new WCF.Moderation.Activation.Management({@$queue->queueID}, '{link controller='ModerationList' encode=false}{/link}');
-			
 			WCF.Language.addObject({
 				'wcf.moderation.activation.enableContent.confirmMessage': '{lang}wcf.moderation.activation.enableContent.confirmMessage{/lang}',
 				'wcf.moderation.activation.removeContent.confirmMessage': '{lang}wcf.moderation.activation.removeContent.confirmMessage{/lang}',
@@ -19,6 +17,8 @@
 				'wcf.moderation.status.outstanding': '{lang}wcf.moderation.status.outstanding{/lang}',
 				'wcf.moderation.status.processing': '{lang}wcf.moderation.status.processing{/lang}'
 			});
+			
+			new WCF.Moderation.Activation.Management({@$queue->queueID}, '{link controller='ModerationList' encode=false}{/link}');
 		});
 		//]]>
 	</script>
@@ -63,6 +63,7 @@
 
 <header class="boxHeadline boxSubHeadline">
 	<h2>{lang}wcf.moderation.activation.content{/lang}</h2>
+	<p>{lang}wcf.moderation.type.{@$queue->getObjectTypeName()}{/lang}</p>
 </header>
 
 <div class="marginTop">

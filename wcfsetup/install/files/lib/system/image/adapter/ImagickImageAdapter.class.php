@@ -38,10 +38,24 @@ class ImagickImageAdapter implements IImageAdapter {
 	protected $width = 0;
 	
 	/**
+	 * is true if the used configuration can write animated GIF files if the
+	 * PHP Imagick API version is 3.1.0 RC 1
+	 * @var	boolean
+	 */
+	protected $supportsWritingAnimatedGIF = true;
+	
+	/**
 	 * Creates a new ImagickImageAdapter.
 	 */
 	public function __construct() {
 		$this->imagick = new \Imagick();
+		
+		// check if writing animated gifs is supported
+		$version = $this->imagick->getVersion();
+		$versionNumber = preg_match('~([0-9]+\.[0-9]+\.[0-9]+)~', $version['versionString'], $match);
+		if (version_compare($match[0], '6.3.6') < 0) {
+			$this->supportsWritingAnimatedGIF = false;
+		}
 	}
 	
 	/**
@@ -53,8 +67,8 @@ class ImagickImageAdapter implements IImageAdapter {
 		}
 		
 		$this->imagick = $image;
-		$this->height = $this->imagick->getImageHeight();
-		$this->width = $this->imagick->getImageWidth();
+		
+		$this->readImageDimensions();
 	}
 	
 	/**
@@ -67,8 +81,29 @@ class ImagickImageAdapter implements IImageAdapter {
 		catch (\ImagickException $e) {
 			throw new SystemException("Image '".$file."' is not readable or does not exist.");
 		}
-		$this->height = $this->imagick->getImageHeight();
-		$this->width = $this->imagick->getImageWidth();
+		
+		$this->readImageDimensions();
+	}
+	
+	/**
+	 * Reads width and height of the image.
+	 */
+	protected function readImageDimensions() {
+		// fix height/width for animated gifs as getImageHeight/getImageWidth
+		// returns the height/width of ONE frame of the animated image,
+		// not the "real" height/width of the image
+		if ($this->imagick->getImageFormat() == 'GIF') {
+			$imagick = $this->imagick->coalesceImages();
+			
+			$this->height = $imagick->getImageHeight();
+			$this->width = $imagick->getImageWidth();
+			
+			$imagick->clear();
+		}
+		else {
+			$this->height = $this->imagick->getImageHeight();
+			$this->width = $this->imagick->getImageWidth();
+		}
 	}
 	
 	/**
@@ -84,7 +119,22 @@ class ImagickImageAdapter implements IImageAdapter {
 	public function createThumbnail($maxWidth, $maxHeight, $obtainDimensions = true) {
 		$thumbnail = clone $this->imagick;
 		
-		if ($obtainDimensions) {
+		if ($thumbnail->getImageFormat() == 'GIF') {
+			$thumbnail = $thumbnail->coalesceImages();
+			
+			do {
+				if ($obtainDimensions) {
+					$thumbnail->thumbnailImage($maxWidth, $maxHeight, true);
+				}
+				else {
+					$thumbnail->cropThumbnailImage($maxWidth, $maxHeight);
+				}
+				
+				$thumbnail->setImagePage($maxWidth, $maxHeight, 0, 0); 
+			}
+			while ($thumbnail->nextImage());
+		}
+		else if ($obtainDimensions) {
 			$thumbnail->thumbnailImage($maxWidth, $maxHeight, true);
 		}
 		else {
@@ -98,7 +148,18 @@ class ImagickImageAdapter implements IImageAdapter {
 	 * @see	\wcf\system\image\adapter\IImageAdapter::clip()
 	 */
 	public function clip($originX, $originY, $width, $height) {
-		$this->imagick->cropImage($width, $height, $originX, $originY);
+		if ($this->imagick->getImageFormat() == 'GIF') {
+			$this->imagick = $this->imagick->coalesceImages();
+			
+			do {
+				$this->imagick->cropImage($width, $height, $originX, $originY);
+				$this->imagick->setImagePage($width, $height, 0, 0);
+			}
+			while ($this->imagick->nextImage());
+		}
+		else {
+			$this->imagick->cropImage($width, $height, $originX, $originY);
+		}
 	}
 	
 	/**
@@ -177,7 +238,15 @@ class ImagickImageAdapter implements IImageAdapter {
 			throw new SystemException("Given image is not a valid Imagick-object.");
 		}
 		
-		$image->writeImage($filename);
+		// circumvent writeImages() bug in version 3.1.0 RC 1
+		if (phpversion('imagick') == '3.1.0RC1' && $this->supportsWritingAnimatedGIF) {
+			$file = fopen($filename, 'w');
+			$image->writeImagesFile($file);
+			fclose($file);
+		}
+		else {
+			$image->writeImages($filename, true);
+		}
 	}
 	
 	/**

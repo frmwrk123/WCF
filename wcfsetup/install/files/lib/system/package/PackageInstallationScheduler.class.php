@@ -1,6 +1,7 @@
 <?php
 namespace wcf\system\package;
 use wcf\data\package\update\server\PackageUpdateServer;
+use wcf\data\package\update\PackageUpdate;
 use wcf\data\package\Package;
 use wcf\data\package\PackageCache;
 use wcf\system\database\util\PreparedStatementConditionBuilder;
@@ -232,6 +233,7 @@ class PackageInstallationScheduler {
 					$this->packageUpdateServers[$packageUpdateVersion['packageUpdateServerID']]->serverURL,
 					(!empty($authData) ? array('auth' => $authData) : array()),
 					array(
+						'apiVersion' => PackageUpdate::API_VERSION,
 						'packageName' => $packageUpdateVersion['package'],
 						'packageVersion' => $packageUpdateVersion['packageVersion']
 					)
@@ -377,7 +379,7 @@ class PackageInstallationScheduler {
 			
 			// check excluded packages of the existing packages
 			$conditions = new PreparedStatementConditionBuilder();
-			$conditions->add("excludePackage IN (?)", array($packageIdentifier));
+			$conditions->add("excludedPackage IN (?)", array($packageIdentifier));
 			
 			$sql = "SELECT		package.*, package_exclusion.*
 				FROM		wcf".WCF_N."_package_exclusion package_exclusion

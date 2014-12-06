@@ -104,6 +104,15 @@ class RouteHandler extends SingletonFactory {
 	}
 	
 	/**
+	 * Returns all registered routes. 
+	 * 
+	 * @return	array<\wcf\system\request\Route>
+	 **/
+	public function getRoutes() {
+		return $this->routes; 
+	}
+	
+	/**
 	 * Returns true if a route matches. Please bear in mind, that the
 	 * first route which is able to consume all path components is used,
 	 * even if other routes may fit better. Route order is crucial!
@@ -263,8 +272,21 @@ class RouteHandler extends SingletonFactory {
 		if (self::$pathInfo === null) {
 			self::$pathInfo = '';
 			
+			if (!URL_LEGACY_MODE || RequestHandler::getInstance()->isACPRequest()) {
+				// WCF 2.1: ?Foo/Bar/
+				if (!empty($_SERVER['QUERY_STRING'])) {
+					parse_str($_SERVER['QUERY_STRING'], $parts);
+					foreach ($parts as $key => $value) {
+						if ($value === '') {
+							self::$pathInfo = $key;
+							break;
+						}
+					}
+				}
+			}
+			
 			// WCF 2.0: index.php/Foo/Bar/
-			if (URL_LEGACY_MODE && !RequestHandler::getInstance()->isACPRequest()) {
+			if ((URL_LEGACY_MODE && !RequestHandler::getInstance()->isACPRequest()) || (RequestHandler::getInstance()->isACPRequest() && empty(self::$pathInfo))) {
 				if (isset($_SERVER['PATH_INFO'])) {
 					self::$pathInfo = $_SERVER['PATH_INFO'];
 				}
@@ -284,18 +306,6 @@ class RouteHandler extends SingletonFactory {
 						
 						if (isset($_SERVER['SCRIPT_URL']) && (self::$pathInfo == $_SERVER['SCRIPT_URL'])) {
 							self::$pathInfo = '';
-						}
-					}
-				}
-			}
-			else {
-				// WCF 2.1: ?Foo/Bar/
-				if (!empty($_SERVER['QUERY_STRING'])) {
-					parse_str($_SERVER['QUERY_STRING'], $parts);
-					foreach ($parts as $key => $value) {
-						if ($value === '') {
-							self::$pathInfo = $key;
-							break;
 						}
 					}
 				}

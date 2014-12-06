@@ -2,14 +2,8 @@
 				
 				{if $skipBreadcrumbs|empty}{include file='breadcrumbs' __microdata=false}{/if}
 				
-				{if MODULE_AD}
-					{hascontent}
-						<div class="marginTop">
-							{content}
-								{@$__wcf->getAdHandler()->getAds('com.woltlab.wcf.footer.content')}
-							{/content}
-						</div>
-					{/hascontent}
+				{if MODULE_WCF_AD}
+					{@$__wcf->getAdHandler()->getAds('com.woltlab.wcf.footer.content')}
 				{/if}
 			</section>
 			
@@ -46,7 +40,9 @@
 			{event name='copyright'}
 		</div>
 		
-		{if MODULE_AD}{@$__wcf->getAdHandler()->getAds('com.woltlab.wcf.footer.bottom')}{/if}
+		{if MODULE_WCF_AD}
+			{@$__wcf->getAdHandler()->getAds('com.woltlab.wcf.footer.bottom')}
+		{/if}
 	</div>
 </footer>
 

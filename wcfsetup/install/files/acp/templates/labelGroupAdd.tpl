@@ -1,7 +1,7 @@
 {include file='header' pageTitle='wcf.acp.label.group.'|concat:$action}
 
 {include file='aclPermissions'}
-<script data-relocate="true" src="{@$__wcf->getPath()}js/WCF.Label{if !ENABLE_DEBUG_MODE}.min{/if}.js?v={@LAST_UPDATE_TIME}"></script>
+<script data-relocate="true" src="{@$__wcf->getPath()}js/WCF.Label.js?v={@LAST_UPDATE_TIME}"></script>
 <script data-relocate="true">
 	//<![CDATA[
 	$(function() {
@@ -66,7 +66,16 @@
 								{/if}
 							</small>
 						{/if}
+						<small>{lang}wcf.acp.label.group.groupName.description{/lang}</small>
 						{include file='multipleLanguageInputJavascript' elementIdentifier='groupName' forceSelection=false}
+					</dd>
+				</dl>
+				
+				<dl>
+					<dt><label for="groupDescription">{lang}wcf.global.description{/lang}</label></dt>
+					<dd>
+						<input type="text" id="groupDescription" name="groupDescription" class="long" value="{$groupDescription}" maxlength="255" />
+						<small>{lang}wcf.acp.label.group.groupDescription.description{/lang}</small>
 					</dd>
 				</dl>
 				

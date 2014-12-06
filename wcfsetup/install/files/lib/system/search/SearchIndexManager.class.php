@@ -1,9 +1,10 @@
 <?php
 namespace wcf\system\search;
 use wcf\data\object\type\ObjectTypeCache;
+use wcf\data\package\Package;
+use wcf\data\package\PackageList;
 use wcf\system\exception\SystemException;
 use wcf\system\SingletonFactory;
-use wcf\system\WCF;
 
 /**
  * Manages the search index.
@@ -15,12 +16,24 @@ use wcf\system\WCF;
  * @subpackage	system.search
  * @category	Community Framework
  */
-class SearchIndexManager extends SingletonFactory {
+class SearchIndexManager extends SingletonFactory implements ISearchIndexManager {
 	/**
 	 * list of available object types
 	 * @var	array
 	 */
 	protected $availableObjectTypes = array();
+	
+	/**
+	 * list of application packages
+	 * @var	array<\wcf\data\package\Package>
+	 */
+	protected static $packages = array();
+	
+	/**
+	 * search index manager object
+	 * @var	\wcf\system\search\ISearchIndexManager
+	 */
+	protected $searchIndexManager = null;
 	
 	/**
 	 * @see	\wcf\system\SingletonFactory::init()
@@ -45,81 +58,136 @@ class SearchIndexManager extends SingletonFactory {
 	}
 	
 	/**
-	 * Adds a new entry.
-	 * 
+	 * Returns the the object type with the given name.
+	 *
 	 * @param	string		$objectType
-	 * @param	integer		$objectID
-	 * @param	string		$message
-	 * @param	string		$subject
-	 * @param	integer		$time
-	 * @param	integer		$userID
-	 * @param	string		$username
-	 * @param	integer		$languageID
-	 * @param	string		$metaData
+	 * @return	\wcf\data\object\type\ObjectType
+	 */
+	public function getObjectType($objectType) {
+		if (!isset($this->availableObjectTypes[$objectType])) {
+			throw new SystemException("unknown object type '".$objectType."'");
+		}
+		
+		return $this->availableObjectTypes[$objectType];
+	}
+	
+	/**
+	 * Returns the search index manager object.
+	 * 
+	 * @return	\wcf\system\search\ISearchIndexManager
+	 */
+	protected function getSearchIndexManager() {
+		if ($this->searchIndexManager === null) {
+			$className = '';
+			if (SEARCH_ENGINE != 'mysql') {
+				$className = 'wcf\system\search\\'.SEARCH_ENGINE.'\\'.ucfirst(SEARCH_ENGINE).'SearchIndexManager';
+				if (!class_exists($className)) {
+					$className = '';
+				}
+			}
+			
+			// fallback to MySQL
+			if (empty($className)) {
+				$className = 'wcf\system\search\mysql\MysqlSearchIndexManager';
+			}
+			
+			$this->searchIndexManager = call_user_func(array($className, 'getInstance'));
+		}
+		
+		return $this->searchIndexManager;
+	}
+	
+	/**
+	 * @see	\wcf\system\search\ISearchIndexManager::add()
 	 */
 	public function add($objectType, $objectID, $message, $subject, $time, $userID, $username, $languageID = null, $metaData = '') {
-		if ($languageID === null) $languageID = 0;
-		
-		// save new entry
-		$sql = "REPLACE INTO	wcf".WCF_N."_search_index
-					(objectTypeID, objectID, subject, message, time, userID, username, languageID, metaData)
-			VALUES		(?, ?, ?, ?, ?, ?, ?, ?, ?)";
-		$statement = WCF::getDB()->prepareStatement($sql);
-		$statement->execute(array($this->getObjectTypeID($objectType), $objectID, $subject, $message, $time, $userID, $username, $languageID, $metaData));
+		$this->getSearchIndexManager()->add($objectType, $objectID, $message, $subject, $time, $userID, $username, $languageID, $metaData);
 	}
 	
 	/**
-	 * Updates the search index.
-	 * 
-	 * @param	string		$objectType
-	 * @param	integer		$objectID
-	 * @param	string		$message
-	 * @param	string		$subject
-	 * @param	integer		$time
-	 * @param	integer		$userID
-	 * @param	string		$username
-	 * @param	integer		$languageID
-	 * @param	string		$metaData
+	 * @see	\wcf\system\search\ISearchIndexManager::update()
 	 */
 	public function update($objectType, $objectID, $message, $subject, $time, $userID, $username, $languageID = null, $metaData = '') {
-		// delete existing entry
-		$this->delete($objectType, array($objectID));
-		
-		// save new entry
-		$this->add($objectType, $objectID, $message, $subject, $time, $userID, $username, $languageID, $metaData);
+		$this->getSearchIndexManager()->update($objectType, $objectID, $message, $subject, $time, $userID, $username, $languageID, $metaData);
 	}
 	
 	/**
-	 * Deletes search index entries.
-	 * 
-	 * @param	string		$objectType
-	 * @param	array<integer>	$objectIDs
+	 * @see	\wcf\system\search\ISearchIndexManager::delete()
 	 */
 	public function delete($objectType, array $objectIDs) {
-		$objectTypeID = $this->getObjectTypeID($objectType);
-		
-		$sql = "DELETE FROM	wcf".WCF_N."_search_index
-			WHERE		objectTypeID = ?
-					AND objectID = ?";
-		$statement = WCF::getDB()->prepareStatement($sql);
-		WCF::getDB()->beginTransaction();
-		foreach ($objectIDs as $objectID) {
-			$parameters = array($objectTypeID, $objectID);
-			
-			$statement->execute($parameters);
-		}
-		WCF::getDB()->commitTransaction();
+		$this->getSearchIndexManager()->delete($objectType, $objectIDs);
 	}
 	
 	/**
-	 * Resets the search index.
-	 * 
-	 * @param	string		$objectType
+	 * @see	\wcf\system\search\ISearchIndexManager::reset()
 	 */
 	public function reset($objectType) {
-		$sql = "DELETE FROM	wcf".WCF_N."_search_index
-			WHERE		objectTypeID = ?";
-		$statement = WCF::getDB()->prepareStatement($sql);
-		$statement->execute(array($this->getObjectTypeID($objectType)));
+		$this->getSearchIndexManager()->reset($objectType);
+	}
+	
+	/**
+	 * @see	\wcf\system\search\ISearchIndexManager::createSearchIndices()
+	 */
+	public function createSearchIndices() {
+		$this->getSearchIndexManager()->createSearchIndices();
+	}
+	
+	/**
+	 * @see	\wcf\system\search\ISearchIndexManager::supportsBulkInsert()
+	 */
+	public function supportsBulkInsert() {
+		return $this->getSearchIndexManager()->supportsBulkInsert();
+	}
+	
+	/**
+	 * @see	\wcf\system\search\ISearchIndexManager::beginBulkOperation()
+	 */
+	public function beginBulkOperation() {
+		$this->getSearchIndexManager()->beginBulkOperation();
+	}
+	
+	/**
+	 * @see	\wcf\system\search\ISearchIndexManager::commitBulkOperation()
+	 */
+	public function commitBulkOperation() {
+		$this->getSearchIndexManager()->commitBulkOperation();
+	}
+	
+	/**
+	 * Returns the database table name for the object type's search index.
+	 * 
+	 * @param	mixed				$objectType
+	 * @param	\wcf\data\package\Package	$package
+	 * @return	string
+	 */
+	public static function getTableName($objectType, $package = null) {
+		if (is_string($objectType)) {
+			$objectType = self::getInstance()->getObjectType($objectType);
+		}
+		
+		if ($objectType->searchindex) {
+			$tableName = $objectType->searchindex;
+			
+			if (!empty($tableName)) {
+				if (empty(self::$packages)) {
+					$packageList = new PackageList();
+					$packageList->getConditionBuilder()->add('package.isApplication = ?', array(1));
+					$packageList->readObjects();
+					
+					self::$packages = $packageList->getObjects();
+				}
+				
+				// replace app1_ with app{WCF_N}_ in the table name
+				foreach (self::$packages as $package) {
+					$abbreviation = Package::getAbbreviation($package->package);
+					
+					$tableName = str_replace($abbreviation.'1_', $abbreviation.WCF_N.'_', $tableName);
+				}
+				
+				return $tableName;
+			}
+		}
+		
+		return 'wcf'.WCF_N.'_search_index_'.substr(sha1($objectType->objectType), 0, 8);
 	}
 }

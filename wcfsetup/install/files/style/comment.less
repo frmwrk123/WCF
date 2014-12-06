@@ -40,7 +40,7 @@
 	max-height: @wcfBaseFontSize * 10;
 	
 	+ button {
-		margin-top: 3px;
+		margin-top: @wcfGapTiny;
 	}
 }
 
@@ -66,11 +66,12 @@
 }
 
 .commentOptionContainer.jsAddResponseActive,
-.commentResponseList + .commentOptionContainer {
+.commentResponseList:not(:empty) + .commentOptionContainer {
 	border-top: 1px solid @wcfContainerBorderColor;
 	padding: @wcfGapSmall @wcfGapSmall 0;
 }
 
+.commentResponseList:empty,
 .commentContent + .commentOptionContainer:not(.jsAddResponseActive) {
 	margin-top: @wcfGapTiny;
 }
@@ -79,7 +80,7 @@
 	margin-top: @wcfGapMedium;
 }
 
-.commentResponseList .commentResponse:first-child {
+.commentResponseList:not(:empty) {
 	margin-top: @wcfGapMedium;
 }
 
@@ -134,7 +135,7 @@
 @media only screen and (max-width: 800px) {
 	.commentList .buttonGroupNavigation {
 		top: 1px;
-		right: 7px;
+		right: @wcfGapSmall;
 	}
 	
 	.commentResponseList .buttonGroupNavigation {
@@ -142,10 +143,10 @@
 	}
 	
 	.commentList .containerHeadline > h3 {
-		padding-right: 35px;
+		padding-right: @wcfGapLarge + @wcfGapMedium;
 	}
 	
 	.commentResponseContent > .containerHeadline > h3 {
-		padding-right: 28px;
+		padding-right: 2*@wcfGapMedium;
 	}
 }

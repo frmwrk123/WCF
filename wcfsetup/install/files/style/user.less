@@ -58,6 +58,10 @@
 	> .containerHeadline > p {
 		margin-bottom: 2px;
 	}
+	
+	> .userFacts {
+		overflow: hidden;
+	}
 }
 
 .userTitleBadge {
@@ -103,6 +107,10 @@
 		right: @wcfGapSmall;
 		top: @wcfGapSmall;
 	}
+	
+	> .dataList {
+		overflow: hidden;
+	}
 }
 
 .letters {
@@ -140,6 +148,7 @@
 
 .likeList {
 	> li:first-child {
+		padding-bottom: @wcfGapSmall;
 		text-align: right;
 		
 		&:hover {
@@ -148,10 +157,19 @@
 		
 		> ul.buttonGroup {
 			display: inline-block;
+			margin-bottom: @wcfGapSmall;
 			
 			&:not(:first-child) {
 				margin-left: @wcfGapTiny;
 			}
+		}
+	}
+}
+
+@media only screen and (max-width: 800px) {
+	.likeList {
+		> li:first-child {
+			padding-bottom: 0;
 		}
 	}
 }
@@ -296,6 +314,64 @@
 }
 
 /* user notifications */
-#userNotificationItemList > .groupedNotificationItem p > a {
-	font-weight: bold;
+.userNotificationItemList > .notificationItem {
+	&.groupedNotificationItem > div > .framed > span.fa-users:before {
+		position: relative;
+		top: 3px;
+	}
+	
+	&:hover > div > .framed {
+		> .notificationItemMarkAsConfirmed {
+			height: 24px;	
+			display: block;
+			width: 24px;
+			
+			&:before {
+				position: relative;
+				top: 3px;
+			}
+		}
+		
+		> .notificationItemMarkAsConfirmed ~ img,
+		> .notificationItemMarkAsConfirmed ~ .fa-users {
+			display: none;
+		}
+	}
+	
+	> div > .framed > .notificationItemMarkAsConfirmed {
+		display: none;
+	}
+}
+
+.paidSubscriptionTeaserList {
+	max-height: 74px;
+	overflow: hidden;
+	
+	> li {
+		float: left;
+		margin-bottom: @wcfGapSmall;
+		padding-right: @wcfGapSmall;
+		white-space: nowrap;
+		width: 300px;
+		word-wrap: normal;
+		
+		.containerHeadline {
+			> h3 {
+				text-overflow: ellipsis;
+				overflow: hidden;
+			}
+		}
+	}
+}
+
+.dashboardBoxRecentActivityHeadline {
+	overflow: visible;
+	position: relative;
+	min-height: 30px;
+	
+	> nav.buttonGroupNavigation {
+		position: absolute;
+		right: 4px;
+		top: 2px;
+	} 
 }

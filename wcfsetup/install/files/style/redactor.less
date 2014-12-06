@@ -46,34 +46,71 @@
 .re-aligncenter:before { content: "\e61e"; }
 .re-gallery:before { content: "\e61f"; }
 
-.redactor_box {
+.redactor-box {
 	border: 1px solid @wcfContainerBorderColor;
 	font-size: 0;
+	line-height: @wcfBaseLineHeight;
+	position: relative;
 	
 	& + .messageTabMenu {
 		padding: 0;
 	}
 	
-	& + .innerError {
+	& + .innerError,
+	> .innerError {
 		border-radius: 0;
 		box-shadow: none;
 		display: block;
 		margin-top: -1px;
 	}
+	
+	> .innerError {
+		margin: -1px;
+	}
+	
+	> .redactorAutosaveNotice {
+		border: 1px solid @wcfContainerBorderColor;
+		border-width: 1px 0 0 1px;
+		bottom: 0;
+		font-size: 1rem;
+		opacity: 0;
+		padding: @wcfGapSmall;
+		position: absolute;
+		right: 0;
+		transition: visibility 0s linear .3s, opacity .3s linear;
+		visibility: hidden;
+		
+		&.open {
+			opacity: 1;
+			visibility: visible;
+			transition-delay: 0s;
+		}
+		
+		&.redactorAutosaveNoticeRestore > span.fa-check {
+			margin-right: @wcfGapSmall;
+		}
+		
+		> span.redactorAutosaveMessage {
+			padding: 0 @wcfGapSmall;
+		}
+	}
 }
 
-.redactor_editor {
-	font-size: 1rem;
+.redactor-editor {
+	max-height: 500px;
 	padding: 10px;
 	position: relative;
 	outline: none;
+	overflow: auto;
 	
 	& + textarea {
 		border-width: 0;
 		box-shadow: none;
 		font-size: 1rem;
+		line-height: @wcfBaseLineHeight;
 		outline: none;
 		padding: 10px;
+		resize: vertical;
 		
 		&:focus {
 			box-shadow: none;
@@ -91,6 +128,10 @@
 	
 	ol {
 		list-style-type: decimal;
+	}
+	
+	img {
+		max-width: 100%;
 	}
 	
 	table {
@@ -112,22 +153,36 @@
 			position: relative;
 			
 			> .redactorQuoteEdit {
-				bottom: -7px;
-				left: -14px;
-				right: -14px;
-				top: -14px;
-				padding-top: 14px;
-				padding-left: 14px;
+				bottom: -@wcfGapSmall;
+				left: -@wcfGapMedium;
+				right: -@wcfGapMedium;
+				top: -@wcfGapMedium;
+				padding-top: @wcfGapMedium;
+				padding-left: @wcfGapMedium;
 				position: absolute;
 			}
 		}
 	}
 }
 
-.redactor_toolbar {
+@media all and (min-width: 801px) {
+	.redactor-editor {
+		font-size: 1rem;
+	}
+}
+
+/* disable auto zoom in mobile safari */
+@media only screen and (max-width: 800px) {
+	.redactor-editor + textarea {
+		font-size: 16px;
+		max-height: 500px;
+	}
+}
+
+.redactor-toolbar {
+	background: repeating-linear-gradient(0deg, @wcfContainerBackgroundColor, @wcfContainerAccentBackgroundColor 29px, @wcfContainerBorderColor 30px, @wcfContainerBorderColor 30px);
 	border-bottom: 1px solid @wcfContainerBorderColor;
-	
-	.linearGradient(@wcfContainerBackgroundColor, @wcfContainerBackgroundColor, @wcfContainerAccentBackgroundColor);
+	margin-top: -1px;
 	
 	> li {
 		display: inline-block;
@@ -138,18 +193,22 @@
 		}
 		
 		> a {
+			box-sizing: border-box;
 			color: @wcfButtonColor;
 			display: block;
 			font-size: 14px;
+			height: 30px;
 			outline: none;
-			padding: 6px 10px;
+			padding: 6px 0;
+			text-align: center;
 			text-decoration: none;
+			width: 30px;
 			
 			.textShadow(@wcfButtonBackgroundColor);
 			
-			&.redactor_button_disabled,
-			&.redactor_button_disabled:before,
-			&.redactor_button_disabled > i:before {
+			&.redactor-button-disabled,
+			&.redactor-button-disabled:before,
+			&.redactor-button-disabled > i:before {
 				color: @wcfButtonBackgroundColor;
 				cursor: default;
 			}
@@ -167,8 +226,8 @@
 				}
 			}
 			
-			&:not(.redactor_button_disabled):hover,
-			&.redactor_act,
+			&:not(.redactor-button-disabled):hover,
+			&.redactor-act,
 			&.dropact {
 				background-color: @wcfContainerHoverBackgroundColor;
 				
@@ -186,6 +245,46 @@
 	}
 }
 
+.redactor-toolbar-tooltip {
+	.balloonTooltip;
+}
+
+#redactor-image-box {
+	border: 1px dashed rgba(0, 0, 0, .5);
+	display: inline-block;
+	line-height: 0;
+	max-width: 100%;
+	position: relative;
+	
+	> img {
+		opacity: .5;
+	}
+}
+
+#redactor-image-editter {
+	.balloonTooltip;
+	
+	cursor: pointer;
+	left: 50%;
+	line-height: @wcfSmallFontSize;
+	margin-top: -13px;
+	top: 50%;
+	z-index: 5;
+}
+
+#redactor-image-resizer {
+	background-color: rgba(0, 0, 0, 1);
+	border: 1px solid rgba(255, 255, 255, 1);
+	bottom: -4px;
+	cursor: nw-resize;
+	height: 8px;
+	line-height: 1;
+	position: absolute;
+	right: -5px;
+	width: 8px;
+	z-index: 10;
+}
+
 .redactorAttachmentContainer {
 	background-color: rgba(255, 255, 255, 1);
 	border: 1px solid rgba(238, 238, 238, 1);
@@ -196,6 +295,7 @@
 .messageTabMenu {
 	border: 1px solid @wcfContainerBorderColor;
 	border-top-width: 0;
+	line-height: @wcfBaseLineHeight;
 	
 	> nav.messageTabMenuNavigation {
 		> ul {
@@ -212,6 +312,7 @@
 					color: @wcfButtonColor;
 					display: block;
 					font-size: @wcfBaseFontSize;
+					line-height: @wcfBaseLineHeight;
 					margin-bottom: -1px;
 					padding: 7px 14px 8px 14px;
 					text-decoration: none;
@@ -225,6 +326,10 @@
 					
 					&:hover {
 						color: @wcfLinkColor;
+					}
+					
+					> span.icon {
+						display: none;
 					}
 				}
 				
@@ -314,7 +419,27 @@
 	}
 }
 
-.redactor_dropdown_box_fontcolor {
+@media only screen and (max-width: 800px) {
+	.messageTabMenu > nav > ul > li:not(.active) > a {
+		> span.icon {
+			display: block;
+		}
+		
+		> span:not(.icon) {
+			display: none;
+		}
+	}
+}
+
+/* fix for Firefox - fieldsets are set to display: table-column which cause an odd gap between the fieldset
+   and the next element, similar to gaps with display: inline-block and font-size > 0 */
+@-moz-document url-prefix() {
+	fieldset + .messageTabMenu {
+		margin-top: -3px;
+	}
+}
+
+.redactor-dropdown-box-fontcolor {
 	width: 200px;
 	
 	> li.redactorColorPallet {
@@ -345,7 +470,7 @@
 	position: absolute;
 	text-align: center;
 	vertical-align: middle;
-	z-index: 1000;
+	z-index: 360;
 	
 	&.active {
 		background-color: #CEF6CE;

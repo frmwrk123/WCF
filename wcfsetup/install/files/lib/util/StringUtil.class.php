@@ -53,6 +53,15 @@ final class StringUtil {
 	}
 	
 	/**
+	 * Creates an UUID.
+	 * 
+	 * @return	string
+	 */
+	public static function getUUID() {
+		return sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x', mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(16384, 20479), mt_rand(32768, 49151), mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(0, 65535));
+	}
+	
+	/**
 	 * Converts dos to unix newlines.
 	 * 
 	 * @param	string		$string
@@ -63,9 +72,9 @@ final class StringUtil {
 	}
 	
 	/**
-	 * Swallowes whitespace from beginnung and end of the string.
+	 * Swallowes whitespace from beginning and end of the string.
 	 * 
-	 * @param	string		$string
+	 * @param	string		$text
 	 * @return	string
 	 */
 	public static function trim($text) {
@@ -653,8 +662,8 @@ final class StringUtil {
 		preg_match_all('/(<\/?([\w+]+)[^>]*>)?([^<>]*)/', $string, $tags, PREG_SET_ORDER);
 		
 		foreach ($tags as $tag) {
-			// filter standalone html tags
-			if (!preg_match('/area|base|basefont|br|col|frame|hr|img|input|isindex|link|meta|param/s', $tag[2])) {
+			// ignore void elements
+			if (!preg_match('/^(area|base|br|col|embed|hr|img|input|keygen|link|menuitem|meta|param|source|track|wbr)$/s', $tag[2])) {
 				// look for opening tags
 				if (preg_match('/<[\w]+[^>]*>/s', $tag[0])) {
 					array_unshift($openTags, $tag[2]);

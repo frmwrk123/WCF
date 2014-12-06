@@ -10,6 +10,7 @@ use wcf\system\cache\builder\SpiderCacheBuilder;
 use wcf\system\cache\builder\UserGroupOptionCacheBuilder;
 use wcf\system\cache\builder\UserGroupPermissionCacheBuilder;
 use wcf\system\database\DatabaseException;
+use wcf\system\event\EventHandler;
 use wcf\system\exception\PermissionDeniedException;
 use wcf\system\request\RequestHandler;
 use wcf\system\user\authentication\UserAuthenticationFactory;
@@ -234,11 +235,11 @@ class SessionHandler extends SingletonFactory {
 			if (!defined('SID_INPUT_TAG')) define('SID_INPUT_TAG', '');
 		}
 		else {
-			if (!defined('SID_ARG_1ST')) define('SID_ARG_1ST', '?s='.$this->sessionID);
-			if (!defined('SID_ARG_2ND')) define('SID_ARG_2ND', '&amp;s='.$this->sessionID);
-			if (!defined('SID_ARG_2ND_NOT_ENCODED')) define('SID_ARG_2ND_NOT_ENCODED', '&s='.$this->sessionID);
-			if (!defined('SID')) define('SID', $this->sessionID);
-			if (!defined('SID_INPUT_TAG')) define('SID_INPUT_TAG', '<input type="hidden" name="s" value="'.$this->sessionID.'" />');
+			if (!defined('SID_ARG_1ST')) define('SID_ARG_1ST', '?s='.$this->session->sessionID);
+			if (!defined('SID_ARG_2ND')) define('SID_ARG_2ND', '&amp;s='.$this->session->sessionID);
+			if (!defined('SID_ARG_2ND_NOT_ENCODED')) define('SID_ARG_2ND_NOT_ENCODED', '&s='.$this->session->sessionID);
+			if (!defined('SID')) define('SID', $this->session->sessionID);
+			if (!defined('SID_INPUT_TAG')) define('SID_INPUT_TAG', '<input type="hidden" name="s" value="'.$this->session->sessionID.'" />');
 		}
 		
 		// security token
@@ -577,23 +578,16 @@ class SessionHandler extends SingletonFactory {
 	 * @return	boolean
 	 */
 	public function changeUser(User $user, $hideSession = false) {
-		if ($this->supportsVirtualSessions) {
+		$eventParameters = array('user' => $user, 'hideSession' => $hideSession); 
+		
+		EventHandler::getInstance()->fireAction($this, 'beforeChangeUser', $eventParameters);
+		
+		$user = $eventParameters['user']; 
+		$hideSession = $eventParameters['hideSession'];
+		
+		// skip changeUserVirtual, if session will not be persistent anyway
+		if ($this->supportsVirtualSessions && !$hideSession) {
 			return $this->changeUserVirtual($user);
-		}
-		
-		$sessionTable = call_user_func(array($this->sessionClassName, 'getDatabaseTableName'));
-		
-		if ($user->userID && !$hideSession) {
-			// user is not a guest, delete all other sessions of this user
-			$sql = "DELETE FROM	".$sessionTable."
-				WHERE		sessionID <> ?
-						AND userID = ?";
-			$statement = WCF::getDB()->prepareStatement($sql);
-			//$statement->execute(array($this->sessionID, $user->userID));
-			
-			// reset session variables
-			$this->variables = array();
-			$this->variablesChanged = true;
 		}
 		
 		// update user reference
@@ -603,15 +597,29 @@ class SessionHandler extends SingletonFactory {
 			// update session
 			$sessionEditor = new $this->sessionEditorClassName($this->session);
 			
+			// regenerating the session id is essential to prevent session fixation attacks
+			// FIXME: but it cannot be used if cookies are not available, as the constants are already
+			// defined, erase security token in this case for basic security
+			if ($this->useCookies) {
+				$newSessionID = StringUtil::getRandomID();
+			}
+			else {
+				$this->unregister('__SECURITY_TOKEN');
+				$newSessionID = $this->session->sessionID;
+			}
+			
 			try {
 				$sessionEditor->update(array(
-					'userID' => $this->user->userID
+					'sessionID' => $newSessionID,
+					'userID' => $user->userID
 				));
 			}
 			catch (DatabaseException $e) {
 				// MySQL error 23000 = unique key
 				// do not check against the message itself, some weird systems localize them
 				if ($e->getCode() == 23000) {
+					$sessionTable = call_user_func(array($this->sessionClassName, 'getDatabaseTableName'));
+					
 					// user is not a guest, delete all other sessions of this user
 					$sql = "DELETE FROM	".$sessionTable."
 						WHERE		sessionID <> ?
@@ -621,6 +629,7 @@ class SessionHandler extends SingletonFactory {
 						
 					// update session
 					$sessionEditor->update(array(
+						'sessionID' => $newSessionID,
 						'userID' => $user->userID
 					));
 				}
@@ -629,6 +638,10 @@ class SessionHandler extends SingletonFactory {
 					throw $e;
 				}
 			}
+			
+			$this->session = new $this->sessionClassName($newSessionID);
+			
+			if ($this->useCookies) HeaderUtil::setCookie('cookieHash', $newSessionID);
 		}
 		
 		// reset caches
@@ -636,6 +649,8 @@ class SessionHandler extends SingletonFactory {
 		$this->languageIDs = null;
 		$this->languageID = $this->user->languageID;
 		$this->styleID = $this->user->styleID;
+		
+		EventHandler::getInstance()->fireAction($this, 'afterChangeUser');
 		
 		return true;
 	}
@@ -700,22 +715,35 @@ class SessionHandler extends SingletonFactory {
 					$sessionEditor = new $this->sessionEditorClassName($this->session);
 					
 					try {
+						// regenerating the session id is essential to prevent session fixation attacks
+						// FIXME: but it cannot be used if cookies are not available, as the constants are already
+						// defined, erase security token in this case for basic security
+						if ($this->useCookies) {
+							$newSessionID = StringUtil::getRandomID();
+						}
+						else {
+							$this->unregister('__SECURITY_TOKEN');
+							$newSessionID = $this->session->sessionID;
+						}
+						
 						$sessionEditor->update(array(
+							'sessionID' => $newSessionID,
 							'userID' => $user->userID
 						));
+						$this->session = new $this->sessionClassName($newSessionID);
+						
+						if ($this->useCookies) HeaderUtil::setCookie('cookieHash', $newSessionID);
 					}
 					catch (DatabaseException $e) {
 						// MySQL error 23000 = unique key
 						// do not check against the message itself, some weird systems localize them
 						if ($e->getCode() == 23000) {
-							// find existing session for this user
-							$session = call_user_func(array($this->sessionClassName, 'getSessionByUserID'), $user->userID);
-							
-							// update session
+							// delete guest session
 							$sessionEditor = new $this->sessionEditorClassName($this->session);
-							$sessionEditor->update(array(
-									'userID' => $user->userID
-							));
+							$sessionEditor->delete();
+							
+							// inherit existing session
+							$this->session = $session;
 						}
 						else {
 							// not our business
@@ -742,6 +770,8 @@ class SessionHandler extends SingletonFactory {
 		$this->languageIDs = null;
 		$this->languageID = $this->user->languageID;
 		$this->styleID = $this->user->styleID;
+		
+		EventHandler::getInstance()->fireAction($this, 'afterChangeUser');
 		
 		return false;
 	}

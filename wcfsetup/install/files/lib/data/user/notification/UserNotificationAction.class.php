@@ -2,7 +2,6 @@
 namespace wcf\data\user\notification;
 use wcf\data\AbstractDatabaseObjectAction;
 use wcf\system\exception\PermissionDeniedException;
-use wcf\system\exception\UserInputException;
 use wcf\system\user\notification\UserNotificationHandler;
 use wcf\system\user\storage\UserStorageHandler;
 use wcf\system\WCF;
@@ -19,10 +18,10 @@ use wcf\system\WCF;
  */
 class UserNotificationAction extends AbstractDatabaseObjectAction {
 	/**
-	 * notification object
-	 * @var	\wcf\data\user\notification\UserNotification
+	 * notification editor object
+	 * @var	\wcf\data\user\notification\UserNotificationEditor
 	 */
-	public $notification = null;
+	public $notificationEditor = null;
 	
 	/**
 	 * @see	\wcf\data\AbstractDatabaseObjectAction::create()
@@ -50,6 +49,7 @@ class UserNotificationAction extends AbstractDatabaseObjectAction {
 	public function createDefault() {
 		foreach ($this->parameters['recipients'] as $recipient) {
 			$this->parameters['data']['userID'] = $recipient->userID;
+			$this->parameters['data']['mailNotified'] = (($recipient->mailNotificationType == 'none' || $recipient->mailNotificationType == 'instant') ? 1 : 0);
 			$notification = $this->create();
 			
 			$notifications[$recipient->userID] = array(
@@ -88,7 +88,7 @@ class UserNotificationAction extends AbstractDatabaseObjectAction {
 		$notificationList->getConditionBuilder()->add("eventID = ?", array($this->parameters['data']['eventID']));
 		$notificationList->getConditionBuilder()->add("eventHash = ?", array($this->parameters['data']['eventHash']));
 		$notificationList->getConditionBuilder()->add("userID IN (?)", array(array_keys($this->parameters['recipients'])));
-		$notificationList->getConditionBuilder()->add("confirmed = ?", array(0));
+		$notificationList->getConditionBuilder()->add("confirmTime = ?", array(0));
 		$notificationList->readObjects();
 		$existingNotifications = array();
 		foreach ($notificationList as $notification) {
@@ -102,6 +102,7 @@ class UserNotificationAction extends AbstractDatabaseObjectAction {
 			
 			if ($notification === null) {
 				$this->parameters['data']['userID'] = $recipient->userID;
+				$this->parameters['data']['mailNotified'] = (($recipient->mailNotificationType == 'none' || $recipient->mailNotificationType == 'instant') ? 1 : 0);
 				$notification = $this->create();
 			}
 			
@@ -160,28 +161,23 @@ class UserNotificationAction extends AbstractDatabaseObjectAction {
 	 * @return	array<array>
 	 */
 	public function getOutstandingNotifications() {
-		$notifications = UserNotificationHandler::getInstance()->getNotifications();
+		$notifications = UserNotificationHandler::getInstance()->getMixedNotifications();
 		WCF::getTPL()->assign(array(
 			'notifications' => $notifications
 		));
 		
 		return array(
 			'template' => WCF::getTPL()->fetch('notificationListOustanding'),
-			'totalCount' => UserNotificationHandler::getInstance()->getNotificationCount(true)
+			'totalCount' => $notifications['notificationCount']
 		);
 	}
 	
 	/**
-	 * Validates if given notification id is valid for current user.
+	 * Validates parameters to mark a notification as confirmed.
 	 */
 	public function validateMarkAsConfirmed() {
-		$this->readInteger('notificationID');
-		$this->notification = new UserNotification($this->parameters['notificationID']);
-		
-		if (!$this->notification->notificationID) {
-			throw new UserInputException('notificationID');
-		}
-		else if ($this->notification->userID != WCF::getUser()->userID) {
+		$this->notificationEditor = $this->getSingleObject();
+		if ($this->notificationEditor->userID != WCF::getUser()->userID) {
 			throw new PermissionDeniedException();
 		}
 	}
@@ -192,15 +188,11 @@ class UserNotificationAction extends AbstractDatabaseObjectAction {
 	 * @return	array
 	 */
 	public function markAsConfirmed() {
-		$notificationEditor = new UserNotificationEditor($this->notification);
-		$notificationEditor->markAsConfirmed();
-		
-		// reset notification count
-		UserStorageHandler::getInstance()->reset(array(WCF::getUser()->userID), 'userNotificationCount');
+		UserNotificationHandler::getInstance()->markAsConfirmedByID($this->notificationEditor->notificationID);
 		
 		return array(
-			'notificationID' => $this->parameters['notificationID'],
-			'totalCount' => UserNotificationHandler::getInstance()->getNotificationCount()
+			'notificationID' => $this->notificationEditor->notificationID,
+			'totalCount' => UserNotificationHandler::getInstance()->getNotificationCount(true)
 		);
 	}
 	
@@ -215,13 +207,19 @@ class UserNotificationAction extends AbstractDatabaseObjectAction {
 	public function markAllAsConfirmed() {
 		// remove notifications for this user
 		$sql = "UPDATE	wcf".WCF_N."_user_notification
-			SET	confirmed = ?
+			SET	confirmTime = ?
 			WHERE	userID = ?";
 		$statement = WCF::getDB()->prepareStatement($sql);
 		$statement->execute(array(
-			1,
+			TIME_NOW,
 			WCF::getUser()->userID
 		));
+		
+		// delete notification_to_user assignments (mimic legacy notification system)
+		$sql = "DELETE FROM	wcf".WCF_N."_user_notification_to_user
+			WHERE		userID = ?";
+		$statement = WCF::getDB()->prepareStatement($sql);
+		$statement->execute(array(WCF::getUser()->userID));
 		
 		// reset notification count
 		UserStorageHandler::getInstance()->reset(array(WCF::getUser()->userID), 'userNotificationCount');

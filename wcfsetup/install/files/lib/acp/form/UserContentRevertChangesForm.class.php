@@ -1,6 +1,5 @@
 <?php
 namespace wcf\acp\form;
-use wcf\data\object\type\ObjectTypeCache;
 use wcf\form\AbstractForm;
 use wcf\system\clipboard\ClipboardHandler;
 use wcf\system\edit\EditHistoryManager;
@@ -19,6 +18,11 @@ use wcf\system\WCF;
  * @category	Community Framework
  */
 class UserContentRevertChangesForm extends AbstractForm {
+	/**
+	 * @see \wcf\page\AbstractPage::$neededModules
+	 */
+	public $neededModules = array('MODULE_EDIT_HISTORY');
+
 	/**
 	 * @see	\wcf\page\AbstractPage::$neededPermissions
 	 */

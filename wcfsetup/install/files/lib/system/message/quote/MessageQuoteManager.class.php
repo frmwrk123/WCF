@@ -98,9 +98,9 @@ class MessageQuoteManager extends SingletonFactory {
 	 * @param	integer		$objectID
 	 * @param	string		$message
 	 * @param	string		$fullQuote
-	 * @param	boolean
+	 * @return	mixed
 	 */
-	public function addQuote($objectType, $parentObjectID, $objectID, $message, $fullQuote = '') {
+	public function addQuote($objectType, $parentObjectID, $objectID, $message, $fullQuote = '', $returnFalseIfExists = true) {
 		if (!isset($this->objectTypes[$objectType])) {
 			throw new SystemException("Object type '".$objectType."' is unknown");
 		}
@@ -141,11 +141,12 @@ class MessageQuoteManager extends SingletonFactory {
 			}
 			
 			$this->updateSession();
-			
-			return true;
+		}
+		else if ($returnFalseIfExists) {
+			return false;
 		}
 		
-		return false;
+		return $quoteID;
 	}
 	
 	/**
@@ -223,6 +224,37 @@ class MessageQuoteManager extends SingletonFactory {
 		}
 		
 		return false;
+	}
+	
+	/**
+	 * Returns an array containing the quote author, link and text.
+	 * 
+	 * @param	string		$quoteID
+	 * @return	array<string>
+	 */
+	public function getQuoteComponents($quoteID) {
+		if ($this->getQuote($quoteID, false) === null) {
+			return '';
+		}
+		
+		// find the quote and simulate a regular call to render quotes
+		$quoteData = array();
+		foreach ($this->quotes as $objectType => $objectIDs) {
+			foreach ($objectIDs as $objectID => $quoteIDs) {
+				if (isset($quoteIDs[$quoteID])) {
+					$quoteHandler = call_user_func(array($this->objectTypes[$objectType]->className, 'getInstance'));
+					$renderedQuotes = $quoteHandler->renderQuotes(array(
+						$objectID => array(
+							$quoteID => $quoteIDs[$quoteID]
+						)
+					), true, false);
+					
+					$this->markQuotesForRemoval(array($quoteID));
+					
+					return $renderedQuotes[0];
+				}
+			}
+		}
 	}
 	
 	/**
@@ -382,13 +414,23 @@ class MessageQuoteManager extends SingletonFactory {
 	 * 
 	 * @param	\wcf\data\IMessage	$message
 	 * @param	string			$text
+	 * @param	boolean			$renderAsString
 	 * @return	string
 	 */
-	public function renderQuote(IMessage $message, $text) {
+	public function renderQuote(IMessage $message, $text, $renderAsString = true) {
 		$escapedUsername = str_replace(array("\\", "'"), array("\\\\", "\'"), $message->getUsername());
 		$escapedLink = str_replace(array("\\", "'"), array("\\\\", "\'"), $message->getLink());
 		
-		return "[quote='".$escapedUsername."','".$escapedLink."']".$text."[/quote]";
+		if ($renderAsString) {
+			return "[quote='".$escapedUsername."','".$escapedLink."']".$text."[/quote]";
+		}
+		else {
+			return array(
+				'username' => $escapedUsername,
+				'link' => $escapedLink,
+				'text' => $text
+			);
+		}
 	}
 	
 	/**

@@ -154,14 +154,11 @@ final class User extends DatabaseObject implements IRouteController, IUserConten
 				$this->groupIDs = UserGroup::getGroupIDsByType(array(UserGroup::GUESTS, UserGroup::EVERYONE));
 			}
 			else {
-				// load storage data
-				UserStorageHandler::getInstance()->loadStorage(array($this->userID));
-				
 				// get group ids
-				$data = UserStorageHandler::getInstance()->getStorage(array($this->userID), 'groupIDs');
+				$data = UserStorageHandler::getInstance()->getField('groupIDs', $this->userID);
 				
 				// cache does not exist or is outdated
-				if ($data[$this->userID] === null || $skipCache) {
+				if ($data === null || $skipCache) {
 					$this->groupIDs = array();
 					$sql = "SELECT	groupID
 						FROM	wcf".WCF_N."_user_to_group
@@ -178,7 +175,7 @@ final class User extends DatabaseObject implements IRouteController, IUserConten
 					}
 				}
 				else {
-					$this->groupIDs = unserialize($data[$this->userID]);
+					$this->groupIDs = unserialize($data);
 				}
 			}
 			
@@ -198,14 +195,11 @@ final class User extends DatabaseObject implements IRouteController, IUserConten
 			$this->languageIDs = array();
 			
 			if ($this->userID) {
-				// load storage data
-				UserStorageHandler::getInstance()->loadStorage(array($this->userID));
-				
 				// get language ids
-				$data = UserStorageHandler::getInstance()->getStorage(array($this->userID), 'languageIDs');
+				$data = UserStorageHandler::getInstance()->getField('languageIDs', $this->userID);
 				
 				// cache does not exist or is outdated
-				if ($data[$this->userID] === null) {
+				if ($data === null) {
 					$sql = "SELECT	languageID
 						FROM	wcf".WCF_N."_user_to_language
 						WHERE	userID = ?";
@@ -219,7 +213,7 @@ final class User extends DatabaseObject implements IRouteController, IUserConten
 					UserStorageHandler::getInstance()->update($this->userID, 'languageIDs', serialize($this->languageIDs));
 				}
 				else {
-					$this->languageIDs = unserialize($data[$this->userID]);
+					$this->languageIDs = unserialize($data);
 				}
 			}
 			else if (!WCF::getSession()->spiderID) {
@@ -288,9 +282,11 @@ final class User extends DatabaseObject implements IRouteController, IUserConten
 	 * @return	\wcf\data\user\User
 	 */
 	public static function getUserByUsername($username) {
-		$sql = "SELECT	*
-			FROM	wcf".WCF_N."_user
-			WHERE	username = ?";
+		$sql = "SELECT		user_option_value.*, user_table.*
+			FROM		wcf".WCF_N."_user user_table
+			LEFT JOIN	wcf".WCF_N."_user_option_value user_option_value
+			ON		(user_option_value.userID = user_table.userID)
+			WHERE		user_table.username = ?";
 		$statement = WCF::getDB()->prepareStatement($sql);
 		$statement->execute(array($username));
 		$row = $statement->fetchArray();
@@ -306,9 +302,11 @@ final class User extends DatabaseObject implements IRouteController, IUserConten
 	 * @return	\wcf\data\user\User
 	 */
 	public static function getUserByEmail($email) {
-		$sql = "SELECT	*
-			FROM	wcf".WCF_N."_user
-			WHERE	email = ?";
+		$sql = "SELECT		user_option_value.*, user_table.*
+			FROM		wcf".WCF_N."_user user_table
+			LEFT JOIN	wcf".WCF_N."_user_option_value user_option_value
+			ON		(user_option_value.userID = user_table.userID)
+			WHERE		user_table.email = ?";
 		$statement = WCF::getDB()->prepareStatement($sql);
 		$statement->execute(array($email));
 		$row = $statement->fetchArray();

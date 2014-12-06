@@ -43,7 +43,7 @@ class NoticeAddForm extends AbstractForm {
 	 * name of the chosen CSS class name
 	 * @var	string
 	 */
-	public $cssClassName = '';
+	public $cssClassName = 'info';
 	
 	/**
 	 * custom CSS class name
@@ -72,7 +72,7 @@ class NoticeAddForm extends AbstractForm {
 	/**
 	 * @see	\wcf\page\AbstractPage::$neededPermissions
 	 */
-	public $neededPermissions = array('admin.content.notice.canManageNotice');
+	public $neededPermissions = array('admin.notice.canManageNotice');
 	
 	/**
 	 * name of the notice

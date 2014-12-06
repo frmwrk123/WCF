@@ -30,7 +30,8 @@ abstract class AbstractSearchableObjectType extends AbstractObjectTypeProcessor 
 	 * @see	\wcf\system\search\ISearchableObjectType::getApplication()
 	 */
 	public function getApplication() {
-		return 'wcf';
+		$classParts = explode('\\', get_called_class());
+		return $classParts[0];
 	}
 	
 	/**
@@ -90,9 +91,9 @@ abstract class AbstractSearchableObjectType extends AbstractObjectTypeProcessor 
 	}
 	
 	/**
-	 * @see	\wcf\system\search\ISearchableObjectType::getSpecialSQLQuery()
+	 * @see	\wcf\system\search\ISearchableObjectType::getOuterSQLQuery()
 	 */
-	public function getSpecialSQLQuery(PreparedStatementConditionBuilder &$fulltextCondition = null, PreparedStatementConditionBuilder &$searchIndexConditions = null, PreparedStatementConditionBuilder &$additionalConditions = null, $orderBy = 'time DESC') {
+	public function getOuterSQLQuery($q, PreparedStatementConditionBuilder &$searchIndexConditions = null, PreparedStatementConditionBuilder &$additionalConditions = null) {
 		return '';
 	}
 	

@@ -590,7 +590,7 @@
 					display: none;
 				}
 			}
-					
+			
 			> .sidebar {
 				background-color: @wcfSidebarBackgroundColor;
 				width: 300px;
@@ -1094,7 +1094,7 @@ html[dir="rtl"] {
 				}
 				
 				> div {
-					padding: 14px 21px;
+					padding: @wcfGapMedium @wcfGapLarge;
 				}
 			}
 			
@@ -1109,7 +1109,7 @@ html[dir="rtl"] {
 
 .nestedCategoryList {
 	> li {
-		margin-top: 14px;
+		margin-top: @wcfGapMedium;
 		overflow: hidden;
 		
 		&:first-child {
@@ -1117,7 +1117,7 @@ html[dir="rtl"] {
 		}
 		
 		> div {
-			padding: 0 14px;
+			padding: 0 @wcfGapMedium;
 			
 			> ol {
 				margin-top: 0;
@@ -1157,7 +1157,7 @@ html[dir="rtl"] {
 .sidebarNestedCategoryList {
 	> li {
 		> ol {
-			margin-left: 14px;
+			margin-left: @wcfGapMedium;
 		}
 	}
 	
@@ -1642,6 +1642,8 @@ html[dir="rtl"] {
 		padding: @wcfGapSmall;
 		text-align: left;
 		vertical-align: middle;
+		// non standard only webkit
+		word-break: break-word;
 		
 		> label {
 			cursor: pointer;
@@ -1700,7 +1702,7 @@ html[dir="rtl"] {
 			font-family: FontAwesome;
 			font-size: 14px;
 			position: absolute;
-			margin-left: 4px;
+			margin-left: @wcfGapTiny;
 			
 			.textShadow(@wcfTabularBoxBackgroundColor);
 		}
@@ -1929,7 +1931,7 @@ dl.inlineDataList {
 	
 	> dd {
 		display: inline-block;
-		margin: 0 4px 0 0;
+		margin: 0 @wcfGapTiny 0 0;
 		padding: 0;
 	}
 	
@@ -2294,6 +2296,43 @@ ul.inlineDataList {
 		display: table-cell;
 		width: 50%;
 	}
+}
+
+/* ad locations */
+.wcfAdLocationHeaderContent,
+.wcfAdLocationFooterContent,
+.wcfAdLocationFooterBottom {
+	text-align: center;
+	
+	> div {
+		display: inline-block;
+		text-align: left;
+	}
+}
+
+.wcfAdLocationHeaderContent {
+	margin-top: @wcfGapSmall;
+}
+
+.wcfAdLocationFooterContent,
+.wcfAdLocationFooterBottom {
+	margin-top: @wcfGapMedium;
+}
+
+.wcfAdLocationSidebarTop,
+.wcfAdLocationSidebarBottom {
+	padding: 0 @wcfGapMedium @wcfGapMedium;
+	text-align: center;
+	
+	> div {
+		display: inline-block;
+		text-align: left;
+	}
+}
+
+.wcfAdLocationLogo {
+	float: right;
+	padding: @wcfGapMedium @wcfGapMedium 0 @wcfGapMedium;
 }
 
 /* print version */

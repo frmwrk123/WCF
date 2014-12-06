@@ -1,7 +1,9 @@
 <?php
 namespace wcf\system\request;
+use wcf\system\application\ApplicationHandler;
 use wcf\system\exception\SystemException;
 use wcf\system\menu\page\PageMenu;
+use wcf\system\WCF;
 
 /**
  * Route implementation to resolve HTTP requests.
@@ -52,6 +54,12 @@ class Route {
 	 * @var	array
 	 */
 	protected $routeData = null;
+	
+	/**
+	 * list of application abbreviation and default controller name
+	 * @var	array<string>
+	 */
+	protected static $defaultControllers = null;
 	
 	/**
 	 * Creates a new route.
@@ -254,6 +262,9 @@ class Route {
 	 * @return	string
 	 */
 	public function buildLink(array $components) {
+		$application = (isset($components['application'])) ? $components['application'] : null;
+		self::loadDefaultControllers();
+		
 		// drop application component to avoid being appended as query string
 		unset($components['application']);
 		
@@ -272,13 +283,25 @@ class Route {
 				if ($landingPage !== null && strcasecmp($landingPage->getController(), $components['controller']) == 0) {
 					$ignoreController = true;
 				}
+				
+				// check if this is the default controller of the requested application
+				if (!URL_LEGACY_MODE && !$ignoreController && $application !== null) {
+					if (isset(self::$defaultControllers[$application]) && self::$defaultControllers[$application] == $components['controller']) {
+						// check if this is the primary application and the landing page originates to the same application
+						$primaryApplication = ApplicationHandler::getInstance()->getPrimaryApplication();
+						$abbreviation = ApplicationHandler::getInstance()->getAbbreviation($primaryApplication->packageID);
+						if ($abbreviation != $application || $landingPage === null || $landingPage->getApplication() != 'wcf') {
+							$ignoreController = true;
+						}
+					}
+				}
 			}
 			
 			// drops controller from route
 			if ($ignoreController) {
 				$buildRoute = false;
 				
-				// unset the controller, since it would otherwise added with http_build_query()
+				// unset the controller, since it would otherwise be added with http_build_query()
 				unset($components['controller']);
 			}
 		}
@@ -301,15 +324,14 @@ class Route {
 			}
 		}
 		
-		if (URL_LEGACY_MODE && !$this->isACP()) {
-			if (!empty($link) && !URL_OMIT_INDEX_PHP) {
-				$link = 'index.php/' . $link;
-			}
-		}
-		else {
+		// enforce non-legacy URLs for ACP and disregard rewrite settings
+		if ($this->isACP()) {
 			if (!empty($link)) {
 				$link = '?' . $link;
 			}
+		}
+		else if (!URL_OMIT_INDEX_PHP) {
+			$link = (URL_LEGACY_MODE ? 'index.php/' : (!empty($link) ? '?' : '')) . $link;
 		}
 		
 		if (!empty($components)) {
@@ -329,5 +351,27 @@ class Route {
 	 */
 	public function isACP() {
 		return $this->isACP;
+	}
+	
+	/**
+	 * Loads the default controllers for each active application.
+	 */
+	protected static function loadDefaultControllers() {
+		if (self::$defaultControllers === null) {
+			self::$defaultControllers = array();
+			
+			foreach (ApplicationHandler::getInstance()->getApplications() as $application) {
+				$controller = WCF::getApplicationObject($application)->getPrimaryController();
+				if (!$controller) {
+					continue;
+				}
+				
+				$controller = explode('\\', $controller);
+				$controllerName = preg_replace('~(Action|Form|Page)$~', '', array_pop($controller));
+				if (URL_TO_LOWERCASE) $controllerName = mb_strtolower($controllerName);
+				
+				self::$defaultControllers[$controller[0]] = $controllerName;
+			}
+		}
 	}
 }

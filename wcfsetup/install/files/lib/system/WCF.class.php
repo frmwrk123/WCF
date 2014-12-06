@@ -823,11 +823,31 @@ class WCF {
 	}
 	
 	/**
+	 * Returns the favicon URL or a base64 encoded image.
+	 * 
+	 * @return	string
+	 */
+	public function getFavicon() {
+		$activeApplication = ApplicationHandler::getInstance()->getActiveApplication();
+		$primaryApplication = ApplicationHandler::getInstance()->getPrimaryApplication();
+		
+		if ($activeApplication->domainName != $primaryApplication->domainName) {
+			if (file_exists(WCF_DIR.'images/favicon.ico')) {
+				$favicon = file_get_contents(WCF_DIR.'images/favicon.ico');
+				
+				return 'data:image/x-icon;base64,' . base64_encode($favicon);
+			}
+		}
+		
+		return self::getPath() . 'images/favicon.ico';
+	}
+	
+	/**
 	 * Initialises the cronjobs.
 	 */
 	protected function initCronjobs() {
 		if (PACKAGE_ID) {
-			self::getTPL()->assign('executeCronjobs', CronjobScheduler::getInstance()->getNextExec() < TIME_NOW);
+			self::getTPL()->assign('executeCronjobs', (CronjobScheduler::getInstance()->getNextExec() < TIME_NOW && defined('OFFLINE') && !OFFLINE));
 		}
 	}
 }

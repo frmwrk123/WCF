@@ -1,3 +1,5 @@
+"use strict";
+
 /**
  * Enhanced image viewer for WCF.
  * 
@@ -80,18 +82,16 @@ WCF.ImageViewer = Class.extend({
 		}
 		
 		$image.removeClass('jsResizeImage');
-		var $dimensions = $image.getDimensions();
-		var $maxWidth = $image.parents('div').innerWidth();
 		
-		if ($dimensions.width > $maxWidth) {
-			$image.css({
-				height: Math.round($dimensions.height * ($maxWidth / $dimensions.width)) + 'px',
-				width: $maxWidth + 'px'
-			});
-			
+		// setting img { max-width: 100% } causes the image to fit within boundaries, but does not reveal the original dimenions
+		var $imageObject = new Image();
+		$imageObject.src = $image.attr('src');
+		
+		var $maxWidth = $image.closest('div.messageText').width();
+		if ($maxWidth < $imageObject.width) {
 			if (!$image.parents('a').length) {
-				$image.wrap('<a href="' + $image.attr('src') + '" />');
-				$image.parent().slimbox();
+				$image.wrap('<a href="' + $image.attr('src') + '" class="jsImageViewerEnabled" />');
+				$image.parent().click($.proxy(this._click, this));
 			}
 		}
 	}
@@ -317,6 +317,7 @@ $.widget('ui.wcfImageViewer', {
 			this._isOpen = true;
 			
 			WCF.System.DisableScrolling.disable();
+			WCF.System.DisableZoom.disable();
 			
 			// switch to fullscreen mode on smartphones
 			if ($.browser.touch) {
@@ -341,6 +342,7 @@ $.widget('ui.wcfImageViewer', {
 				this._isOpen = true;
 			
 				WCF.System.DisableScrolling.disable();
+				WCF.System.DisableZoom.disable();
 			}
 		}
 		
@@ -371,6 +373,7 @@ $.widget('ui.wcfImageViewer', {
 		this._isOpen = false;
 		
 		WCF.System.DisableScrolling.enable();
+		WCF.System.DisableZoom.enable();
 		
 		return true;
 	},
@@ -617,10 +620,10 @@ $.widget('ui.wcfImageViewer', {
 		}
 		
 		this._activeImage = $newImageIndex;
-		
 		var $currentActiveImage = this._active;
 		this._ui.imageContainer.addClass('loading');
-		this._ui.images[$newImageIndex].off('load').prop('src', false).on('load', $.proxy(function() {
+		this._ui.images[$newImageIndex].off('load').prop('src', 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='); // 1x1 pixel transparent gif
+		this._ui.images[$newImageIndex].on('load', $.proxy(function() {
 			this._imageOnLoad($currentActiveImage, $newImageIndex);
 		}, this));
 		
@@ -684,6 +687,7 @@ $.widget('ui.wcfImageViewer', {
 	 * @param	object		containerDimensions
 	 */
 	_renderImage: function(targetIndex, imageData, containerDimensions) {
+		var $checkForComplete = true;
 		if (!imageData) {
 			targetIndex = this._activeImage;
 			imageData = this._images[this._active];
@@ -692,17 +696,40 @@ $.widget('ui.wcfImageViewer', {
 				height: $(window).height() - (this._container.hasClass('maximized') || this._container.hasClass('wcfImageViewerMobile') ? 0 : 200),
 				width: this._ui.imageContainer.innerWidth()
 			};
+			
+			$checkForComplete = false;
 		}
 		
 		// simulate padding
 		containerDimensions.height -= 22;
 		containerDimensions.width -= 20;
 		
-		var $image = this._ui.images[targetIndex].prop('src', imageData.image.url);
+		var $image = this._ui.images[targetIndex];
+		if ($image.prop('src') !== imageData.image.url) {
+			// assigning the same exact source again breaks Internet Explorer 10
+			$image.prop('src', imageData.image.url);
+		}
 		
-		if (this.options.staticViewer && !imageData.height && $image.get(0).complete) {
+		if ($checkForComplete && $image[0].complete) {
+			$image.trigger('load');
+		}
+		
+		if (this.options.staticViewer && !imageData.image.height && $image[0].complete) {
 			var $img = new Image();
 			$img.src = imageData.image.url;
+			
+			// Chrome on iOS seems to not fetch images from cache
+			if (navigator.userAgent.match(/CriOS/)) {
+				var self = this;
+				$img.onload = function() {
+					imageData.image.height = this.height;
+					imageData.image.width = this.width;
+					
+					self._renderImage(targetIndex, imageData, containerDimensions);
+				};
+				
+				return;
+			}
 			
 			imageData.image.height = $img.height;
 			imageData.image.width = $img.width;
@@ -785,6 +812,10 @@ $.widget('ui.wcfImageViewer', {
 		$slideshowButtonPrevious.click($.proxy(this._previousImage, this));
 		$slideshowButtonEnlarge.click($.proxy(this._toggleView, this));
 		$slideshowButtonToggle.click($.proxy(function() {
+			if (this._items < 2) {
+				return;
+			}
+			
 			if (this._slideshowEnabled) {
 				this.stopSlideshow(true);
 			}
@@ -797,6 +828,16 @@ $.widget('ui.wcfImageViewer', {
 		
 		// close button
 		$('<span class="wcfImageViewerButtonClose icon icon48 icon-remove pointer jsTooltip" title="' + WCF.Language.get('wcf.global.button.close') + '" />').appendTo(this._ui.header).click($.proxy(this.close, this));
+		
+		if (!$.browser.mobile) {
+			// clicking on the inner container should close the dialog, but it should not be available on mobile due to
+			// the lack of precision causing accidental closing, the close button is big enough and easily reachable
+			$imageContainer.click((function(event) {
+				if (event.target === $imageContainer[0]) {
+					this.close();
+				}
+			}).bind(this));
+		}
 		
 		WCF.DOMNodeInsertedHandler.execute();
 		
@@ -1020,6 +1061,13 @@ $.widget('ui.wcfImageViewer', {
 		else {
 			this._ui.slideshow.next.removeClass('pointer');
 		}
+		
+		if (this._items < 2) {
+			this._ui.slideshow.toggle.removeClass('pointer');
+		}
+		else {
+			this._ui.slideshow.toggle.addClass('pointer');
+		}
 	},
 	
 	/**
@@ -1132,6 +1180,10 @@ $.widget('ui.wcfImageViewer', {
 		
 		$(this.options.imageSelector).each(function(index, link) {
 			var $link = $(link);
+			var $thumbnail = $link.children('img');
+			if (!$thumbnail.length) {
+				$thumbnail = $link.parentsUntil('.formAttachmentList').last().find('.attachmentTinyThumbnail');
+			}
 			
 			$images.push({
 				image: {
@@ -1142,7 +1194,7 @@ $.widget('ui.wcfImageViewer', {
 				},
 				series: null,
 				thumbnail: {
-					url: $link.children('img').prop('src')
+					url: $thumbnail.prop('src')
 				},
 				user: null
 			});
@@ -1176,6 +1228,7 @@ $.widget('ui.wcfImageViewer', {
 			this._isOpen = true;
 		
 			WCF.System.DisableScrolling.disable();
+			WCF.System.DisableZoom.disable();
 		}
 	}
 });

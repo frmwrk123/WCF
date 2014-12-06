@@ -247,9 +247,10 @@
 		}
 		
 		&.notificationItem {
-			&.groupedNotificationItem > a {
-				> div:first-child {
-					padding: 4px 2px 2px;
+			&.groupedNotificationItem > span {
+				> .framed > span.fa-users:before {
+					position: relative;
+					top: 3px;
 				}
 				
 				> div + div {
@@ -257,8 +258,55 @@
 				}
 			}
 			
-			> a {
+			&.notificationItemLink {
+				position: relative;
+				
+				> span {
+					cursor: default;
+					pointer-events: none;
+					position: relative;
+					z-index: 10;
+					
+					a {
+						pointer-events: all;
+					}
+				}
+				
+				> a {
+					bottom: 0;
+					left: 0;
+					position: absolute;
+					right: 0;
+					top: 0;
+					z-index: 1;
+				}
+			}
+			
+			&:hover > span > .framed {
+				> .notificationItemMarkAsConfirmed {
+					height: 24px;	
+					display: block;
+					width: 24px;
+					
+					&:before {
+						position: relative;
+						top: 3px;
+					}
+				}
+				
+				> .notificationItemMarkAsConfirmed ~ img,
+				> .notificationItemMarkAsConfirmed ~ .fa-users {
+					display: none;
+				}
+			}
+			
+			> span {
+				cursor: pointer;
 				white-space: normal;
+				
+				> .framed > .notificationItemMarkAsConfirmed {
+					display: none;
+				}
 			}
 		}
 	}

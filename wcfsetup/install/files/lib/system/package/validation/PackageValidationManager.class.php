@@ -35,6 +35,24 @@ class PackageValidationManager extends SingletonFactory {
 	protected $virtualPackageList = array();
 	
 	/**
+	 * validation will only check if the primary package looks like it can be installed or updated
+	 * @var	integer
+	 */
+	const VALIDATION_WEAK = 0;
+	
+	/**
+	 * validation will recursively check dependencies
+	 * @var	integer
+	 */
+	const VALIDATION_RECURSIVE = 1;
+	
+	/**
+	 * validation will use the previously gathered exclusions and check them
+	 * @var	integer
+	 */
+	const VALIDATION_EXCLUSION = 2;
+	
+	/**
 	 * @see	\wcf\system\SingletonFactory::init()
 	 */
 	protected function init() {
@@ -55,11 +73,19 @@ class PackageValidationManager extends SingletonFactory {
 	 * @param	boolean		$deepInspection
 	 * @return	boolean
 	 */
-	public function validate($archive, $deepInspection = true) {
+	public function validate($archive, $deepInspection) {
 		$this->virtualPackageList = array();
 		$this->packageValidationArchive = new PackageValidationArchive($archive);
 		
-		return $this->packageValidationArchive->validate($deepInspection);
+		if ($deepInspection) {
+			if (!$this->packageValidationArchive->validate(self::VALIDATION_RECURSIVE)) {
+				return false;
+			}
+			
+			return $this->packageValidationArchive->validate(self::VALIDATION_EXCLUSION);
+		}
+		
+		return $this->packageValidationArchive->validate(self::VALIDATION_WEAK);
 	}
 	
 	/**
@@ -149,9 +175,9 @@ class PackageValidationManager extends SingletonFactory {
 	
 	/**
 	 * Validates an instruction against the corresponding package installation plugin.
-	 * 
+	 *
 	 * Please be aware that unknown PIPs will silently ignored and cause no error.
-	 *  
+	 *
 	 * @param	\wcf\data\package\PackageArchive	$archive
 	 * @param	string					$pip
 	 * @param	string					$instruction

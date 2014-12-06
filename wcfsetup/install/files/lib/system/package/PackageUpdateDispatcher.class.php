@@ -3,9 +3,8 @@ namespace wcf\system\package;
 use wcf\data\package\update\server\PackageUpdateServer;
 use wcf\data\package\update\server\PackageUpdateServerEditor;
 use wcf\data\package\update\version\PackageUpdateVersionEditor;
-use wcf\data\package\update\version\PackageUpdateVersionList;
+use wcf\data\package\update\PackageUpdate;
 use wcf\data\package\update\PackageUpdateEditor;
-use wcf\data\package\update\PackageUpdateList;
 use wcf\data\package\Package;
 use wcf\system\cache\builder\PackageUpdateCacheBuilder;
 use wcf\system\database\util\PreparedStatementConditionBuilder;
@@ -84,6 +83,7 @@ class PackageUpdateDispatcher extends SingletonFactory {
 		if ($authData) $settings['auth'] = $authData;
 		
 		$postData = array(
+			'apiVersion' => PackageUpdate::API_VERSION,
 			'lastUpdateTime' => $updateServer->lastUpdateTime
 		);
 		

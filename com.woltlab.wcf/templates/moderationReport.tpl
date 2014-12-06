@@ -64,6 +64,7 @@
 
 <header class="boxHeadline boxSubHeadline">
 	<h2>{lang}wcf.moderation.report.reportedContent{/lang}</h2>
+	<p>{lang}wcf.moderation.type.{@$queue->getObjectTypeName()}{/lang}</p>
 </header>
 
 <div class="marginTop">
@@ -124,7 +125,7 @@
 {include file='__commentJavaScript' commentContainerID='moderationQueueCommentList'}
 
 <div class="container containerList marginTop blogEntryComments">
-	<ul id="moderationQueueCommentList" class="commentList containerList" data-can-add="true" data-object-id="{@$queueID}" data-object-type-id="{@$commentObjectTypeID}" data-comments="{@$commentList->countObjects()}" data-last-comment-time="{@$lastCommentTime}">
+	<ul id="moderationQueueCommentList" class="commentList containerList" data-can-add="true" data-object-id="{@$queueID}" data-object-type-id="{@$commentObjectTypeID}" data-comments="{if $queue->comments}{@$commentList->countObjects()}{else}0{/if}" data-last-comment-time="{@$lastCommentTime}">
 		{include file='commentList'}
 	</ul>
 </div>

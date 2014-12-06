@@ -1,3 +1,5 @@
+"use strict";
+
 /**
  * Message related classes for WCF
  * 
@@ -364,7 +366,7 @@ WCF.Message.Preview = Class.extend({
 	_getParameters: function(message) {
 		// collect message form options
 		var $options = { };
-		$('#settings').find('input[type=checkbox]').each(function(index, checkbox) {
+		$('#settings_' + this._messageFieldID).find('input[type=checkbox]').each(function(index, checkbox) {
 			var $checkbox = $(checkbox);
 			if ($checkbox.is(':checked')) {
 				$options[$checkbox.prop('name')] = $checkbox.prop('value');
@@ -387,10 +389,10 @@ WCF.Message.Preview = Class.extend({
 	 */
 	_getMessage: function() {
 		if (!$.browser.redactor) {
-			return this._messageField.val();
+			return $.trim(this._messageField.val());
 		}
 		else if (this._messageField.data('redactor')) {
-			return this._messageField.redactor('getText');
+			return this._messageField.redactor('wutil.getText');
 		}
 		
 		return null;
@@ -699,7 +701,7 @@ WCF.Message.Smilies = Class.extend({
 		this._wysiwygSelector = wysiwygSelector;
 		
 		WCF.System.Dependency.Manager.register('Redactor_' + this._wysiwygSelector, $.proxy(function() {
-			this._redactor = $('#' + this._wysiwygSelector).redactor('getObject');
+			this._redactor = $('#' + this._wysiwygSelector).redactor('core.getObject');
 			
 			$('.messageTabMenu[data-wysiwyg-container-id=' + this._wysiwygSelector + ']').on('click', '.jsSmiley', $.proxy(this._smileyClick, this));
 		}, this));
@@ -716,7 +718,7 @@ WCF.Message.Smilies = Class.extend({
 		var $smileyPath = $target.data('smileyPath');
 		
 		// register smiley
-		this._redactor.insertSmiley($smileyCode, $smileyPath, true);
+		this._redactor.wbbcode.insertSmiley($smileyCode, $smileyPath, true);
 	}
 });
 
@@ -795,7 +797,7 @@ WCF.Message.QuickReply = Class.extend({
 		
 		// button actions
 		var $formSubmit = this._container.find('.formSubmit');
-		$formSubmit.find('button[data-type=save]').click($.proxy(this._save, this));
+		var $saveButton = $formSubmit.find('button[data-type=save]').removeAttr('accesskey').click($.proxy(this._save, this));
 		if (supportExtendedForm) $formSubmit.find('button[data-type=extended]').click($.proxy(this._prepareExtended, this));
 		$formSubmit.find('button[data-type=cancel]').click($.proxy(this._cancel, this));
 		
@@ -811,6 +813,34 @@ WCF.Message.QuickReply = Class.extend({
 		this._scroll = new WCF.Effect.Scroll();
 		this._notification = new WCF.System.Notification(WCF.Language.get('wcf.global.success.add'));
 		this._successMessageNonVisible = '';
+		
+		WCF.System.Event.addListener('com.woltlab.wcf.redactor', 'submitEditor_text', function(data) {
+			data.cancel = true;
+			
+			$saveButton.trigger('click');
+		});
+		
+		WCF.System.Event.addListener('com.woltlab.wcf.message.quote', 'insert', (function(data) {
+			var $insertQuote = false;
+			
+			// direct insert
+			if (this._container.is(':visible')) {
+				$insertQuote = true;
+			}
+			else if (data.forceInsert) {
+				// do not programmatically insert the quote because the callback will already do this
+				$insertQuote = (this._messageField.redactor('wutil.isEmptyEditor') ? false : true);
+				this.click(null);
+			}
+			
+			if ($insertQuote) {
+				this._messageField.redactor('wutil.selectionEndOfEditor');
+				this._messageField.redactor('wbbcode.insertQuoteBBCode', data.quote.username, data.quote.link, data.quote.text, data.quote.text);
+				
+				// scroll to editor
+				this._scroll.scrollTo(this._container, true);
+			}
+		}).bind(this));
 	},
 	
 	/**
@@ -824,8 +854,13 @@ WCF.Message.QuickReply = Class.extend({
 		if (this._container.is(':visible')) {
 			this._quickReplyButtons.hide();
 			
-			var self = this;
-			window.setTimeout(function() { self._scroll.scrollTo(self._container, true); }, 100);
+			setTimeout((function() {
+				$(document).trigger('resize');
+				if (!$.browser.mobile || !$.browser.chrome) {
+					// Chrome on Android scrolls to the caret position, manually scrolling breaks the position
+					this._scroll.scrollTo(this._container, true);
+				}
+			}).bind(this), 100);
 			
 			WCF.Message.Submit.registerButton('text', this._container.find('.formSubmit button[data-type=save]'));
 			
@@ -834,8 +869,7 @@ WCF.Message.QuickReply = Class.extend({
 				var $empty = true;
 				if ($.browser.redactor) {
 					if (this._messageField.data('redactor')) {
-						$empty = (!$.trim(this._messageField.redactor('getText')));
-						this._editorCallback($empty);
+						this._editorCallback(this._messageField.redactor('wutil.isEmptyEditor'));
 					}
 				}
 				else {
@@ -861,7 +895,7 @@ WCF.Message.QuickReply = Class.extend({
 		}
 		
 		if ($.browser.redactor) {
-			this._messageField.redactor('focus');
+			this._messageField.redactor('focus.setEnd');
 		}
 		else {
 			this._messageField.focus();
@@ -889,10 +923,14 @@ WCF.Message.QuickReply = Class.extend({
 		
 		if ($.browser.redactor) {
 			var $html = WCF.String.unescapeHTML(data.returnValues.template);
-			$html = this._messageField.redactor('transformQuote', $html);
+			$html = this._messageField.redactor('wbbcode.convertToHtml', $html);
+			$html = $html.replace(/<p><blockquote/, '<blockquote');
+			$html = $html.replace(/blockquote><\/p>/, 'blockquote>');
 			
-			this._messageField.redactor('selectionEndOfEditor');
-			this._messageField.redactor('insertDynamic', $html, data.returnValues.template);
+			this._messageField.redactor('focus.setEnd');
+			this._messageField.redactor('wutil.insertDynamic', $html, data.returnValues.template);
+			this._messageField.redactor('wutil.selectionEndOfEditor');
+			this._messageField.redactor('wbbcode._observeQuotes');
 		}
 		else {
 			this._messageField.val(data.returnValues.template);
@@ -909,7 +947,7 @@ WCF.Message.QuickReply = Class.extend({
 		
 		var $message = '';
 		if ($.browser.redactor) {
-			$message = this._messageField.redactor('getText');
+			$message = this._messageField.redactor('wutil.getText');
 		}
 		else {
 			$message = $.trim(this._messageField.val());
@@ -942,7 +980,7 @@ WCF.Message.QuickReply = Class.extend({
 		// show spinner and hide Redactor
 		var $messageBody = this._container.find('.messageQuickReplyContent .messageBody');
 		$('<span class="icon icon48 icon-spinner" />').appendTo($messageBody);
-		var $redactorBox = $messageBody.children('.redactor_box').hide();
+		var $redactorBox = $messageBody.children('.redactor-box').hide();
 		
 		// hide message tabs
 		$redactorBox.next().hide();
@@ -983,7 +1021,7 @@ WCF.Message.QuickReply = Class.extend({
 		this._revertQuickReply(true);
 		
 		if ($.browser.redactor) {
-			this._messageField.redactor('reset');
+			this._messageField.redactor('wutil.reset');
 		}
 		else {
 			this._messageField.val('');
@@ -1007,7 +1045,7 @@ WCF.Message.QuickReply = Class.extend({
 		
 		// display Redactor
 		$messageBody.children('.icon-spinner').remove();
-		$messageBody.children('.redactor_box').show().next().show();
+		$messageBody.children('.redactor-box').show().next().show();
 		
 		// display form submit
 		$messageBody.next().show();
@@ -1028,10 +1066,17 @@ WCF.Message.QuickReply = Class.extend({
 		
 		var $message = '';
 		if ($.browser.redactor) {
-			$message = this._messageField.redactor('getText');
+			$message = this._messageField.redactor('wutil.getText');
+			
+			if ($message.length) {
+				this._messageField.redactor('wutil.saveTextToStorage', true);
+			}
+			else {
+				this._messageField.redactor('wutil.autosavePurge');
+			}
 		}
 		else {
-			$message = this._messageField.val();
+			$message = $.trim(this._messageField.val());
 		}
 		
 		new WCF.Action.Proxy({
@@ -1045,9 +1090,10 @@ WCF.Message.QuickReply = Class.extend({
 					message: $message
 				}
 			},
-			success: function(data, textStatus, jqXHR) {
+			success: (function(data) {
+				this._messageField.redactor('wutil.saveTextToStorage');
 				window.location = data.returnValues.url;
-			}
+			}).bind(this)
 		});
 	},
 	
@@ -1060,7 +1106,7 @@ WCF.Message.QuickReply = Class.extend({
 	 */
 	_success: function(data, textStatus, jqXHR) {
 		if ($.browser.redactor) {
-			this._messageField.redactor('autosavePurge');
+			this._messageField.redactor('wutil.autosavePurge');
 		}
 		
 		// redirect to new page
@@ -1093,7 +1139,7 @@ WCF.Message.QuickReply = Class.extend({
 			}
 			
 			if ($.browser.redactor) {
-				this._messageField.redactor('reset');
+				this._messageField.redactor('wutil.reset');
 			}
 			else {
 				this._messageField.val('');
@@ -1459,6 +1505,7 @@ WCF.Message.InlineEditor = Class.extend({
 	_showEditor: function(data) {
 		// revert failure function
 		this._proxy.setOption('failure', $.proxy(this._failure, this));
+		var $containerID = this._messageEditorIDPrefix + this._container[this._activeElementID].data('objectID');
 		
 		var $messageBody = this._container[this._activeElementID].addClass('jsInvalidQuoteTarget').find('.messageBody');
 		$messageBody.children('.icon-spinner').remove();
@@ -1473,15 +1520,22 @@ WCF.Message.InlineEditor = Class.extend({
 		if (this._supportExtendedForm) $formSubmit.find('button[data-type=extended]').click($.proxy(this._prepareExtended, this));
 		$formSubmit.find('button[data-type=cancel]').click($.proxy(this._cancel, this));
 		
+		// TODO: is this still used?
 		WCF.Message.Submit.registerButton(
 			this._messageEditorIDPrefix + this._container[this._activeElementID].data('objectID'),
 			$saveButton
 		);
 		
+		WCF.System.Event.addListener('com.woltlab.wcf.redactor', 'submitEditor_' + $containerID, function(data) {
+			data.cancel = true;
+			
+			$saveButton.trigger('click');
+		});
+		
 		// hide message options
 		this._container[this._activeElementID].find('.messageOptions').addClass('forceHidden');
 		
-		var $element = $('#' + this._messageEditorIDPrefix + this._container[this._activeElementID].data('objectID'));
+		var $element = $('#' + $containerID);
 		if ($.browser.redactor) {
 			new WCF.PeriodicalExecuter($.proxy(function(pe) {
 				pe.stop();
@@ -1524,7 +1578,7 @@ WCF.Message.InlineEditor = Class.extend({
 		var $message = '';
 		
 		if ($.browser.redactor) {
-			$message = $('#' + this._messageEditorIDPrefix + $objectID).redactor('getText');
+			$message = $('#' + this._messageEditorIDPrefix + $objectID).redactor('wutil.getText');
 		}
 		else {
 			$message = $('#' + this._messageEditorIDPrefix + $objectID).val();
@@ -1560,7 +1614,7 @@ WCF.Message.InlineEditor = Class.extend({
 		var $message = '';
 		
 		if ($.browser.redactor) {
-			$message = $('#' + this._messageEditorIDPrefix + $objectID).redactor('getText');
+			$message = $('#' + this._messageEditorIDPrefix + $objectID).redactor('wutil.getText');
 		}
 		else {
 			$message = $('#' + this._messageEditorIDPrefix + $objectID).val();
@@ -1653,8 +1707,8 @@ WCF.Message.InlineEditor = Class.extend({
 		// destroy editor
 		if ($.browser.redactor) {
 			var $target = $('#' + this._messageEditorIDPrefix + $container.data('objectID'));
-			$target.redactor('autosavePurge');
-			$target.redactor('destroy');
+			$target.redactor('wutil.autosavePurge');
+			$target.redactor('core.destroy');
 		}
 		
 		// purge DOM elements
@@ -1818,8 +1872,9 @@ WCF.Message.Quote.Handler = Class.extend({
 	 * @param	string				containerSelector
 	 * @param	string				messageBodySelector
 	 * @param	string				messageContentSelector
+	 * @param	boolean				supportDirectInsert
 	 */
-	init: function(quoteManager, className, objectType, containerSelector, messageBodySelector, messageContentSelector) {
+	init: function(quoteManager, className, objectType, containerSelector, messageBodySelector, messageContentSelector, supportDirectInsert) {
 		this._className = className;
 		if (this._className == '') {
 			console.debug("[WCF.Message.QuoteManager] Empty class name given, aborting.");
@@ -1842,7 +1897,9 @@ WCF.Message.Quote.Handler = Class.extend({
 		});
 		
 		this._initContainers();
-		this._initCopyQuote();
+		
+		supportDirectInsert = (supportDirectInsert && quoteManager.supportPaste()) ? true : false;
+		this._initCopyQuote(supportDirectInsert);
 		
 		$(document).mouseup($.proxy(this._mouseUp, this));
 		
@@ -1907,6 +1964,7 @@ WCF.Message.Quote.Handler = Class.extend({
 		
 		// remove alt-tag from all images, fixes quoting in Firefox
 		if ($.browser.mozilla) {
+			// TODO: is this still required?
 			$container.find('img').each(function() {
 				var $image = $(this);
 				$image.data('__alt', $image.attr('alt')).removeAttr('alt');
@@ -1921,35 +1979,47 @@ WCF.Message.Quote.Handler = Class.extend({
 	 * @return	string
 	 */
 	_getNodeText: function(node) {
-		var nodeText = '';
+		var $walker = document.createTreeWalker(
+			node,
+			NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+			{
+				acceptNode: function(node) {
+					if (node.tagName === 'H3') {
+						return NodeFilter.FILTER_REJECT;
+					}
+					
+					return NodeFilter.FILTER_ACCEPT;
+				}
+			},
+			true
+		);
 		
-		for (var i = 0; i < node.childNodes.length; i++) {
-			if (node.childNodes[i].nodeType == 3) {
-				// text node
-				nodeText += node.childNodes[i].nodeValue;
+		var $text = '';
+		while ($walker.nextNode()) {
+			var $node = $walker.currentNode;
+			
+			if ($node.nodeType === Node.ELEMENT_NODE) {
+				switch ($node.tagName) {
+					case 'BR':
+					case 'LI':
+					case 'UL':
+						$text += "\n";
+					break;
+					
+					case 'TD':
+						if (!$.browser.msie) {
+							$text += "\n";
+						}
+					break;
+				}
 			}
 			else {
-				if (!node.childNodes[i].tagName) {
-					continue;
-				}
-				
-				var $tagName = node.childNodes[i].tagName.toLowerCase();
-				if ($tagName === 'li') {
-					nodeText += "\r\n";
-				}
-				else if ($tagName === 'td' && !$.browser.msie) {
-					nodeText += "\r\n";
-				}
-				
-				nodeText += this._getNodeText(node.childNodes[i]);
-				
-				if ($tagName === 'ul') {
-					nodeText += "\n";
-				}
+				$text += $walker.currentNode.nodeValue;
 			}
+			
 		}
 		
-		return nodeText;
+		return $text;
 	},
 	
 	/**
@@ -1977,10 +2047,10 @@ WCF.Message.Quote.Handler = Class.extend({
 		// compare selection with message text of given container
 		var $messageText = null;
 		if (this._messageBodySelector) {
-			$messageText = this._getNodeText($container.find(this._messageContentSelector).get(0));
+			$messageText = this._getNodeText($container.find(this._messageContentSelector)[0]);
 		}
 		else {
-			$messageText = this._getNodeText($container.get(0));
+			$messageText = this._getNodeText($container[0]);
 		}
 		
 		// selected text is not part of $messageText or contains text from unrelated nodes
@@ -1989,7 +2059,7 @@ WCF.Message.Quote.Handler = Class.extend({
 		}
 		this._copyQuote.show();
 		
-		var $coordinates = this._getBoundingRectangle($container, $selection);
+		var $coordinates = this._getBoundingRectangle($container, window.getSelection());
 		var $dimensions = this._copyQuote.getDimensions('outer');
 		var $left = ($coordinates.right - $coordinates.left) / 2 - ($dimensions.width / 2) + $coordinates.left;
 		
@@ -2015,6 +2085,7 @@ WCF.Message.Quote.Handler = Class.extend({
 				
 				// revert alt tags, fixes quoting in Firefox
 				if ($.browser.mozilla) {
+					// TODO: is this still required?
 					$container.find('img').each(function() {
 						var $image = $(this);
 						$image.attr('alt', $image.data('__alt'));
@@ -2072,42 +2143,12 @@ WCF.Message.Quote.Handler = Class.extend({
 		if (document.createRange && typeof document.createRange().getBoundingClientRect != "undefined") { // Opera, Firefox, Safari, Chrome
 			if (selection.rangeCount > 0) {
 				// the coordinates returned by getBoundingClientRect() is relative to the window, not the document!
-				//var $rect = selection.getRangeAt(0).getBoundingClientRect();
-				var $rects = selection.getRangeAt(0).getClientRects();
 				var $rect = selection.getRangeAt(0).getBoundingClientRect();
-				
-				/*
-				var $rect = { };
-				if (!$.browser.mozilla && $rects.length > 1) {
-					// save current selection to restore it later
-					var $range = selection.getRangeAt(0);
-					var $bckp = this._saveSelection(container.get(0));
-					var $position1 = this._getOffset($range, true);
-					
-					var $range = selection.getRangeAt(0);
-					var $position2 = this._getOffset($range, false);
-					
-					$rect = {
-						left: Math.min($position1.left, $position2.left),
-						right: Math.max($position1.left, $position2.left),
-						top: Math.max($position1.top, $position2.top)
-					};
-					
-					// restore selection
-					this._restoreSelection(container.get(0), $bckp);
-				}
-				else {
-					$rect = selection.getRangeAt(0).getBoundingClientRect();
-				}
-				*/
-				
-				var $document = $(document);
-				var $offsetTop = $document.scrollTop();
 				
 				$coordinates = {
 					left: $rect.left,
 					right: $rect.right,
-					top: $rect.top + $offsetTop
+					top: $rect.top + $(document).scrollTop()
 				};
 			}
 		}
@@ -2175,7 +2216,7 @@ WCF.Message.Quote.Handler = Class.extend({
 			var nodeStack = [containerEl], node, foundStart = false, stop = false;
 			
 			while (!stop && (node = nodeStack.pop())) {
-				if (node.nodeType == 3) {
+				if (node.nodeType == Node.TEXT_NODE) {
 					var nextCharIndex = charIndex + node.length;
 					if (!foundStart && savedSel.start >= charIndex && savedSel.start <= nextCharIndex) {
 						range.setStart(node, savedSel.start - charIndex);
@@ -2210,29 +2251,29 @@ WCF.Message.Quote.Handler = Class.extend({
 	
 	/**
 	 * Initializes the 'copy quote' element.
+	 * 
+	 * @param	boolean		supportDirectInsert
 	 */
-	_initCopyQuote: function() {
+	_initCopyQuote: function(supportDirectInsert) {
 		this._copyQuote = $('#quoteManagerCopy');
 		if (!this._copyQuote.length) {
-			this._copyQuote = $('<div id="quoteManagerCopy" class="balloonTooltip"><span>' + WCF.Language.get('wcf.message.quote.quoteSelected') + '</span><span class="pointer"><span></span></span></div>').hide().appendTo(document.body);
-			this._copyQuote.click($.proxy(this._saveQuote, this));
+			this._copyQuote = $('<div id="quoteManagerCopy" class="balloonTooltip"><span class="jsQuoteManagerStore">' + WCF.Language.get('wcf.message.quote.quoteSelected') + '</span><span class="pointer"><span></span></span></div>').hide().appendTo(document.body);
+			var $storeQuote = this._copyQuote.children('span.jsQuoteManagerStore').click($.proxy(this._saveQuote, this));
+			if (supportDirectInsert) {
+				$('<span class="jsQuoteManagerQuoteAndInsert">' + WCF.Language.get('wcf.message.quote.quoteAndReply') + '</span>').click($.proxy(this._saveAndInsertQuote, this)).insertAfter($storeQuote);
+			}
 		}
 	},
 	
 	/**
 	 * Returns the text selection.
 	 * 
-	 * @return	object
+	 * @return	string
 	 */
 	_getSelectedText: function() {
-		if (window.getSelection) { // Opera, Firefox, Safari, Chrome, IE 9+
-			return window.getSelection();
-		}
-		else if (document.getSelection) { // Opera, Firefox, Safari, Chrome, IE 9+
-			return document.getSelection();
-		}
-		else if (document.selection) { // IE 8
-			return document.selection.createRange().text;
+		var $selection = window.getSelection();
+		if ($selection.rangeCount) {
+			return this._getNodeText($selection.getRangeAt(0).cloneContents());
 		}
 		
 		return '';
@@ -2262,6 +2303,12 @@ WCF.Message.Quote.Handler = Class.extend({
 			$listItem.data('isQuoted', true).children('a').addClass('active');
 		}
 		
+		// close navigation on mobile
+		var $navigationList = $listItem.parents('.buttonGroupNavigation');
+		if ($navigationList.hasClass('jsMobileButtonGroupNavigation')) {
+			$navigationList.children('.dropdownLabel').trigger('click');
+		}
+		
 		// discard event
 		event.stopPropagation();
 		return false;
@@ -2269,18 +2316,30 @@ WCF.Message.Quote.Handler = Class.extend({
 	
 	/**
 	 * Saves a quote.
+	 * 
+	 * @param	boolean		renderQuote
 	 */
-	_saveQuote: function() {
+	_saveQuote: function(renderQuote) {
+		renderQuote = (renderQuote === true) ? true : false;
+		
 		this._proxy.setOption('data', {
 			actionName: 'saveQuote',
 			className: this._className,
 			interfaceName: 'wcf\\data\\IMessageQuoteAction',
 			objectIDs: [ this._objectID ],
 			parameters: {
-				message: this._message
+				message: this._message,
+				renderQuote: renderQuote
 			}
 		});
 		this._proxy.sendRequest();
+	},
+	
+	/**
+	 * Saves a quote and directly inserts it.
+	 */
+	_saveAndInsertQuote: function() {
+		this._saveQuote(true);
 	},
 	
 	/**
@@ -2292,8 +2351,24 @@ WCF.Message.Quote.Handler = Class.extend({
 	 */
 	_success: function(data, textStatus, jqXHR) {
 		if (data.returnValues.count !== undefined) {
-			var $fullQuoteObjectIDs = (data.fullQuoteObjectIDs !== undefined) ? data.fullQuoteObjectIDs : { };
+			if (data.returnValues.fullQuoteMessageIDs !== undefined) {
+				data.returnValues.fullQuoteObjectIDs = data.returnValues.fullQuoteMessageIDs;
+			}
+			
+			var $fullQuoteObjectIDs = (data.returnValues.fullQuoteObjectIDs !== undefined) ? data.returnValues.fullQuoteObjectIDs : { };
 			this._quoteManager.updateCount(data.returnValues.count, $fullQuoteObjectIDs);
+		}
+		
+		switch (data.actionName) {
+			case 'saveQuote':
+			case 'saveFullQuote':
+				if (data.returnValues.renderedQuote) {
+					WCF.System.Event.fireEvent('com.woltlab.wcf.message.quote', 'insert', {
+						forceInsert: (data.actionName === 'saveQuote' ? true : false),
+						quote: data.returnValues.renderedQuote
+					});
+				}
+			break;
 		}
 	},
 	
@@ -2495,9 +2570,8 @@ WCF.Message.Quote.Manager = Class.extend({
 		
 		// update full quote ids of handlers
 		for (var $objectType in this._handlers) {
-			if (fullQuoteObjectIDs[$objectType]) {
-				this._handlers[$objectType].updateFullQuoteObjectIDs(fullQuoteObjectIDs[$objectType]);
-			}
+			var $objectIDs = fullQuoteObjectIDs[$objectType] || [ ];
+			this._handlers[$objectType].updateFullQuoteObjectIDs($objectIDs);
 		}
 	},
 	
@@ -2695,14 +2769,6 @@ WCF.Message.Quote.Manager = Class.extend({
 	 * @param	object		inputElement
 	 */
 	_insertQuote: function(event, inputElement) {
-		if (event !== null && this._editorElementAlternative === null) {
-			var $api = $('.jsQuickReply:eq(0)').data('__api');
-			if ($api && !$api.getContainer().is(':visible')) {
-				this._insertQuotes = false;
-				$api.click(null);
-			}
-		}
-		
 		var $listItem = (event === null) ? $(inputElement).parents('li') : $(event.currentTarget).parents('li');
 		var $quote = $.trim($listItem.children('div.jsFullQuote').text());
 		var $message = $listItem.parents('article.message');
@@ -2710,10 +2776,10 @@ WCF.Message.Quote.Manager = Class.extend({
 		// insert into editor
 		if ($.browser.redactor) {
 			if (this._editorElementAlternative === null) {
-				this._editorElement.redactor('insertQuoteBBCode', $message.attr('data-username'), $message.data('link'), $quote, $quote);// $quote);
+				this._editorElement.redactor('wbbcode.insertQuoteBBCode', $message.attr('data-username'), $message.data('link'), $quote, $quote);
 			}
 			else {
-				this._editorElementAlternative.redactor('insertQuoteBBCode', $message.attr('data-username'), $message.data('link'), $quote, $quote);// $quote);
+				this._editorElementAlternative.redactor('wbbcode.insertQuoteBBCode', $message.attr('data-username'), $message.data('link'), $quote, $quote);
 			}
 		}
 		else {
@@ -2739,6 +2805,14 @@ WCF.Message.Quote.Manager = Class.extend({
 		// close dialog
 		if (event !== null) {
 			this._dialog.wcfDialog('close');
+		}
+		
+		if (event !== null && this._editorElementAlternative === null) {
+			var $api = $('.jsQuickReply:eq(0)').data('__api');
+			if ($api && !$api.getContainer().is(':visible')) {
+				this._insertQuotes = false;
+				$api.click(null);
+			}
 		}
 	},
 	
@@ -2833,7 +2907,7 @@ WCF.Message.Quote.Manager = Class.extend({
 		
 		this._proxy.setOption('data', {
 			actionName: 'count',
-			getFullQuoteObjectIDs: this._handlers.length > 0,
+			getFullQuoteObjectIDs: ($objectTypes.length > 0),
 			objectTypes: $objectTypes
 		});
 		this._proxy.sendRequest();
@@ -2864,6 +2938,15 @@ WCF.Message.Quote.Manager = Class.extend({
 				this.renderDialog(data.template);
 			}
 		}
+	},
+	
+	/**
+	 * Returns true if pasting is supported.
+	 * 
+	 * @return	boolean
+	 */
+	supportPaste: function() {
+		return this._supportPaste;
 	}
 });
 
@@ -3346,25 +3429,36 @@ WCF.Message.UserMention = Class.extend({
 	_redactor: null,
 	
 	/**
+	 * delay timer to only send requests after user paused typing
+	 * @var	WCF.PeriodicalExecuter
+	 */
+	_timer: null,
+	
+	/**
 	 * Initalizes user suggestions for Redactor with the given textarea id.
 	 * 
 	 * @param	string		wysiwygSelector
 	 */
 	init: function(wysiwygSelector) {
+		if ($.browser.mobile && $.browser.mozilla) {
+			// the desktop Firefox work-arounds do not work on Firefox for Android, in fact they crash it
+			return;
+		}
+		
 		this._textarea = $('#' + wysiwygSelector);
-		this._redactor = this._textarea.redactor('getObject');
+		this._redactor = this._textarea.redactor('core.getObject');
 		
-		this._redactor.setOption('keyupCallback', $.proxy(this._keyup, this));
-		
-		this._dropdown = this._textarea.redactor('getEditor');
+		this._dropdown = this._textarea.redactor('core.getEditor');
 		this._dropdownMenu = $('<ul class="dropdownMenu userSuggestionList" />').appendTo(this._textarea.parent());
 		WCF.Dropdown.initDropdownFragment(this._dropdown, this._dropdownMenu);
 		
 		this._proxy = new WCF.Action.Proxy({
+			autoAbortPrevious: true,
 			success: $.proxy(this._success, this)
 		});
 		
 		WCF.System.Event.addListener('com.woltlab.wcf.redactor', 'keydown_' + wysiwygSelector, $.proxy(this._keydown, this));
+		WCF.System.Event.addListener('com.woltlab.wcf.redactor', 'keyup_' + wysiwygSelector, $.proxy(this._keyup, this));
 	},
 	
 	/**
@@ -3379,11 +3473,25 @@ WCF.Message.UserMention = Class.extend({
 	/**
 	 * Handles a click on a list item suggesting a username.
 	 * 
+	 * This function is also called when seleting a suggested username by clicking
+	 * enter.
+	 * 
 	 * @param	object		event
 	 */
 	_click: function(event) {
+		// in Firefox, this._caretPosition does not have the text node as
+		// startContainer anymore when confirming a username suggestion by
+		// clicking enter, thus we need to manually adjust it
+		if ($.browser.mozilla && this._caretPosition.startContainer.nodeName == 'P') {
+			var $textNode = this._caretPosition.startContainer.childNodes[this._caretPosition.startOffset - 1];
+			
+			this._caretPosition = document.createRange();
+			this._caretPosition.selectNodeContents($textNode);
+			this._caretPosition.collapse();
+		}
+		
 		// restore caret position
-		this._redactor.replaceRangesWith(this._caretPosition);
+		this._redactor.wutil.replaceRangesWith(this._caretPosition);
 		
 		this._setUsername($(event.currentTarget).data('username'));
 	},
@@ -3415,7 +3523,7 @@ WCF.Message.UserMention = Class.extend({
 		$newRange.setStart($orgRange.startContainer, $orgRange.startOffset - (this._mentionStart.length + 1));
 		$newRange.setEnd($orgRange.startContainer, $orgRange.startOffset);
 		
-		this._redactor.replaceRangesWith($newRange);
+		this._redactor.wutil.replaceRangesWith($newRange);
 		
 		// get the offsets of the bounding box of current text selection
 		var $range = getSelection().getRangeAt(0);
@@ -3431,7 +3539,7 @@ WCF.Message.UserMention = Class.extend({
 		}
 		
 		// restore caret position
-		this._redactor.replaceRangesWith($orgRange);
+		this._redactor.wutil.replaceRangesWith($orgRange);
 		this._caretPosition = $orgRange;
 		
 		return $offsets;
@@ -3441,16 +3549,22 @@ WCF.Message.UserMention = Class.extend({
 	 * Replaces the started mentioning with a chosen username.
 	 */
 	_setUsername: function(username) {
+		if (this._timer !== null) {
+			this._timer.stop();
+			this._timer = null;
+		}
+		this._proxy.abortPrevious();
+		
 		var $orgRange = getSelection().getRangeAt(0).cloneRange();
 		
 		// allow redactor to undo this
-		this._redactor.bufferSet();
+		this._redactor.buffer.set();
 		
 		var $newRange = document.createRange();
 		$newRange.setStart($orgRange.startContainer, $orgRange.startOffset - (this._mentionStart.length + 1));
 		$newRange.setEnd($orgRange.startContainer, $orgRange.startOffset);
 		
-		this._redactor.replaceRangesWith($newRange);
+		this._redactor.wutil.replaceRangesWith($newRange);
 		
 		var $range = getSelection().getRangeAt(0);
 		$range.deleteContents();
@@ -3459,11 +3573,8 @@ WCF.Message.UserMention = Class.extend({
 		// insert username
 		if (username.indexOf("'") !== -1) {
 			username = username.replace(/'/g, "''");
-			username = "'" + username + "'";
 		}
-		else if (username.indexOf(' ') !== -1) {
-			username = "'" + username + "'";
-		}
+		username = "'" + username + "'";
 		
 		// use native API to prevent issues in Internet Explorer
 		var $text = document.createTextNode('@' + username);
@@ -3473,7 +3584,7 @@ WCF.Message.UserMention = Class.extend({
 		$newRange.setStart($text, username.length + 1);
 		$newRange.setEnd($text, username.length + 1);
 		
-		this._redactor.replaceRangesWith($newRange);
+		this._redactor.wutil.replaceRangesWith($newRange);
 		
 		this._hideList();
 	},
@@ -3499,26 +3610,40 @@ WCF.Message.UserMention = Class.extend({
 	 */
 	_getTextLineInFrontOfCaret: function() {
 		// if text is marked, user suggestions are disabled
-		if (this._redactor.getSelectionHtml().length) {
+		if (this._redactor.selection.getHtml().length) {
 			return '';
 		}
 		
-		var $range = this._redactor.getSelection().getRangeAt(0);
+		var $range = getSelection().getRangeAt(0);
+		
+		// in Firefox, blurring and refocusing the browser creates separate
+		// text nodes
+		if ($.browser.mozilla && $range.startContainer.nodeType == 3) {
+			$range.startContainer.parentNode.normalize();
+		}
+		
 		var $text = $range.startContainer.textContent.substr(0, $range.startOffset);
 		
 		// remove unicode zero width space and non-breaking space
 		var $textBackup = $text;
 		$text = '';
+		var $hadSpace = false;
 		for (var $i = 0; $i < $textBackup.length; $i++) {
 			var $byte = $textBackup.charCodeAt($i).toString(16);
-			if ($byte != '200b' && !/\s/.test($textBackup[$i])) {
+			if ($byte != '200b' && (!/\s/.test($textBackup[$i]) || (($byte == 'a0' || $byte == '20') && !$hadSpace))) {
+				if ($byte == 'a0' || $byte == '20') {
+					$hadSpace = true;
+				}
+				
 				if ($textBackup[$i] === '@' && $i && /\s/.test($textBackup[$i - 1])) {
+					$hadSpace = false;
 					$text = '';
 				}
 				
 				$text += $textBackup[$i];
 			}
 			else {
+				$hadSpace = false;
 				$text = '';
 			}
 		}
@@ -3542,19 +3667,17 @@ WCF.Message.UserMention = Class.extend({
 	 * @param	object		data
 	 */
 	_keydown: function(data) {
-		if (this._redactor.inPlainMode()) {
+		if (this._redactor.wutil.inPlainMode()) {
 			return;
 		}
 		
 		if (this._dropdownMenu.is(':visible')) {
 			switch (data.event.which) {
 				case $.ui.keyCode.ENTER:
-					data.cancel = true;
 					data.event.preventDefault();
+					data.cancel = true;
 					
 					this._dropdownMenu.children('li').eq(this._itemIndex).trigger('click');
-					
-					return;
 				break;
 				
 				case $.ui.keyCode.UP:
@@ -3562,8 +3685,6 @@ WCF.Message.UserMention = Class.extend({
 					data.event.preventDefault();
 					
 					this._selectItem(this._itemIndex - 1);
-					
-					return;
 				break;
 				
 				case $.ui.keyCode.DOWN:
@@ -3571,32 +3692,35 @@ WCF.Message.UserMention = Class.extend({
 					data.event.preventDefault();
 					
 					this._selectItem(this._itemIndex + 1);
-					
-					return;
 				break;
 			}
 		}
-		
-		return true;
 	},
 	
 	/**
 	 * Handles the keyup event to check if the user starts mentioning someone.
 	 * 
-	 * @param	object		event
+	 * @param	object		data
 	 */
-	_keyup: function(event) {
-		if (this._redactor.inPlainMode()) {
+	_keyup: function(data) {
+		if (this._redactor.wutil.inPlainMode()) {
 			return true;
 		}
 		
+		// abort previous search requests
+		if (this._timer !== null) {
+			this._timer.stop();
+			this._timer = null;
+		}
+		this._proxy.abortPrevious();
+		
 		// ignore enter key up event
-		if (event.which === $.ui.keyCode.ENTER) {
+		if (data.event.which === $.ui.keyCode.ENTER) {
 			return;
 		}
 		
 		// ignore event if suggestion list and user pressed enter, arrow up or arrow down
-		if (this._dropdownMenu.is(':visible') && event.which in { 13:1, 38:1, 40:1 }) {
+		if (this._dropdownMenu.is(':visible') && data.event.which in { 13:1, 38:1, 40:1 }) {
 			return;
 		}
 		
@@ -3609,13 +3733,22 @@ WCF.Message.UserMention = Class.extend({
 				if (!$match.index || $currentText[$match.index - 1].match(/\s/)) {
 					this._mentionStart = $match[1];
 					
-					this._proxy.setOption('data', {
-						actionName: 'getSearchResultList',
-						className: this._className,
-						interfaceName: 'wcf\\data\\ISearchAction',
-						parameters: this._getParameters()
-					});
-					this._proxy.sendRequest();
+					if (this._timer !== null) {
+						this._timer.stop();
+					}
+					
+					this._timer = new WCF.PeriodicalExecuter($.proxy(function() {
+						this._proxy.setOption('data', {
+							actionName: 'getSearchResultList',
+							className: this._className,
+							interfaceName: 'wcf\\data\\ISearchAction',
+							parameters: this._getParameters()
+						});
+						this._proxy.sendRequest();
+						
+						this._timer.stop();
+						this._timer = null;
+					}, this), 500);
 				}
 			}
 			else {
@@ -3734,7 +3867,7 @@ $.widget('wcf.messageTabMenu', {
 	 * Creates the message tab menu.
 	 */
 	_create: function() {
-		var $tabs = this.element.find('> nav > ul > li');
+		var $tabs = this.element.find('> nav > ul > li:not(.jsFlexibleMenuDropdown)');
 		var $tabContainers = this.element.find('> div, > fieldset');
 		
 		if ($tabs.length != $tabContainers.length) {

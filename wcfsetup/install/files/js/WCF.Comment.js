@@ -1,3 +1,5 @@
+"use strict";
+
 /**
  * Namespace for comments
  */
@@ -245,7 +247,7 @@ WCF.Comment.Handler = Class.extend({
 			var $insertAfter = $comment.find('ul.commentResponseList');
 			if (!$insertAfter.length) $insertAfter = $comment.find('.commentContent');
 			
-			$container = $('<div class="commentOptionContainer" />').hide().insertAfter($insertAfter);
+			var $container = $('<div class="commentOptionContainer" />').hide().insertAfter($insertAfter);
 			self._commentButtonList[$commentID] = $('<ul />').appendTo($container);
 			
 			self._handleLoadNextResponses($commentID);
@@ -272,12 +274,12 @@ WCF.Comment.Handler = Class.extend({
 		}
 		
 		if (comment.data('canEdit')) {
-			var $editButton = $('<li><a class="jsTooltip" title="' + WCF.Language.get('wcf.global.button.edit') + '"><span class="icon icon16 icon-pencil" /> <span class="invisible">' + WCF.Language.get('wcf.global.button.edit') + '</span></a></li>');
+			var $editButton = $('<li><a href="#" class="jsTooltip" title="' + WCF.Language.get('wcf.global.button.edit') + '"><span class="icon icon16 icon-pencil" /> <span class="invisible">' + WCF.Language.get('wcf.global.button.edit') + '</span></a></li>');
 			$editButton.data('commentID', commentID).appendTo(comment.find('ul.commentOptions:eq(0)')).click($.proxy(this._prepareEdit, this));
 		}
 		
 		if (comment.data('canDelete')) {
-			var $deleteButton = $('<li><a class="jsTooltip" title="' + WCF.Language.get('wcf.global.button.delete') + '"><span class="icon icon16 icon-remove" /> <span class="invisible">' + WCF.Language.get('wcf.global.button.delete') + '</span></a></li>');
+			var $deleteButton = $('<li><a href="#" class="jsTooltip" title="' + WCF.Language.get('wcf.global.button.delete') + '"><span class="icon icon16 icon-remove" /> <span class="invisible">' + WCF.Language.get('wcf.global.button.delete') + '</span></a></li>');
 			$deleteButton.data('commentID', commentID).appendTo(comment.find('ul.commentOptions:eq(0)')).click($.proxy(this._delete, this));
 		}
 	},
@@ -304,14 +306,14 @@ WCF.Comment.Handler = Class.extend({
 	 */
 	_initResponse: function(responseID, response) {
 		if (response.data('canEdit')) {
-			var $editButton = $('<li><a class="jsTooltip" title="' + WCF.Language.get('wcf.global.button.edit') + '"><span class="icon icon16 icon-pencil" /> <span class="invisible">' + WCF.Language.get('wcf.global.button.edit') + '</span></a></li>');
+			var $editButton = $('<li><a href="#" class="jsTooltip" title="' + WCF.Language.get('wcf.global.button.edit') + '"><span class="icon icon16 icon-pencil" /> <span class="invisible">' + WCF.Language.get('wcf.global.button.edit') + '</span></a></li>');
 			
 			var self = this;
 			$editButton.data('responseID', responseID).appendTo(response.find('ul.commentOptions:eq(0)')).click(function(event) { self._prepareEdit(event, true); });
 		}
 		
 		if (response.data('canDelete')) {
-			var $deleteButton = $('<li><a class="jsTooltip" title="' + WCF.Language.get('wcf.global.button.delete') + '"><span class="icon icon16 icon-remove" /> <span class="invisible">' + WCF.Language.get('wcf.global.button.delete') + '</span></a></li>');
+			var $deleteButton = $('<li><a href="#" class="jsTooltip" title="' + WCF.Language.get('wcf.global.button.delete') + '"><span class="icon icon16 icon-remove" /> <span class="invisible">' + WCF.Language.get('wcf.global.button.delete') + '</span></a></li>');
 			
 			var self = this;
 			$deleteButton.data('responseID', responseID).appendTo(response.find('ul.commentOptions:eq(0)')).click(function(event) { self._delete(event, true); });
@@ -360,6 +362,7 @@ WCF.Comment.Handler = Class.extend({
 	 * @param	boolean		isResponse
 	 */
 	_prepareEdit: function(event, isResponse) {
+		event.preventDefault();
 		var $button = $(event.currentTarget);
 		var $data = {
 			objectID: this._container.data('objectID'),
@@ -487,6 +490,7 @@ WCF.Comment.Handler = Class.extend({
 	 * @param	boolean		isResponse
 	 */
 	_delete: function(event, isResponse) {
+		event.preventDefault();
 		WCF.System.Confirmation.show(WCF.Language.get('wcf.comment.delete.confirmMessage'), $.proxy(function(action) {
 			if (action === 'confirm') {
 				var $data = {
@@ -564,10 +568,10 @@ WCF.Comment.Handler = Class.extend({
 					var $responseList = $comment.find('ul.commentResponseList');
 					if (!$responseList.length) $responseList = $('<ul class="commentResponseList" />').insertBefore($comment.find('.commentOptionContainer'));
 					$(data.returnValues.template).appendTo($responseList).wcfFadeIn();
-				}
-				
-				if (!WCF.User.userID) {
-					this._guestDialog.wcfDialog('close');
+					
+					if (!WCF.User.userID) {
+						this._guestDialog.wcfDialog('close');
+					}
 				}
 			break;
 			
@@ -641,7 +645,22 @@ WCF.Comment.Handler = Class.extend({
 			delete this._comments[data.returnValues.commentID];
 		}
 		else {
-			this._responses[data.returnValues.responseID].remove();
+			var $response = this._responses[data.returnValues.responseID];
+			var $comment = this._comments[$response.parents('li.comment:eq(0)').data('commentID')];
+			
+			// decrease response counter as a correct response count
+			// is required in _handleLoadNextResponses()
+			$comment.data('responses', parseInt($comment.data('responses')) - 1);
+			
+			var $commentResponseList = $response.parent();
+			$response.remove();
+			
+			if (!$commentResponseList.children().length) {
+				// make '.commentResponseList' accessible via CSS'
+				// :empty selector
+				$commentResponseList.empty();
+			}
+			
 			delete this._responses[data.returnValues.responseID];
 		}
 	},

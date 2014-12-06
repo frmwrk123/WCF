@@ -82,6 +82,10 @@ class NotificationSettingsForm extends AbstractForm {
 		foreach ($this->events as $events) {
 			foreach ($events as $event) {
 				$validEventIDs[] = $event->eventID;
+				
+				if (!isset($this->settings[$event->eventID]['enabled'])) {
+					$this->settings[$event->eventID]['enabled'] = 0;
+				}
 			}
 		}
 		

@@ -13,17 +13,17 @@
 	//]]>
 </script>
 {if JQUERY_SOURCE == 'google'}
-<script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.0/jquery.min.js"></script>
-<script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.10.4/jquery-ui.min.js"></script>
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery{if !ENABLE_DEBUG_MODE}.min{/if}.js"></script>
+<script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.11.2/jquery-ui{if !ENABLE_DEBUG_MODE}.min{/if}.js"></script>
 {elseif JQUERY_SOURCE == 'microsoft'}
-<script src="//ajax.aspnetcdn.com/ajax/jQuery/jquery-2.1.0.min.js"></script>
-<script src="//ajax.aspnetcdn.com/ajax/jquery.ui/1.10.4/jquery-ui.min.js"></script>
+<script src="//ajax.aspnetcdn.com/ajax/jQuery/jquery-2.1.1{if !ENABLE_DEBUG_MODE}.min{/if}.js"></script>
+<script src="//ajax.aspnetcdn.com/ajax/jquery.ui/1.11.2/jquery-ui{if !ENABLE_DEBUG_MODE}.min{/if}.js"></script>
 {elseif JQUERY_SOURCE == 'cloudflare'}
-<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.0/jquery.min.js"></script>
-<script src="//cdnjs.cloudflare.com/ajax/libs/jqueryui/1.10.4/jquery-ui.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery{if !ENABLE_DEBUG_MODE}.min{/if}.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/jqueryui/1.11.2/jquery-ui{if !ENABLE_DEBUG_MODE}.min{/if}.js"></script>
 {else}
-<script src="{@$__wcf->getPath()}js/3rdParty/jquery.min.js?v={@LAST_UPDATE_TIME}"></script>
-<script src="{@$__wcf->getPath()}js/3rdParty/jquery-ui.min.js?v={@LAST_UPDATE_TIME}"></script>
+<script src="{@$__wcf->getPath()}js/3rdParty/jquery{if !ENABLE_DEBUG_MODE}.min{/if}.js?v={@LAST_UPDATE_TIME}"></script>
+<script src="{@$__wcf->getPath()}js/3rdParty/jquery-ui{if !ENABLE_DEBUG_MODE}.min{/if}.js?v={@LAST_UPDATE_TIME}"></script>
 {/if}
 {if JQUERY_SOURCE != 'local'}
 <script>
@@ -36,11 +36,11 @@
 </script>
 {/if}
 
+{if ENABLE_DEBUG_MODE}
 <script src="{@$__wcf->getPath()}js/3rdParty/jquery.ui.touch-punch{if !ENABLE_DEBUG_MODE}.min{/if}.js?v={@LAST_UPDATE_TIME}"></script>
 <script src="{@$__wcf->getPath()}js/3rdParty/jquery-ui.nestedSortable{if !ENABLE_DEBUG_MODE}.min{/if}.js?v={@LAST_UPDATE_TIME}"></script>
 <script src="{@$__wcf->getPath()}js/3rdParty/jquery-ui.timepicker{if !ENABLE_DEBUG_MODE}.min{/if}.js?v={@LAST_UPDATE_TIME}"></script>
-
-{if ENABLE_DEBUG_MODE}
+<script src="{@$__wcf->getPath()}js/WCF.Assets.js?v={@LAST_UPDATE_TIME}"></script>
 <script src="{@$__wcf->getPath()}js/WCF.js?v={@LAST_UPDATE_TIME}"></script>
 {else}
 <script src="{@$__wcf->getPath()}js/WCF.Combined.min.js?v={@LAST_UPDATE_TIME}"></script>
@@ -75,6 +75,7 @@
 		'wcf.global.button.disabledI18n': '{lang}wcf.global.button.disabledI18n{/lang}',
 		'wcf.global.button.edit': '{lang}wcf.global.button.edit{/lang}',
 		'wcf.global.button.enable': '{lang}wcf.global.button.enable{/lang}',
+		'wcf.global.button.hide': '{lang}wcf.global.button.hide{/lang}',
 		'wcf.global.button.next': '{lang}wcf.global.button.next{/lang}',
 		'wcf.global.button.preview': '{lang}wcf.global.button.preview{/lang}',
 		'wcf.global.button.reset': '{lang}wcf.global.button.reset{/lang}',
@@ -108,8 +109,10 @@
 		'wcf.global.success.add': '{lang}wcf.global.success.add{/lang}',
 		'wcf.global.success.edit': '{lang}wcf.global.success.edit{/lang}',
 		'wcf.global.thousandsSeparator': '{capture assign=thousandsSeparator}{lang}wcf.global.thousandsSeparator{/lang}{/capture}{@$thousandsSeparator|encodeJS}',
+		'wcf.page.pagePosition': '{lang __literal=true}wcf.page.pagePosition{/lang}',
 		'wcf.page.sitemap': '{lang}wcf.page.sitemap{/lang}',
-		'wcf.style.changeStyle': '{lang}wcf.style.changeStyle{/lang}'
+		'wcf.style.changeStyle': '{lang}wcf.style.changeStyle{/lang}',
+		'wcf.user.activityPoint': '{lang}wcf.user.activityPoint{/lang}'
 		{if MODULE_LIKE}
 			,'wcf.like.button.like': '{lang}wcf.like.button.like{/lang}',
 			'wcf.like.button.dislike': '{lang}wcf.like.button.dislike{/lang}',
@@ -172,6 +175,7 @@
 		WCF.Date.Picker.init();
 		new WCF.User.ProfilePreview();
 		new WCF.Notice.Dismiss();
+		WCF.User.Profile.ActivityPointList.init();
 		
 		{event name='javascriptInit'}
 		
