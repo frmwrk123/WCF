@@ -895,7 +895,7 @@ WCF.Message.QuickReply = Class.extend({
 		}
 		
 		if ($.browser.redactor) {
-			this._messageField.redactor('focus.setEnd');
+			this._messageField.redactor('wutil.selectionEndOfEditor');
 		}
 		else {
 			this._messageField.focus();
@@ -1979,18 +1979,20 @@ WCF.Message.Quote.Handler = Class.extend({
 	 * @return	string
 	 */
 	_getNodeText: function(node) {
+		// work-around for IE, see http://stackoverflow.com/a/5983176
+		var $nodeFilter = function(node) {
+			if (node.tagName === 'H3') {
+				return NodeFilter.FILTER_REJECT;
+			}
+			
+			return NodeFilter.FILTER_ACCEPT;
+		};
+		$nodeFilter.acceptNode = $nodeFilter;
+		
 		var $walker = document.createTreeWalker(
 			node,
 			NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
-			{
-				acceptNode: function(node) {
-					if (node.tagName === 'H3') {
-						return NodeFilter.FILTER_REJECT;
-					}
-					
-					return NodeFilter.FILTER_ACCEPT;
-				}
-			},
+			$nodeFilter,
 			true
 		);
 		
@@ -2776,6 +2778,14 @@ WCF.Message.Quote.Manager = Class.extend({
 		// insert into editor
 		if ($.browser.redactor) {
 			if (this._editorElementAlternative === null) {
+				if (event !== null) {
+					var $api = $('.jsQuickReply:eq(0)').data('__api');
+					if ($api && !$api.getContainer().is(':visible')) {
+						this._insertQuotes = false;
+						$api.click(null);
+					}
+				}
+				
 				this._editorElement.redactor('wbbcode.insertQuoteBBCode', $message.attr('data-username'), $message.data('link'), $quote, $quote);
 			}
 			else {
@@ -2805,14 +2815,6 @@ WCF.Message.Quote.Manager = Class.extend({
 		// close dialog
 		if (event !== null) {
 			this._dialog.wcfDialog('close');
-		}
-		
-		if (event !== null && this._editorElementAlternative === null) {
-			var $api = $('.jsQuickReply:eq(0)').data('__api');
-			if ($api && !$api.getContainer().is(':visible')) {
-				this._insertQuotes = false;
-				$api.click(null);
-			}
 		}
 	},
 	

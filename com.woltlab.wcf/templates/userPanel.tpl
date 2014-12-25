@@ -35,16 +35,13 @@
 				<script data-relocate="true">
 					//<![CDATA[
 					$(function() {
-						WCF.Language.addObject({
-							'wcf.user.notification.count': '{lang}wcf.user.notification.count{/lang}',
-							'wcf.user.notification.markAsConfirmed': '{lang}wcf.user.notification.markAsConfirmed{/lang}',
-							'wcf.user.notification.markAllAsConfirmed': '{lang}wcf.user.notification.markAllAsConfirmed{/lang}',
-							'wcf.user.notification.markAllAsConfirmed.confirmMessage': '{lang}wcf.user.notification.markAllAsConfirmed.confirmMessage{/lang}',
-							'wcf.user.notification.noMoreNotifications': '{lang}wcf.user.notification.noMoreNotifications{/lang}',
-							'wcf.user.notification.showAll': '{lang}wcf.user.notification.showAll{/lang}'
+						new WCF.User.Panel.Notification({
+							markAllAsReadConfirmMessage: '{lang}wcf.user.notification.markAllAsConfirmed.confirmMessage{/lang}',
+							noItems: '{lang}wcf.user.notification.noMoreNotifications{/lang}',
+							settingsLink: '{link controller='NotificationSettings' encode=false}{/link}',
+							showAllLink: '{link controller='NotificationList' encode=false}{/link}',
+							title: '{lang}wcf.user.notification.notifications{/lang}'
 						});
-						
-						new WCF.Notification.UserPanel('{link controller='NotificationList' encode=false}{/link}');
 					});
 					//]]>
 				</script>
@@ -188,19 +185,20 @@
 			<a href="{link controller='ModerationList'}{/link}">
 				<span class="icon icon16 icon-warning-sign"></span>
 				<span>{lang}wcf.moderation.moderation{/lang}</span>
-				{if $__wcf->getModerationQueueManager()->getOutstandingModerationCount()}<span class="badge badgeInverse">{#$__wcf->getModerationQueueManager()->getOutstandingModerationCount()}</span>{/if}
+				{if $__wcf->getModerationQueueManager()->getUnreadModerationCount()}<span class="badge badgeInverse">{#$__wcf->getModerationQueueManager()->getUnreadModerationCount()}</span>{/if}
 			</a>
 			{if !OFFLINE || $__wcf->session->getPermission('admin.general.canViewPageDuringOfflineMode')}
 				<script data-relocate="true">
 					//<![CDATA[
 					$(function() {
-						WCF.Language.addObject({
-							'wcf.moderation.noMoreItems': '{lang}wcf.moderation.noMoreItems{/lang}',
-							'wcf.moderation.showAll': '{lang}wcf.moderation.showAll{/lang}',
-							'wcf.moderation.showDeletedContent': '{lang}wcf.moderation.showDeletedContent{/lang}'
+						new WCF.User.Panel.Moderation({
+							deletedContent: '{lang}wcf.moderation.showDeletedContent{/lang}',
+							deletedContentLink: '{link controller='DeletedContentList' encode=false}{/link}',
+							markAllAsReadConfirmMessage: '{lang}wcf.moderation.markAllAsRead.confirmMessage{/lang}',
+							noItems: '{lang}wcf.moderation.noMoreItems{/lang}',
+							showAllLink: '{link controller='ModerationList' encode=false}{/link}',
+							title: '{lang}wcf.moderation.moderation{/lang}'
 						});
-						
-						new WCF.Moderation.UserPanel('{link controller='ModerationList' encode=false}{/link}', '{link controller='DeletedContentList' encode=false}{/link}');
 					});
 					//]]>
 				</script>

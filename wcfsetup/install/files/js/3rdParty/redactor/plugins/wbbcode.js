@@ -80,6 +80,14 @@ RedactorPlugins.wbbcode = function() {
 			// fix button label for source toggling
 			var $tooltip = $('.redactor-toolbar-tooltip-html:not(.jsWbbcode)').addClass('jsWbbcode').text(WCF.Language.get('wcf.bbcode.button.toggleBBCode'));
 			
+			var $fixBR = function(editor) {
+				editor.find('br').each(function(index, br) {
+					if (br.children.length) {
+						$(br).empty();
+					}
+				});
+			};
+			
 			this.code.toggle = (function() {
 				if (this.opts.visual) {
 					this.code.startSync();
@@ -100,6 +108,8 @@ RedactorPlugins.wbbcode = function() {
 					
 					this.button.get('html').children('i').removeClass('fa-square').addClass('fa-square-o');
 					$tooltip.text(WCF.Language.get('wcf.bbcode.button.toggleBBCode'));
+					this.wutil.fixDOM();
+					$fixBR(this.$editor);
 					
 					this.wutil.saveSelection();
 				}
@@ -345,66 +355,6 @@ RedactorPlugins.wbbcode = function() {
 			html = html.replace(/<(?:s(trike)?|del)>/gi, '[s]');
 			html = html.replace(/<\/(?:s(trike)?|del)>/gi, '[/s]');
 			
-			// smileys
-			html = html.replace(/<img [^>]*?alt="([^"]+?)" class="smiley".*?> ?/gi, '$1 '); // firefox
-			html = html.replace(/<img [^>]*?class="smiley" alt="([^"]+?)".*?> ?/gi, '$1 '); // chrome, ie
-			
-			// attachments
-			html = html.replace(/<img [^>]*?class="redactorEmbeddedAttachment[^"]*" data-attachment-id="(\d+)"( style="([^"]+)")?>/gi, function(match, attachmentID, styleTag, style) {
-				var $float = 'none';
-				var $width = null;
-				
-				if (style) {
-					style = style.split(';');
-					
-					for (var $i = 0; $i < style.length; $i++) {
-						var $style = $.trim(style[$i]);
-						if ($style.match(/^float: (left|right)$/)) {
-							$float = RegExp.$1;
-						}
-						else if ($style.match(/^width: (\d+)px$/)) {
-							$width = RegExp.$1;
-						}
-					}
-					
-					if ($width !== null) {
-						return '[attach=' + attachmentID + ',' + $float + ',' + $width + '][/attach]';
-					}
-					else if ($float !== 'none') {
-						return '[attach=' + attachmentID + ',' + $float + '][/attach]';
-					}
-				}
-				
-				return '[attach=' + attachmentID + '][/attach]';
-			});
-			
-			// [img]
-			html = html.replace(/<img [^>]*?src=(["'])([^"']+?)\1 style="([^"]+)".*?>/gi, function(match, quotationMarks, source, style) {
-				var $float = 'none';
-				var $width = 0;
-				
-				var $styles = style.split(';');
-				for (var $i = 0; $i < $styles.length; $i++) {
-					var $style = $styles[$i];
-					if ($style.match(/float: (left|right|none)/)) {
-						$float = RegExp.$1;
-					}
-					else if ($style.match(/width: (\d+)px/)) {
-						$width = parseInt(RegExp.$1);
-					}
-				}
-				
-				if ($width) {
-					return "[img='" + source + "'," + $float + "," + $width + "][/img]";
-				}
-				else if ($float !== 'none') {
-					return "[img='" + source + "'," + $float + "][/img]";
-				}
-				
-				return "[img]" + source + "[/img]";
-			});
-			html = html.replace(/<img [^>]*?src=(["'])([^"']+?)\1.*?>/gi, '[img]$2[/img]');
-			
 			// handle [color], [size], [font] and [tt]
 			var $components = html.split(/(<\/?span[^>]*>)/);
 			
@@ -427,7 +377,7 @@ RedactorPlugins.wbbcode = function() {
 				
 				if ($value == '</span>') {
 					var $opening = $openElements.pop();
-					var $tmp = $opening.start + $buffer.pop() + $opening.end;
+					var $tmp = $opening.start + $.trim($buffer.pop()) + $opening.end;
 					
 					if ($buffer.length) {
 						$buffer[$buffer.length - 1] += $tmp;
@@ -521,6 +471,66 @@ RedactorPlugins.wbbcode = function() {
 			html = html.replace(/<(div|p) style="text-align: ?(left|center|right|justify);? ?">([\s\S]*?)\n/gi, function(match, tag, alignment, content) {
 				return '[align=' + alignment + ']' + $.trim(content) + '[/align]';
 			});
+			
+			// smileys
+			html = html.replace(/ ?<img [^>]*?alt="([^"]+?)" class="smiley".*?> ?/gi, ' $1 '); // firefox
+			html = html.replace(/ ?<img [^>]*?class="smiley" alt="([^"]+?)".*?> ?/gi, ' $1 '); // chrome, ie
+			
+			// attachments
+			html = html.replace(/<img [^>]*?class="redactorEmbeddedAttachment[^"]*" data-attachment-id="(\d+)"( style="([^"]+)")?>/gi, function(match, attachmentID, styleTag, style) {
+				var $float = 'none';
+				var $width = null;
+				
+				if (style) {
+					style = style.split(';');
+					
+					for (var $i = 0; $i < style.length; $i++) {
+						var $style = $.trim(style[$i]);
+						if ($style.match(/^float: (left|right)$/)) {
+							$float = RegExp.$1;
+						}
+						else if ($style.match(/^width: (\d+)px$/)) {
+							$width = RegExp.$1;
+						}
+					}
+					
+					if ($width !== null) {
+						return '[attach=' + attachmentID + ',' + $float + ',' + $width + '][/attach]';
+					}
+					else if ($float !== 'none') {
+						return '[attach=' + attachmentID + ',' + $float + '][/attach]';
+					}
+				}
+				
+				return '[attach=' + attachmentID + '][/attach]';
+			});
+			
+			// [img]
+			html = html.replace(/<img [^>]*?src=(["'])([^"']+?)\1 style="([^"]+)".*?>/gi, function(match, quotationMarks, source, style) {
+				var $float = 'none';
+				var $width = 0;
+				
+				var $styles = style.split(';');
+				for (var $i = 0; $i < $styles.length; $i++) {
+					var $style = $styles[$i];
+					if ($style.match(/float: (left|right|none)/)) {
+						$float = RegExp.$1;
+					}
+					else if ($style.match(/width: (\d+)px/)) {
+						$width = parseInt(RegExp.$1);
+					}
+				}
+				
+				if ($width) {
+					return "[img='" + source + "'," + $float + "," + $width + "][/img]";
+				}
+				else if ($float !== 'none') {
+					return "[img='" + source + "'," + $float + "][/img]";
+				}
+				
+				return "[img]" + source + "[/img]";
+			});
+			html = html.replace(/<img [^>]*?src=(["'])([^"']+?)\1.*?>/gi, '[img]$2[/img]');
 			
 			// [*]
 			html = html.replace(/<li>/gi, '[*]');
@@ -678,31 +688,72 @@ RedactorPlugins.wbbcode = function() {
 				
 			// [img]
 			data = data.replace(/\[img\]([^"]+?)\[\/img\]/gi,'<img src="$1" />');
-			data = data.replace(/\[img='?([^"]*?)'?,'?(left|right)'?\]\[\/img\]/gi,'<img src="$1" style="float: $2" />');
-			data = data.replace(/\[img='?([^"]*?)'?,'?(left|right|none)'?,'?(\d+)'?\]\[\/img\]/gi, '<img src="$1" style="float: $2; width: $3px" />');
+			data = data.replace(/\[img='?([^"]*?)'?,'?(left|right)'?\]\[\/img\]/gi, function(match, src, alignment) {
+				var $style = 'float: ' + alignment + ';';
+				if (alignment === 'left') {
+					$style += 'margin: 0 15px 7px 0';
+				}
+				else {
+					$style += 'margin: 0 0 7px 15px';
+				}
+				
+				return '<img src="' + src + '" style="' + $style + '" />';
+			});
+			data = data.replace(/\[img='?([^"]*?)'?,'?(left|right|none)'?,'?(\d+)'?\]\[\/img\]/gi, function(match, src, alignment, width) {
+				var $style = 'float: ' + alignment + '; width: ' + width + 'px';
+				if (alignment === 'left') {
+					$style += 'margin: 0 15px 7px 0';
+				}
+				else {
+					$style += 'margin: 0 0 7px 15px';
+				}
+				
+				return '<img src="' + src + '" style="' + $style + '" />';
+			});
 			data = data.replace(/\[img='?([^"]*?)'?\]\[\/img\]/gi,'<img src="$1" />');
 			
 			// [size]
-			data = data.replace(/\[size=(\d+)\]([\s\S]*?)\[\/size\]/gi,'<span style="font-size: $1pt">$2</span>');
+			data = data.replace(/\[size=(\d+)\]([\s\S]*?)\[\/size\]/gi, (function(match, size, content) {
+				content = $.trim(content);
+				if (!content.length) {
+					content = this.opts.invisibleSpace;
+				}
+				
+				return '<span style="font-size: ' + size + 'pt">' + content + '</span>';
+			}).bind(this));
 			
 			// [color]
-			data = data.replace(/\[color=([#a-z0-9]*?)\]([\s\S]*?)\[\/color\]/gi,'<span style="color: $1">$2</span>');
+			data = data.replace(/\[color=([#a-z0-9]*?)\]([\s\S]*?)\[\/color\]/gi, (function(match, color, content) {
+				content = $.trim(content);
+				if (!content.length) {
+					content = this.opts.invisibleSpace;
+				}
+				
+				return '<span style="color: ' + color + '">' + content + '</span>';
+			}).bind(this));
 			
 			// [font]
-			data = data.replace(/\[font='?([a-z,\- ]*?)'?\]([\s\S]*?)\[\/font\]/gi,'<span style="font-family: $1">$2</span>');
+			data = data.replace(/\[font='?([a-z,\- ]*?)'?\]([\s\S]*?)\[\/font\]/gi, (function(match, fontFamily, content) {
+				content = $.trim(content);
+				if (!content.length) {
+					content = this.opts.invisibleSpace;
+				}
+				
+				return '<span style="font-family: ' + fontFamily + '">' + content + '</span>';
+			}).bind(this));
 			
 			// [align]
 			data = data.replace(/\[align=(left|right|center|justify)\]([\s\S]*?)\[\/align\]/gi,'<div style="text-align: $1">$2</div>');
 			
 			// [*]
-			data = data.replace(/\[\*\](.*?)(?=\[\*\]|\[\/list\])/gi,'<li>$1</li>');
+			data = data.replace(/\[\*\]([\s\S]*?)(?=\[\*\]|\[\/list\])/gi,'<li>$1</li>');
 			
 			// [list]
 			data = data.replace(/\[list\]/gi, '<ul>');
 			data = data.replace(/\[list=1\]/gi, '<ul style="list-style-type: decimal">');
 			data = data.replace(/\[list=a\]/gi, '<ul style="list-style-type: lower-latin">');
 			data = data.replace(/\[list=(none|circle|square|disc|decimal|lower-roman|upper-roman|decimal-leading-zero|lower-greek|lower-latin|upper-latin|armenian|georgian)\]/gi, '<ul style="list-style-type: $1">');
-			data = data.replace(/\[\/list]\n?/gi, '</ul>\n');
+			data = data.replace(/\[\/list\]/gi, '</ul>');
 			
 			// trim whitespaces within [table]
 			data = data.replace(/\[table\]([\S\s]*?)\[\/table\]/gi, function(match, p1) {
@@ -764,6 +815,13 @@ RedactorPlugins.wbbcode = function() {
 						var $style = '';
 						if (alignment === 'left' || alignment === 'right') {
 							$style = 'float: ' + alignment + ';';
+							
+							if (alignment === 'left') {
+								$style += 'margin: 0 15px 7px 0';
+							}
+							else {
+								$style += 'margin: 0 0 7px 15px';
+							}
 						}
 						
 						$style = ' style="' + $style + '"';
@@ -781,6 +839,13 @@ RedactorPlugins.wbbcode = function() {
 						var $style = 'width: ' + width + 'px; max-height: ' + $imageAttachments[attachmentID].height + 'px; max-width: ' + $imageAttachments[attachmentID].width + 'px;';
 						if (alignment === 'left' || alignment === 'right') {
 							$style += 'float: ' + alignment + ';';
+							
+							if (alignment === 'left') {
+								$style += 'margin: 0 15px 7px 0';
+							}
+							else {
+								$style += 'margin: 0 0 7px 15px';
+							}
 						}
 						
 						$style = ' style="' + $style + '"';
@@ -865,6 +930,20 @@ RedactorPlugins.wbbcode = function() {
 			// drop trailing line breaks
 			data = data.replace(/\n*$/, '');
 			
+			// line-breaks within list items must be a <br> instead of <p></p>
+			var $listItems = [ ];
+			data = data.replace(/(<li>[\s\S]*?<\/li>)/g, function(match) {
+				match = $.trim(match).replace(/\n/, '<br>');
+				
+				var $key = WCF.getUUID();
+				$listItems.push({
+					key: $key,
+					content: match
+				});
+				
+				return $key;
+			});
+			
 			// convert line breaks into <p></p> or empty lines to <p><br></p>
 			var $tmp = data.split("\n");
 			
@@ -872,12 +951,19 @@ RedactorPlugins.wbbcode = function() {
 			for (var $i = 0, $length = $tmp.length; $i < $length; $i++) {
 				var $line = $.trim($tmp[$i]);
 				
-				if ($line.match(/^<([a-z]+)/)) {
-					if (!this.reIsBlock.test(RegExp.$1.toUpperCase())) {
-						$line = '<p>' + $line + '</p>';
+				if ($line.match(/^<([a-z]+)/) || $line.match(/<\/([a-z]+)>$/)) {
+					if (this.reIsBlock.test(RegExp.$1.toUpperCase())) {
+						// check if line starts and ends with the same tag
+						if ($line.match(/^<([a-z]+).*<\/\1>/)) {
+							data += $line;
+						}
+						else {
+							data += $line + '<br />';
+						}
 					}
-					
-					data += $line;
+					else {
+						data += '<p>' + $line + '</p>';
+					}
 				}
 				else {
 					if (!$line) {
@@ -892,6 +978,13 @@ RedactorPlugins.wbbcode = function() {
 					}
 					
 					data += '<p>' + $line + '</p>';
+				}
+			}
+			
+			// insert list items
+			if ($listItems.length) {
+				for (var $i = $listItems.length - 1; $i >= 0; $i--) {
+					data = data.replace($listItems[$i].key, $listItems[$i].content);
 				}
 			}
 			
@@ -985,7 +1078,7 @@ RedactorPlugins.wbbcode = function() {
 					var $value = $cachedCode.value;
 					
 					// [tt]
-					$value = $value.replace(/^\[tt\](.*)\[\/tt\]/, '<span class="inlineCode">$1</span>');
+					//$value = $value.replace(/^\[tt\](.*)\[\/tt\]/, '<span class="inlineCode">$1</span>');
 					
 					// preserve leading whitespaces in [code] tags
 					$value = $value.replace(/^\[code[^\]]*\][\S\s]*\[\/code\]$/, '<pre>$&</pre>');
@@ -993,6 +1086,10 @@ RedactorPlugins.wbbcode = function() {
 					data = data.replace($regex, $value);
 				}
 			}
+			
+			// remove <p> wrapping a quote
+			data = data.replace(/<p><blockquote/g, '<blockquote');
+			data = data.replace(/<\/blockquote><\/p>/g, '</blockquote>');
 			
 			WCF.System.Event.fireEvent('com.woltlab.wcf.redactor', 'afterConvertToHtml', { data: data });
 			
@@ -1028,7 +1125,7 @@ RedactorPlugins.wbbcode = function() {
 			// replace nested elements e.g. <div><p>...</p></div>
 			html = html.replace(/<(div|p)([^>]+)?><(div|p)([^>]+)?>/g, '<p>');
 			html = html.replace(/<\/(div|p)><\/(div|p)>/g, '</p>');
-			html = html.replace(/<(div|p)><br><\/(div|p)>/g, '<p>');
+			//html = html.replace(/<(div|p)><br><\/(div|p)>/g, '<p>');
 			
 			WCF.System.Event.fireEvent('com.woltlab.wcf.redactor', 'beforePaste', { html: html });
 			
@@ -1043,7 +1140,7 @@ RedactorPlugins.wbbcode = function() {
 		 */
 		_pasteCallback: function(html) {
 			// reduce successive <br> by one
-			html = html.replace(/<br[^>]*>(<br[^>]*>)+/g, '$1');
+			//html = html.replace(/<br[^>]*>(<br[^>]*>)+/g, '$1');
 			
 			// replace <p>...</p> with <p>...</p><p><br></p>
 			/*html = html.replace(/<p>([\s\S]*?)<\/p>/g, function(match, content) {
@@ -1297,6 +1394,11 @@ RedactorPlugins.wbbcode = function() {
 				
 				// [S]
 				case 83:
+					// not supported on mobile devices anyway
+					if ($.browser.mobile) {
+						return;
+					}
+					
 					var $submitEditor = false;
 					if (navigator.platform.match(/^Mac/)) {
 						if (data.event.ctrlKey && data.event.altKey) {
@@ -1342,7 +1444,24 @@ RedactorPlugins.wbbcode = function() {
 		 * Initializes source editing for quotes.
 		 */
 		_observeQuotes: function() {
-			this.$editor.find('.redactorQuoteEdit:not(.jsRedactorQuoteEdit)').addClass('jsRedactorQuoteEdit').click($.proxy(this.wbbcode._observeQuotesClick, this));
+			var $editHeader = this.$editor.find('.redactorQuoteEdit:not(.jsRedactorQuoteEdit)');
+			if ($editHeader.length) {
+				$editHeader.each((function(index, editHeader) {
+					var $editHeader = $(editHeader);
+					$editHeader.addClass('jsRedactorQuoteEdit').click($.proxy(this.wbbcode._observeQuotesClick, this));
+					
+					if ($.browser.msie) {
+						var $outerDiv = $editHeader.parent().parent();
+						$outerDiv.attr('contenteditable', false);
+						$outerDiv.children('div').attr('contenteditable', true);
+						
+						// prevent resize handles being displayed
+						$outerDiv.on('mscontrolselect', function(event) {
+							event.preventDefault();
+						});
+					}
+				}).bind(this));
+			}
 		},
 		
 		/**

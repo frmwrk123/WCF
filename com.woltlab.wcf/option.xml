@@ -503,14 +503,6 @@ imagick:wcf.acp.option.image_adapter_type.imagick]]>
 				<categoryname>general.system.http</categoryname>
 				<optiontype>boolean</optiontype>
 				<defaultvalue>1</defaultvalue>
-				<enableoptions><![CDATA[http_gzip_level]]></enableoptions>
-			</option>
-			<option name="http_gzip_level">
-				<categoryname>general.system.http</categoryname>
-				<optiontype>integer</optiontype>
-				<defaultvalue>1</defaultvalue>
-				<minvalue>1</minvalue>
-				<maxvalue>9</maxvalue>
 			</option>
 			<!-- /general.system.http -->
 			
@@ -1253,7 +1245,7 @@ DESC:wcf.global.sortOrder.descending]]></selectoptions>
 			<option name="user_cleanup_notification_lifetime">
 				<categoryname>user.cleanup</categoryname>
 				<optiontype>integer</optiontype>
-				<defaultvalue>60</defaultvalue>
+				<defaultvalue>14</defaultvalue>
 				<minvalue>0</minvalue>
 			</option>
 			<option name="user_cleanup_activity_event_lifetime">
@@ -1403,5 +1395,6 @@ DESC:wcf.global.sortOrder.descending]]></selectoptions>
 	
 	<delete>
 		<option name="cache_source_memcached_use_pconnect" />
+		<option name="http_gzip_level" />
 	</delete>
 </data>

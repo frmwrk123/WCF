@@ -167,7 +167,7 @@ class UserNotificationAction extends AbstractDatabaseObjectAction {
 		));
 		
 		return array(
-			'template' => WCF::getTPL()->fetch('notificationListOustanding'),
+			'template' => WCF::getTPL()->fetch('notificationListUserPanel'),
 			'totalCount' => $notifications['notificationCount']
 		);
 	}
@@ -191,7 +191,7 @@ class UserNotificationAction extends AbstractDatabaseObjectAction {
 		UserNotificationHandler::getInstance()->markAsConfirmedByID($this->notificationEditor->notificationID);
 		
 		return array(
-			'notificationID' => $this->notificationEditor->notificationID,
+			'markAsRead' => $this->notificationEditor->notificationID,
 			'totalCount' => UserNotificationHandler::getInstance()->getNotificationCount(true)
 		);
 	}
@@ -223,5 +223,9 @@ class UserNotificationAction extends AbstractDatabaseObjectAction {
 		
 		// reset notification count
 		UserStorageHandler::getInstance()->reset(array(WCF::getUser()->userID), 'userNotificationCount');
+		
+		return array(
+			'markAllAsRead' => true
+		);
 	}
 }

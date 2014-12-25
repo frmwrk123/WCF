@@ -230,7 +230,7 @@ class PackageInstallationScheduler {
 			else {
 				// create request
 				$request = new HTTPRequest(
-					$this->packageUpdateServers[$packageUpdateVersion['packageUpdateServerID']]->serverURL,
+					$this->packageUpdateServers[$packageUpdateVersion['packageUpdateServerID']]->getDownloadURL(),
 					(!empty($authData) ? array('auth' => $authData) : array()),
 					array(
 						'apiVersion' => PackageUpdate::API_VERSION,
@@ -269,7 +269,7 @@ class PackageInstallationScheduler {
 			if ($validateInstallInstructions) {
 				$installInstructions = $archive->getInstallInstructions();
 				if (empty($installInstructions)) {
-					throw new SystemException("Package '" . $archive->getLocalizedPackageInfo('packageName')  . "' (" . $archive->getPackageInfo('name') . ") does not contain valid installation instructions.");
+					throw new SystemException("Package '" . $archive->getLocalizedPackageInfo('packageName') . "' (" . $archive->getPackageInfo('name') . ") does not contain valid installation instructions.");
 				}
 			}
 			

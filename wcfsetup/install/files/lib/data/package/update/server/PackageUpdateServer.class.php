@@ -1,8 +1,10 @@
 <?php
 namespace wcf\data\package\update\server;
 use wcf\data\DatabaseObject;
+use wcf\system\io\RemoteFile;
 use wcf\system\Regex;
 use wcf\system\WCF;
+use wcf\util\FileUtil;
 
 /**
  * Represents a package update server.
@@ -24,6 +26,28 @@ class PackageUpdateServer extends DatabaseObject {
 	 * @see	\wcf\data\DatabaseObject::$databaseTableIndexName
 	 */
 	protected static $databaseTableIndexName = 'packageUpdateServerID';
+	
+	/**
+	 * API meta data
+	 * @var	array
+	 */
+	protected $metaData = array();
+	
+	/**
+	 * @see	\wcf\data\DatabaseObject::handleData()
+	 */
+	protected function handleData($data) {
+		if (!empty($data['metaData'])) {
+			$metaData = @unserialize($data['metaData']);
+			if (is_array($metaData)) {
+				$this->metaData = $metaData;
+			}
+			
+			unset($data['metaData']);
+		}
+		
+		parent::handleData($data);
+	}
 	
 	/**
 	 * Returns all active update package servers sorted by hostname.
@@ -134,5 +158,52 @@ class PackageUpdateServer extends DatabaseObject {
 	public function getHighlightedURL() {
 		$host = parse_url($this->serverURL, PHP_URL_HOST);
 		return str_replace($host, '<strong>'.$host.'</strong>', $this->serverURL);
+	}
+	
+	/**
+	 * Returns the list endpoint for package servers.
+	 * 
+	 * @return	string
+	 */
+	public function getListURL() {
+		if ($this->apiVersion == '2.0') {
+			return $this->serverURL;
+		}
+		
+		$serverURL = FileUtil::addTrailingSlash($this->serverURL) . 'list/' . WCF::getLanguage()->getFixedLanguageCode() . '.xml';
+		
+		$metaData = $this->getMetaData();
+		if (!RemoteFile::supportsSSL() || !$metaData['ssl']) {
+			return preg_replace('~^https://~', 'http://', $serverURL);
+		}
+		
+		return preg_replace('~^http://~', 'https://', $serverURL);
+	}
+	
+	/**
+	 * Returns the download endpoint for package servers.
+	 * 
+	 * @return	string
+	 */
+	public function getDownloadURL() {
+		if ($this->apiVersion == '2.0') {
+			return $this->serverURL;
+		}
+		
+		$metaData = $this->getMetaData();
+		if (!RemoteFile::supportsSSL() || !$metaData['ssl']) {
+			return preg_replace('~^https://~', 'http://', $this->serverURL);
+		}
+		
+		return preg_replace('~^http://~', 'https://', $this->serverURL);
+	}
+	
+	/**
+	 * Returns API meta data.
+	 * 
+	 * @return	array
+	 */
+	public function getMetaData() {
+		return $this->metaData;
 	}
 }

@@ -87,6 +87,19 @@ RedactorPlugins.wmonkeypatch = function() {
 				this.$editor.on('mouseup.redactor keyup.redactor focus.redactor', $.proxy(this.observe.buttons, this));
 				this.$editor.on('keyup.redactor', $.proxy(this.keyup.init, this));
 			}
+			
+			var $saveSelection = false;
+			this.$editor.on('mousedown.wmonkeypatch', (function() {
+				$saveSelection = true;
+			}).bind(this));
+			
+			$(document).on('mouseup.wmonkeypatch', (function() {
+				if ($saveSelection) {
+					$saveSelection = false;
+					
+					this.wutil.saveSelection();
+				}
+			}).bind(this));
 		},
 		
 		/**
@@ -228,6 +241,11 @@ RedactorPlugins.wmonkeypatch = function() {
 				
 				return $restoreSpecialCharacters(html);
 			}).bind(this);
+			
+			// clean.onPasteRemoveEmpty
+			this.clean.onPasteRemoveEmpty = function(html) {
+				return html.replace(/<br\s?\/?>$/i, '');
+			};
 			
 			// clean.onSet
 			var $mpOnSet = this.clean.onSet;
@@ -427,12 +445,21 @@ RedactorPlugins.wmonkeypatch = function() {
 			}).bind(this);
 			
 			// image.update
+			var $moveImage = (function(image) {
+				var $parent = image.parent();
+				image = image.detach();
+				image.prependTo($parent);
+				
+				this.caret.setAfter(image);
+			}).bind(this);
+			
 			this.image.update = (function(image) {
 				this.image.hideResize();
 				this.buffer.set();
 				
 				image.attr('src', $('#redactor-image-link-source').val());
 				this.image.setFloating(image);
+				$moveImage(image);
 				
 				this.modal.close();
 				this.observe.images();
@@ -584,6 +611,19 @@ RedactorPlugins.wmonkeypatch = function() {
 					$mpReplaceDivToParagraph.call(this);
 				}
 			}).bind(this);
+			
+			// keydown.setupBuffer
+			var $mpSetupBuffer = this.keydown.setupBuffer;
+			this.keydown.setupBuffer = (function(e, key) {
+				// undo
+				if (this.keydown.ctrl && key === 89 && !e.shiftKey && !e.altKey && this.opts.rebuffer.length !== 0) {
+					e.preventDefault();
+					this.buffer.redo();
+					return;
+				}
+				
+				$mpSetupBuffer.call(this, e, key);
+			}).bind(this);
 		},
 		
 		/**
@@ -729,46 +769,24 @@ RedactorPlugins.wmonkeypatch = function() {
 		/**
 		 * Partially overwrites the 'paste' module.
 		 * 
-		 *  - prevent screwed up, pasted HTML from placing text nodes (and inline elements) in the editor's direct root 
+		 *  - prevent screwed up, pasted HTML from placing text nodes (and inline elements) in the editor's direct root
+		 *  - fixes text pasting in Internet Explorer 11 (#2040) 
 		 */
 		paste: function() {
-			var $fixDOM = (function() {
-				var $current = this.$editor[0].childNodes[0];
-				var $nextSibling = $current;
-				var $p = null;
-				
-				while ($nextSibling) {
-					$current = $nextSibling;
-					$nextSibling = $current.nextSibling;
-					
-					if ($current.nodeType === Element.ELEMENT_NODE) {
-						if (this.reIsBlock.test($current.tagName)) {
-							$p = null;
-						}
-						else {
-							if ($p === null) {
-								$p = $('<p />').insertBefore($current);
-							}
-							
-							$p.append($current);
-						}
-					}
-					else if ($current.nodeType === Element.TEXT_NODE) {
-						if ($p === null) {
-							$p = $('<p />').insertBefore($current);
-						}
-						
-						$p.append($current);
-					}
-				}
-			}).bind(this);
-			
 			// paste.insert
 			var $mpInsert = this.paste.insert;
 			this.paste.insert = (function(html) {
 				$mpInsert.call(this, html);
 				
-				setTimeout($fixDOM, 20);
+				setTimeout((function() {
+					this.wutil.fixDOM();
+					
+					if ($.browser.msie) {
+						getSelection().getRangeAt(0).collapse(false);
+					}
+					
+					this.wutil.saveSelection();
+				}).bind(this), 20);
 			}).bind(this);
 		},
 		
@@ -812,11 +830,11 @@ RedactorPlugins.wmonkeypatch = function() {
 				'<fieldset id="redactor-modal-link">'
 					+ '<dl>'
 						+ '<dt><label for="redactor-link-url" />URL</label></dt>' /* TODO: use a phrase instead of hardcoding it! */
-						+ '<dd><input type="url" id="redactor-link-url" /></dd>'
+						+ '<dd><input type="url" id="redactor-link-url" class="long" /></dd>'
 					+ '</dl>'
 					+ '<dl>'
 						+ '<dt><label for="redactor-link-url-text">' + this.lang.get('text') + '</label></dt>'
-						+ '<dd><input type="text" id="redactor-link-url-text" /></dd>'
+						+ '<dd><input type="text" id="redactor-link-url-text" class="long" /></dd>'
 					+ '</dl>'
 				+ '</fieldset>';
 			

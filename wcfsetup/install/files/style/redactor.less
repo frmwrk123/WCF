@@ -131,6 +131,7 @@
 	}
 	
 	img {
+		border: 1px solid transparent;
 		max-width: 100%;
 	}
 	
@@ -186,6 +187,7 @@
 	
 	> li {
 		display: inline-block;
+		vertical-align: middle;
 		
 		&:last-of-type,
 		&.separator {
@@ -241,6 +243,15 @@
 			&.fa-redactor-btn:before {
 				content: "";
 			}
+			
+			&.redactor-btn-image {
+				background-position: center;
+				background-repeat: no-repeat;
+				
+				&.redactor-button-disabled {
+					opacity: .5;
+				}
+			}
 		}
 	}
 }
@@ -257,6 +268,7 @@
 	position: relative;
 	
 	> img {
+		border-width: 0;
 		opacity: .5;
 	}
 }

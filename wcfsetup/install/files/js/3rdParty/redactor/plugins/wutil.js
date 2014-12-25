@@ -85,6 +85,13 @@ RedactorPlugins.wutil = function() {
 		},
 		
 		/**
+		 * Clears the current selection.
+		 */
+		clearSelection: function() {
+			this._wutil.range = null;
+		},
+		
+		/**
 		 * Allows inserting of text contents in Redactor's source area.
 		 * 
 		 * @param	string		string
@@ -206,7 +213,12 @@ RedactorPlugins.wutil = function() {
 				this.$textarea.val($.trim(this.wbbcode.convertFromHtml($html)));
 			}
 			
-			return $.trim(this.$textarea.val());
+			var $text = $.trim(this.$textarea.val());
+			
+			// remove linebreak after [/quote]
+			$text = $text.replace(/\[\/quote\]\n/g, '[/quote]');
+			
+			return $text;
 		},
 		
 		/**
@@ -264,7 +276,7 @@ RedactorPlugins.wutil = function() {
 			if (this.wutil._autosaveWorker === null) {
 				this.wutil.autosavePurgeOutdated();
 				
-				this.wutil._autosaveWorker = new WCF.PeriodicalExecuter($.proxy(this.wutil.saveTextToStorage, this), 60 * 1000);
+				this.wutil._autosaveWorker = new WCF.PeriodicalExecuter($.proxy(this.wutil.saveTextToStorage, this), 15 * 1000);
 			}
 			
 			return true;
@@ -746,6 +758,49 @@ RedactorPlugins.wutil = function() {
 			var $node = $(this.opts.emptyHtml);
 			$node[(setBefore ? 'insertBefore' : 'insertAfter')](element);
 			this.caret.setEnd($node[0]);
+		},
+		
+		/**
+		 * Fixes the DOM by moving all non-element children of the editor into a paragraph.
+		 */
+		fixDOM: function() {
+			var $current = this.$editor[0].childNodes[0];
+			var $nextSibling = $current;
+			var $p = null;
+			
+			while ($nextSibling) {
+				$current = $nextSibling;
+				$nextSibling = $current.nextSibling;
+				
+				if ($current.nodeType === Element.ELEMENT_NODE) {
+					if (this.reIsBlock.test($current.tagName)) {
+						$p = null;
+					}
+					else {
+						if ($p === null) {
+							$p = $('<p />').insertBefore($current);
+						}
+						
+						$p.append($current);
+					}
+				}
+				else if ($current.nodeType === Element.TEXT_NODE) {
+					if ($p === null) {
+						// check for ghost paragraphs next
+						if ($nextSibling) {
+							if ($nextSibling.nodeType === Element.ELEMENT_NODE && $nextSibling.tagName === 'P' && $nextSibling.innerHTML === '\u200B') {
+								var $afterNextSibling = $nextSibling.nextSibling;
+								this.$editor[0].removeChild($nextSibling);
+								$nextSibling = $afterNextSibling;
+							}
+						}
+						
+						$p = $('<p />').insertBefore($current);
+					}
+					
+					$p.append($current);
+				}
+			}
 		}
 	};
 };

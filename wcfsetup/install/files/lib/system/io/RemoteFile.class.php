@@ -38,6 +38,12 @@ class RemoteFile extends File {
 	protected $errorDesc = '';
 	
 	/**
+	 * true if PHP supports SSL/TLS
+	 * @var	boolean
+	 */
+	private static $hasSSLSupport = null;
+	
+	/**
 	 * Opens a new connection to a remote host.
 	 * 
 	 * @param	string		$host
@@ -45,11 +51,14 @@ class RemoteFile extends File {
 	 * @param	integer		$timeout
 	 * @param	array		$options
 	 */
-	public function __construct($host, $port, $timeout = 30) {
+	public function __construct($host, $port, $timeout = 30, $options = array()) {
 		$this->host = $host;
 		$this->port = $port;
 		
-		$this->resource = @fsockopen($host, $port, $this->errorNumber, $this->errorDesc, $timeout);
+		if (!preg_match('/^[a-z0-9]+:/', $this->host)) $this->host = 'tcp://'.$this->host;
+		
+		$context = stream_context_create($options);
+		$this->resource = @stream_socket_client($this->host.':'.$this->port, $this->errorNumber, $this->errorDesc, $timeout, STREAM_CLIENT_CONNECT, $context);
 		if ($this->resource === false) {
 			throw new SystemException('Can not connect to ' . $host, 0, $this->errorDesc);
 		}
@@ -93,5 +102,26 @@ class RemoteFile extends File {
 	 */
 	public function hasTLSSupport() {
 		return function_exists('stream_socket_enable_crypto');
+	}
+	
+	/**
+	 * Returns true if PHP supports SSL/TLS.
+	 * 
+	 * @return	boolean
+	 */
+	public static function supportsSSL() {
+		if (static::$hasSSLSupport === null) {
+			static::$hasSSLSupport = false;
+			
+			$transports = stream_get_transports();
+			foreach ($transports as $transport) {
+				if (preg_match('~^(ssl(v[23])?|tls(v[0-9\.]+)?)$~', $transport)) {
+					static::$hasSSLSupport = true;
+					break;
+				}
+			}
+		}
+		
+		return static::$hasSSLSupport;
 	}
 }

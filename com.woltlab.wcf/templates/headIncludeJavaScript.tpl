@@ -112,7 +112,12 @@
 		'wcf.page.pagePosition': '{lang __literal=true}wcf.page.pagePosition{/lang}',
 		'wcf.page.sitemap': '{lang}wcf.page.sitemap{/lang}',
 		'wcf.style.changeStyle': '{lang}wcf.style.changeStyle{/lang}',
-		'wcf.user.activityPoint': '{lang}wcf.user.activityPoint{/lang}'
+		'wcf.user.activityPoint': '{lang}wcf.user.activityPoint{/lang}',
+		'wcf.style.changeStyle': '{lang}wcf.style.changeStyle{/lang}',
+		'wcf.user.panel.markAllAsRead': '{lang}wcf.user.panel.markAllAsRead{/lang}',
+		'wcf.user.panel.markAsRead': '{lang}wcf.user.panel.markAsRead{/lang}',
+		'wcf.user.panel.settings': '{lang}wcf.user.panel.settings{/lang}',
+		'wcf.user.panel.showAll': '{lang}wcf.user.panel.showAll{/lang}'
 		{if MODULE_LIKE}
 			,'wcf.like.button.like': '{lang}wcf.like.button.like{/lang}',
 			'wcf.like.button.dislike': '{lang}wcf.like.button.dislike{/lang}',
@@ -143,11 +148,11 @@
 <script data-relocate="true" src="{@$__wcf->getPath()}js/WCF.Label.js?v={@LAST_UPDATE_TIME}"></script>
 <script data-relocate="true" src="{@$__wcf->getPath()}js/WCF.Location.js?v={@LAST_UPDATE_TIME}"></script>
 <script data-relocate="true" src="{@$__wcf->getPath()}js/WCF.Message.js?v={@LAST_UPDATE_TIME}"></script>
-<script data-relocate="true" src="{@$__wcf->getPath()}js/WCF.Moderation.js?v={@LAST_UPDATE_TIME}"></script>
 <script data-relocate="true" src="{@$__wcf->getPath()}js/WCF.Poll.js?v={@LAST_UPDATE_TIME}"></script>
 <script data-relocate="true" src="{@$__wcf->getPath()}js/WCF.Search.Message.js?v={@LAST_UPDATE_TIME}"></script>
 <script data-relocate="true" src="{@$__wcf->getPath()}js/WCF.Tagging.js?v={@LAST_UPDATE_TIME}"></script>
 <script data-relocate="true" src="{@$__wcf->getPath()}js/WCF.User.js?v={@LAST_UPDATE_TIME}"></script>
+<script data-relocate="true" src="{@$__wcf->getPath()}js/WCF.Moderation.js?v={@LAST_UPDATE_TIME}"></script>
 {/if}
 
 {event name='javascriptInclude'}

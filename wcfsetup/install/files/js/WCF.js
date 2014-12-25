@@ -1029,6 +1029,8 @@ WCF.Dropdown = {
 			}
 		}
 		
+		WCF.Dropdown.Interactive.Handler.closeAll();
+		
 		if (event !== null) {
 			event.stopPropagation();
 			return false;
@@ -1291,8 +1293,407 @@ WCF.Dropdown = {
 		for (var $i = 0, $length = this._callbacks[containerID].length; $i < $length; $i++) {
 			this._callbacks[containerID][$i](containerID, action);
 		}
+	},
+	
+	/**
+	 * Destroies an existing dropdown menu.
+	 * 
+	 * @param	string		containerID
+	 * @return	boolean
+	 */
+	destroy: function(containerID) {
+		if (this._dropdowns[containerID] === undefined) {
+			return false;
+		}
+		
+		this.close(containerID);
+		
+		this._menus[containerID].remove();
+		delete this._menus[containerID];
+		delete this._dropdowns[containerID];
 	}
 };
+
+/**
+ * Namespace for interactive dropdowns.
+ */
+WCF.Dropdown.Interactive = { };
+
+/**
+ * General interface to create and manage interactive dropdowns.
+ */
+WCF.Dropdown.Interactive.Handler = {
+	/**
+	 * global container for interactive dropdowns
+	 * @var	jQuery
+	 */
+	_dropdownContainer: null,
+	
+	/**
+	 * list of dropdown instances by identifier
+	 * @var	object<WCF.Dropdown.Interactive.Instance>
+	 */
+	_dropdownMenus: { },
+	
+	/**
+	 * Creates a new interactive dropdown instance.
+	 * 
+	 * @param	jQuery		triggerElement
+	 * @param	string		identifier
+	 * @param	object		options
+	 * @return	WCF.Dropdown.Interactive.Instance
+	 */
+	create: function(triggerElement, identifier, options) {
+		if (this._dropdownContainer === null) {
+			this._dropdownContainer = $('<div class="dropdownMenuContainer" />').appendTo(document.body);
+			WCF.CloseOverlayHandler.addCallback('WCF.Dropdown.Interactive.Handler', $.proxy(this.closeAll, this));
+		}
+		
+		var $instance = new WCF.Dropdown.Interactive.Instance(this._dropdownContainer, triggerElement, identifier, options);
+		this._dropdownMenus[identifier] = $instance;
+		
+		return $instance;
+	},
+	
+	/**
+	 * Opens an interactive dropdown, returns false if identifier is unknown.
+	 * 
+	 * @param	string		identifier
+	 * @return	boolean
+	 */
+	open: function(identifier) {
+		if (this._dropdownMenus[identifier]) {
+			this._dropdownMenus[identifier].open();
+			
+			return true;
+		}
+		
+		return false;
+	},
+	
+	/**
+	 * Closes an interactive dropdown, returns false if identifier is unknown.
+	 * 
+	 * @param	string		identifier
+	 * @return	boolean
+	 */
+	close: function(identifier) {
+		if (this._dropdownMenus[identifier]) {
+			this._dropdownMenus[identifier].close();
+			
+			return true;
+		}
+		
+		return false;
+	},
+	
+	/**
+	 * Closes all interactive dropdowns.
+	 */
+	closeAll: function() {
+		$.each(this._dropdownMenus, function(identifier, instance) {
+			instance.close();
+		});
+	}
+};
+
+/**
+ * Represents and manages a single interactive dropdown instance.
+ * 
+ * @param	jQuery		dropdownContainer
+ * @param	jQuery		triggerElement
+ * @param	string		identifier
+ * @param	object		options
+ */
+WCF.Dropdown.Interactive.Instance = Class.extend({
+	/**
+	 * dropdown container
+	 * @var	jQuery
+	 */
+	_container: null,
+	
+	/**
+	 * inner item list
+	 * @var	jQuery
+	 */
+	_itemList: null,
+	
+	/**
+	 * header link list
+	 * @var	jQuery
+	 */
+	_linkList: null,
+	
+	/**
+	 * arrow pointer
+	 * @var	jQuery
+	 */
+	_pointer: null,
+	
+	/**
+	 * trigger element
+	 * @var	jQuery
+	 */
+	_triggerElement: null,
+	
+	/**
+	 * Represents and manages a single interactive dropdown instance.
+	 * 
+	 * @param	jQuery		dropdownContainer
+	 * @param	jQuery		triggerElement
+	 * @param	string		identifier
+	 * @param	object		options
+	 */
+	init: function(dropdownContainer, triggerElement, identifier, options) {
+		this._triggerElement = triggerElement;
+		
+		this._container = $('<div class="interactiveDropdown" data-source="' + identifier + '" />').click(function(event) { event.stopPropagation(); });
+		
+		var $header = $('<div class="interactiveDropdownHeader" />').appendTo(this._container);
+		$('<span class="interactiveDropdownTitle">' + options.title + '</span>').appendTo($header);
+		this._linkList = $('<ul class="interactiveDropdownLinks"></ul>').appendTo($header);
+		
+		var $itemContainer = $('<div class="interactiveDropdownItemsContainer" />').appendTo(this._container);
+		this._itemList = $('<ul class="interactiveDropdownItems" />').appendTo($itemContainer);
+		
+		$('<a href="' + options.showAllLink + '" class="interactiveDropdownShowAll">' + WCF.Language.get('wcf.user.panel.showAll') + '</a>').appendTo(this._container);
+		
+		this._pointer = $('<span class="pointer"><span /></span>').appendTo(this._container);
+		
+		if (!$.browser.mobile) {
+			// use jQuery scrollbar on desktop, mobile browsers have a similar display built-in
+			$itemContainer.perfectScrollbar({
+				suppressScrollX: true
+			});
+		}
+		
+		this._container.appendTo(dropdownContainer);
+	},
+	
+	/**
+	 * Returns the dropdown container.
+	 * 
+	 * @return	jQuery
+	 */
+	getContainer: function() {
+		return this._container;
+	},
+	
+	/**
+	 * Returns the inner item list.
+	 * 
+	 * @return	jQuery
+	 */
+	getItemList: function() {
+		return this._itemList;
+	},
+	
+	/**
+	 * Returns the header link list.
+	 * 
+	 * @return	jQuery
+	 */
+	getLinkList: function() {
+		return this._linkList;
+	},
+	
+	/**
+	 * Opens the dropdown.
+	 */
+	open: function() {
+		WCF.Dropdown._closeAll();
+		
+		this._container.addClass('open');
+		
+		this.render();
+	},
+	
+	/**
+	 * Closes the dropdown
+	 */
+	close: function() {
+		this._container.removeClass('open');
+	},
+	
+	/**
+	 * Toggles the dropdown state, returns true if dropdown is open afterwards, else false.
+	 * 
+	 * @return	boolean
+	 */
+	toggle: function() {
+		if (this._container.hasClass('open')) {
+			this.close();
+			
+			return false;
+		}
+		else {
+			WCF.Dropdown.Interactive.Handler.closeAll();
+			
+			this.open();
+			
+			return true;
+		}
+	},
+	
+	/**
+	 * Resets the inner item list and closes the dropdown.
+	 */
+	resetItems: function() {
+		this._itemList.empty();
+		
+		this.close();
+	},
+	
+	/**
+	 * Renders the dropdown.
+	 */
+	render: function() {
+		var $pageDirection = WCF.Language.get('wcf.global.pageDirection');
+		
+		if ($('html').css('caption-side') === 'bottom') {
+			this._renderMobile($pageDirection);
+		}
+		else {
+			this._renderDesktop($pageDirection);
+		}
+	},
+	
+	/**
+	 * Rebuilds the desktop scrollbar.
+	 */
+	rebuildScrollbar: function() {
+		if (!$.browser.mobile) {
+			var $itemContainer = this._itemList.parent();
+			
+			// do NOT use 'update', seems to be broken
+			$itemContainer.perfectScrollbar('destroy');
+			$itemContainer.perfectScrollbar({
+				suppressScrollX: true
+			});
+		}
+	},
+	
+	/**
+	 * Renders the dropdown on mobile devices.
+	 * 
+	 * @param	string		pageDirection
+	 */
+	_renderMobile: function(pageDirection) {
+		var $elementDimensions = this._triggerElement.getDimensions('outer');
+		var $elementHalfWidth = Math.floor($elementDimensions.width / 2);
+		var $elementOffsets = this._triggerElement.getOffsets('offset');
+		var $pointerHalfWidth = Math.floor(this._pointer.outerWidth() / 2);
+		
+		this._container.css({
+			top: $elementOffsets.top + $elementDimensions.height + 'px'
+		});
+		
+		this._pointer.css({
+			left: ($elementOffsets.left + $elementHalfWidth) - $pointerHalfWidth + 'px'
+		});
+	},
+	
+	/**
+	 * Renders the dropdown on desktops.
+	 * 
+	 * @param	string		pageDirection
+	 */
+	_renderDesktop: function(pageDirection) {
+		var $elementDimensions = this._triggerElement.getDimensions('outer');
+		var $elementOffsets = this._triggerElement.getOffsets('offset');
+		var $dropdownDimensions = this._container.getDimensions();
+		var $pageWidth = $(window).width();
+		
+		var $left = null;
+		var $right = null;
+		if (pageDirection === 'ltr') {
+			$left = this._getPositionLeft($elementOffsets, $dropdownDimensions, $pageWidth);
+			
+			if (!$left.result) {
+				$right = this._getPositionRight($elementOffsets, $dropdownDimensions, $elementDimensions);
+				
+				if ($right.result) {
+					$left = null;
+				}
+				else {
+					$right = null;
+				}
+			}
+		}
+		else {
+			$right = this._getPositionRight($elementOffsets, $dropdownDimensions, $elementDimensions);
+			
+			if (!$right.result) {
+				$left = this._getPositionLeft($elementOffsets, $dropdownDimensions, $pageWidth);
+				if ($left.result) {
+					$right = null;
+				}
+				else {
+					$left = null;
+				}
+			}
+		}
+		
+		if ($right === null) {
+			// align to the left
+			this._container.css({
+				left: $left.left + 'px',
+				top: $elementOffsets.top + $elementDimensions.height + 'px'
+			});
+			
+			this._pointer.css({
+				left: '4px'
+			});
+		}
+		else {
+			// align to the right
+			this._container.css({
+				right: $right.right + 'px',
+				top: $elementOffsets.top + $elementDimensions.height + 'px'
+			});
+			
+			this._pointer.css({
+				right: '4px'
+			});
+		}
+	},
+	
+	/**
+	 * Calculates the dropdown position aligned with its left side.
+	 * 
+	 * @param	object		elementOffsets
+	 * @param	object		dropdownDimensions
+	 * @param	integer		pageWidth
+	 * @return	object
+	 */
+	_getPositionLeft: function(elementOffsets, dropdownDimensions, pageWidth) {
+		var $left = elementOffsets.left;
+		var $right = elementOffsets.left + dropdownDimensions.width;
+		
+		return {
+			left: $left,
+			result: ($right < pageWidth)
+		};
+	},
+	
+	/**
+	 * Calculates the dropdown position aligned with its right side.
+	 * 
+	 * @param	object		elementOffsets
+	 * @param	object		dropdownDimensions
+	 * @param	object		elementDimensions
+	 * @return	object
+	 */
+	_getPositionRight: function(elementOffsets, dropdownDimensions, elementDimensions) {
+		var $left = (elementOffsets.left + elementDimensions.width) - dropdownDimensions.width;
+		var $right = elementOffsets.right;
+		
+		return {
+			result: ($left > 0),
+			right: $right
+		};
+	}
+});
 
 /**
  * Clipboard API
@@ -2439,16 +2840,19 @@ WCF.Action.Delete = Class.extend({
 	 * Initializes available element containers.
 	 */
 	_initElements: function() {
-		var self = this;
-		$(this._containerSelector).each(function(index, container) {
+		$(this._containerSelector).each((function(index, container) {
 			var $container = $(container);
 			var $containerID = $container.wcfIdentify();
 			
-			if (!WCF.inArray($containerID, self._containers)) {
-				self._containers.push($containerID);
-				$container.find(self._buttonSelector).click($.proxy(self._click, self));
+			if (!WCF.inArray($containerID, this._containers)) {
+				var $deleteButton = $container.find(this._buttonSelector);
+				
+				if ($deleteButton.length) {
+					this._containers.push($containerID);
+					$deleteButton.click($.proxy(this._click, this));
+				}
 			}
-		});
+		}).bind(this));
 	},
 	
 	/**
@@ -2643,7 +3047,7 @@ WCF.Action.Toggle = Class.extend({
 		
 		// bind event listener
 		this._initElements();
-		WCF.DOMNodeInsertedHandler.addCallback('WCF.Action.Toggle' + this._className.hashCode(), $.proxy(this._initElements, this));	
+		WCF.DOMNodeInsertedHandler.addCallback('WCF.Action.Toggle' + this._className.hashCode(), $.proxy(this._initElements, this));
 	},
 	
 	/**
@@ -5664,6 +6068,12 @@ WCF.Option.Handler = Class.extend({
 				if ($.wcfIsset($target)) {
 					this._enableOption($target, !isActive);
 				}
+				else {
+					var $dl = $('.' + $target + 'Input');
+					if ($dl.length) {
+						this._enableOptions($dl.children('dd').find('input, select, textarea'), !isActive);
+					}
+				}
 			}
 		}
 		
@@ -5673,34 +6083,62 @@ WCF.Option.Handler = Class.extend({
 				if ($.wcfIsset($target)) {
 					this._enableOption($target, isActive);
 				}
+				else {
+					var $dl = $('.' + $target + 'Input');
+					if ($dl.length) {
+						this._enableOptions($dl.children('dd').find('input, select, textarea'), isActive);
+					}
+				}
 			}
 		}
 	},
 	
 	/**
-	 * Enables an option.
+	 * Enables/Disables an option.
 	 * 
 	 * @param	string		target
 	 * @param	boolean		enable
 	 */
 	_enableOption: function(target, enable) {
-		var $targetElement = $('#' + $.wcfEscapeID(target));
-		var $tagName = $targetElement.getTagName();
+		this._enableOptionElement($('#' + $.wcfEscapeID(target)), enable);
+	},
+	
+	/**
+	 * Enables/Disables an option element.
+	 * 
+	 * @param	string		target
+	 * @param	boolean		enable
+	 */
+	_enableOptionElement: function(element, enable) {
+		element = $(element);
+		var $tagName = element.getTagName();
 		
-		if ($tagName == 'select' || ($tagName == 'input' && ($targetElement.attr('type') == 'checkbox' || $targetElement.attr('type') == 'radio'))) {
-			if (enable) $targetElement.enable();
-			else $targetElement.disable();
+		if ($tagName == 'select' || ($tagName == 'input' && (element.attr('type') == 'checkbox' || element.attr('type') == 'file' || element.attr('type') == 'radio'))) {
+			if (enable) element.enable();
+			else element.disable();
 		}
 		else {
-			if (enable) $targetElement.removeAttr('readonly');
-			else $targetElement.attr('readonly', true);
+			if (enable) element.removeAttr('readonly');
+			else element.attr('readonly', true);
 		}
 		
 		if (enable) {
-			$targetElement.closest('dl').removeClass('disabled');
+			element.closest('dl').removeClass('disabled');
 		}
 		else {
-			$targetElement.closest('dl').addClass('disabled');
+			element.closest('dl').addClass('disabled');
+		}
+	},
+	
+	/**
+	 * Enables/Disables an option consisting of multiple form elements.
+	 * 
+	 * @param	string		target
+	 * @param	boolean		enable
+	 */
+	_enableOptions: function(targets, enable) {
+		for (var $i = 0, $length = targets.length; $i < $length; $i++) {
+			this._enableOptionElement(targets[$i], enable);
 		}
 	}
 });
@@ -9220,6 +9658,11 @@ WCF.Popover = Class.extend({
 		
 		this._initContainers();
 		WCF.DOMNodeInsertedHandler.addCallback('WCF.Popover.'+selector, $.proxy(this._initContainers, this));
+		
+		$(window).on('beforeunload', (function() {
+			this._cancelPopover = true;
+			this._hide(true);
+		}).bind(this));
 	},
 	
 	/**
@@ -9246,18 +9689,12 @@ WCF.Popover = Class.extend({
 				$element.hover($.proxy(this._overElement, this), $.proxy(this._out, this));
 				
 				if ($element.is('a') && $element.attr('href')) {
-					$element.click($.proxy(this._cancel, this));
+					$element.click((function() {
+						this._hide(true);
+					}).bind(this));
 				}
 			}
 		}, this));
-	},
-	
-	/**
-	 * Cancels popovers if link is being clicked
-	 */
-	_cancel: function(event) {
-		this._cancelPopover = true;
-		this._hide(true);
 	},
 	
 	/**
@@ -10170,6 +10607,7 @@ WCF.Language.Chooser = Class.extend({
 			this._dropdown.children('.dropdownToggle').empty().append($dropdownToggle);
 		}
 		
+		WCF.Dropdown.destroy(containerID + '-languageChooser');
 		WCF.Dropdown.init();
 	},
 	
@@ -10297,6 +10735,8 @@ WCF.Style.Chooser = Class.extend({
 
 /**
  * Converts static user panel items into interactive dropdowns.
+ * 
+ * @deprecated	2.1 - Please use WCF.User.Panel.Interactive instead
  * 
  * @param	string		containerID
  */
@@ -10870,7 +11310,7 @@ $.widget('ui.wcfDialog', {
 		// Firefox ignores padding-bottom for elements within an overflowing container
 		if ($.browser.mozilla && !$.browser.mobile) {
 			if ($overflow === 'auto') {
-				this._content.children('div').css('margin-bottom',  this._content.css('padding-bottom'));
+				this._content.children('div').css('margin-bottom', this._content.css('padding-bottom'));
 			}
 			else {
 				this._content.children('div').css('margin-bottom', false);

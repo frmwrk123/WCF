@@ -340,7 +340,7 @@ $.widget('ui.wcfImageViewer', {
 				}
 				
 				this._isOpen = true;
-			
+				
 				WCF.System.DisableScrolling.disable();
 				WCF.System.DisableZoom.disable();
 			}
@@ -637,7 +637,7 @@ $.widget('ui.wcfImageViewer', {
 		
 		// meta data
 		var $title = WCF.String.escapeHTML($image.image.title);
-		if ($image.image.link) $title = '<a href="' + $image.image.link + '">' + $image.image.title + '</a>';
+		if ($image.image.link) $title = '<a href="' + $image.image.link + '">' + $title + '</a>';
 		this._ui.header.find('> div > h1').html($title);
 		
 		if (!this.options.staticViewer) {
@@ -1226,7 +1226,7 @@ $.widget('ui.wcfImageViewer', {
 		
 		if (!this._isOpen) {
 			this._isOpen = true;
-		
+			
 			WCF.System.DisableScrolling.disable();
 			WCF.System.DisableZoom.disable();
 		}

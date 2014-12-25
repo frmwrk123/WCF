@@ -103,6 +103,428 @@ WCF.User.Login = Class.extend({
 });
 
 /**
+ * Namespace for User Panel classes.
+ */
+WCF.User.Panel = { };
+
+/**
+ * Abstract implementation for user panel items providing an interactive dropdown.
+ * 
+ * @param	jQuery		triggerElement
+ * @param	string		identifier
+ * @param	object		options
+ */
+WCF.User.Panel.Abstract = Class.extend({
+	/**
+	 * counter badge
+	 * @var	jQuery
+	 */
+	_badge: null,
+	
+	/**
+	 * interactive dropdown instance
+	 * @var	WCF.Dropdown.Interactive.Instance
+	 */
+	_dropdown: null,
+	
+	/**
+	 * dropdown identifier
+	 * @var	string
+	 */
+	_identifier: '',
+	
+	/**
+	 * true if data should be loaded using an AJAX request
+	 * @var	boolean
+	 */
+	_loadData: true,
+	
+	/**
+	 * header icon to mark all items belonging to this user panel item as read
+	 * @var	jQuery
+	 */
+	_markAllAsReadLink: null,
+	
+	/**
+	 * list of options required to dropdown initialization and UI features
+	 * @var	object
+	 */
+	_options: { },
+	
+	/**
+	 * action proxy
+	 * @var	WCF.Action.Proxy
+	 */
+	_proxy: null,
+	
+	/**
+	 * trigger element
+	 * @var	jQuery
+	 */
+	_triggerElement: null,
+	
+	/**
+	 * Initializes the WCF.User.Panel.Abstract class.
+	 * 
+	 * @param	jQuery		triggerElement
+	 * @param	string		identifier
+	 * @param	object		options
+	 */
+	init: function(triggerElement, identifier, options) {
+		this._dropdown = null;
+		this._identifier = identifier;
+		this._triggerElement = triggerElement;
+		this._options = options;
+		
+		this._proxy = new WCF.Action.Proxy({
+			showLoadingOverlay: false,
+			success: $.proxy(this._success, this)
+		});
+		
+		this._triggerElement.click($.proxy(this.toggle, this));
+		if (this._options.showAllLink) {
+			this._triggerElement.dblclick($.proxy(this._dblClick, this));
+		}
+		
+		var $badge = this._triggerElement.find('span.badge');
+		if ($badge.length) {
+			this._badge = $badge;
+		}
+	},
+	
+	/**
+	 * Toggles the interactive dropdown.
+	 * 
+	 * @param	object		event
+	 * @return	boolean
+	 */
+	toggle: function(event) {
+		event.preventDefault();
+		
+		if (this._dropdown === null) {
+			this._dropdown = this._initDropdown();
+		}
+		
+		if (this._dropdown.toggle()) {
+			if (!this._loadData) {
+				// check if there are outstanding items but there are no outstanding ones in the current list
+				if (this._badge !== null) {
+					var $count = parseInt(this._badge.text()) || 0;
+					if ($count && !this._dropdown.getItemList().children('.interactiveDropdownItemOutstanding').length) {
+						this._loadData = true;
+					}
+				}
+			}
+			
+			if (this._loadData) {
+				this._loadData = false;
+				this._load();
+			}
+		}
+		
+		return false;
+	},
+	
+	/**
+	 * Forward to original URL by double clicking the trigger element.
+	 * 
+	 * @param	object		event
+	 * @return	boolean
+	 */
+	_dblClick: function(event) {
+		event.preventDefault();
+		
+		window.location = this._options.showAllLink;
+		
+		return false;
+	},
+	
+	/**
+	 * Initializes the dropdown on first usage.
+	 * 
+	 * @return	WCF.Dropdown.Interactive.Instance
+	 */
+	_initDropdown: function() {
+		var $dropdown = WCF.Dropdown.Interactive.Handler.create(this._triggerElement, this._identifier, this._options);
+		$('<li class="loading"><span class="icon icon24 fa-spinner" /> <span>' + WCF.Language.get('wcf.global.loading') + '</span></li>').appendTo($dropdown.getItemList());
+		
+		return $dropdown;
+	},
+	
+	/**
+	 * Loads item list data via AJAX.
+	 */
+	_load: function() {
+		// override this in your own implementation to fetch display data
+	},
+	
+	/**
+	 * Handles successful AJAX requests.
+	 * 
+	 * @param	object		data
+	 */
+	_success: function(data) {
+		if (data.returnValues.template !== undefined) {
+			var $itemList = this._dropdown.getItemList().empty();
+			$(data.returnValues.template).appendTo($itemList);
+			
+			if (!$itemList.children().length) {
+				$('<li class="noItems">' + this._options.noItems + '</li>').appendTo($itemList);
+			}
+			
+			if (this._options.enableMarkAsRead) {
+				var $outstandingItems = this._dropdown.getItemList().children('.interactiveDropdownItemOutstanding');
+				if (this._markAllAsReadLink === null && $outstandingItems.length && this._options.markAllAsReadConfirmMessage) {
+					var $button = this._markAllAsReadLink = $('<li class="interactiveDropdownItemMarkAllAsRead"><a href="#" title="' + WCF.Language.get('wcf.user.panel.markAllAsRead') + '" class="jsTooltip"><span class="icon icon16 fa-check" /></a></li>').appendTo(this._dropdown.getLinkList());
+					$button.click((function(event) {
+						this._dropdown.close();
+						
+						WCF.System.Confirmation.show(this._options.markAllAsReadConfirmMessage, (function(action) {
+							if (action === 'confirm') {
+								this._markAllAsRead();
+							}
+						}).bind(this));
+						
+						return false;
+					}).bind(this));
+				}
+				
+				$outstandingItems.each((function(index, item) {
+					var $item = $(item).addClass('interactiveDropdownItemOutstandingIcon');
+					var $objectID = $item.data('objectID');
+					
+					var $button = $('<div class="interactiveDropdownItemMarkAsRead"><a href="#" title="' + WCF.Language.get('wcf.user.panel.markAsRead') + '" class="jsTooltip"><span class="icon icon16 fa-check" /></a></div>').appendTo($item);
+					$button.click((function(event) {
+						this._markAsRead(event, $objectID);
+						
+						return false;
+					}).bind(this));
+				}).bind(this));
+			}
+			
+			this._dropdown.getItemList().children().each(function(index, item) {
+				var $item = $(item);
+				var $link = $item.data('link');
+				
+				if ($link) {
+					if ($.browser.msie) {
+						$item.click(function(event) {
+							if (event.target.tagName !== 'A') {
+								window.location = $link;
+								
+								return false;
+							}
+						});
+					}
+					else {
+						$item.addClass('interactiveDropdownItemShadow');
+						$('<a href="' + $link + '" class="interactiveDropdownItemShadowLink" />').appendTo($item);
+					}
+					
+					if ($item.data('linkReplaceAll')) {
+						$item.find('> .box32 a:not(.userLink)').prop('href', $link);
+					}
+				}
+			});
+			
+			this._dropdown.rebuildScrollbar();
+		}
+		
+		if (data.returnValues.totalCount !== undefined) {
+			this.updateBadge(data.returnValues.totalCount);
+		}
+		
+		if (this._options.enableMarkAsRead) {
+			if (data.returnValues.markAsRead) {
+				var $item = this._dropdown.getItemList().children('li[data-object-id=' + data.returnValues.markAsRead + ']');
+				if ($item.length) {
+					$item.removeClass('interactiveDropdownItemOutstanding').data('isRead', true);
+					$item.children('.interactiveDropdownItemMarkAsRead').remove();
+				}
+			}
+			else if (data.returnValues.markAllAsRead) {
+				this.resetItems();
+				this.updateBadge(0);
+			}
+		}
+	},
+	
+	/**
+	 * Marks an item as read.
+	 * 
+	 * @param	object		event
+	 * @param	integer		objectID
+	 */
+	_markAsRead: function(event, objectID) {
+		// override this in your own implementation to mark an item as read
+	},
+	
+	/**
+	 * Marks all items as read.
+	 */
+	_markAllAsRead: function() {
+		// override this in your own implementation to mark all items as read
+	},
+	
+	/**
+	 * Updates the badge's count or removes it if count reaches zero. Passing a negative number is undefined.
+	 * 
+	 * @param	integer		count
+	 */
+	updateBadge: function(count) {
+		count = parseInt(count) || 0;
+		
+		if (count) {
+			if (this._badge === null) {
+				this._badge = $('<span class="badge badgeInverse" />').appendTo(this._triggerElement.children('a'));
+				this._badge.before(' ');
+			}
+			
+			this._badge.text(count);
+		}
+		else if (this._badge !== null) {
+			this._badge.remove();
+		}
+		
+		if (this._options.enableMarkAsRead) {
+			if (!count && this._markAllAsReadLink !== null) {
+				this._markAllAsReadLink.remove();
+				this._markAllAsReadLink = null;
+			}
+		}
+	},
+	
+	/**
+	 * Resets the dropdown's inner item list.
+	 */
+	resetItems: function() {
+		this._dropdown.resetItems();
+	}
+});
+
+/**
+ * User Panel implementation for user notifications.
+ * 
+ * @see	WCF.User.Panel.Abstract
+ */
+WCF.User.Panel.Notification = WCF.User.Panel.Abstract.extend({
+	/**
+	 * favico instance
+	 * @var	Favico
+	 */
+	_favico: null,
+	
+	/**
+	 * @see	WCF.User.Panel.Abstract.init()
+	 */
+	init: function(options) {
+		options.enableMarkAsRead = true;
+		
+		this._super($('#userNotifications'), 'userNotifications', options);
+		
+		try {
+			this._favico = new Favico({
+				animation: 'none',
+				type: 'circle'
+			});
+			
+			if (this._badge !== null) {
+				var $count = parseInt(this._badge.text()) || 0;
+				this._favico.badge($count);
+			}
+		}
+		catch (e) {
+			console.debug("[WCF.User.Panel.Notification] Failed to initialized Favico: " + e.message);
+		}
+		
+		WCF.System.PushNotification.addCallback('userNotificationCount', $.proxy(this.updateUserNotificationCount, this));
+	},
+	
+	/**
+	 * @see	WCF.User.Panel.Abstract._initDropdown()
+	 */
+	_initDropdown: function() {
+		var $dropdown = this._super();
+		
+		$('<li><a href="' + this._options.settingsLink + '" title="' + WCF.Language.get('wcf.user.panel.settings') + '" class="jsTooltip"><span class="icon icon16 fa-cog" /></a></li>').appendTo($dropdown.getLinkList());
+		
+		return $dropdown;
+	},
+	
+	/**
+	 * @see	WCF.User.Panel.Abstract._load()
+	 */
+	_load: function() {
+		this._proxy.setOption('data', {
+			actionName: 'getOutstandingNotifications',
+			className: 'wcf\\data\\user\\notification\\UserNotificationAction'
+		});
+		this._proxy.sendRequest();
+	},
+	
+	/**
+	 * @see	WCF.User.Panel.Abstract._markAsRead()
+	 */
+	_markAsRead: function(event, objectID) {
+		this._proxy.setOption('data', {
+			actionName: 'markAsConfirmed',
+			className: 'wcf\\data\\user\\notification\\UserNotificationAction',
+			objectIDs: [ objectID ]
+		});
+		this._proxy.sendRequest();
+	},
+	
+	/**
+	 * @see	WCF.User.Panel.Abstract._markAllAsRead()
+	 */
+	_markAllAsRead: function(event) {
+		this._proxy.setOption('data', {
+			actionName: 'markAllAsConfirmed',
+			className: 'wcf\\data\\user\\notification\\UserNotificationAction'
+		});
+		this._proxy.sendRequest();
+	},
+	
+	/**
+	 * @see	WCF.User.Panel.Abstract.resetItems()
+	 */
+	resetItems: function() {
+		this._super();
+		
+		if (this._markAllAsReadLink) {
+			this._markAllAsReadLink.remove();
+			this._markAllAsReadLink = null;
+		}
+	},
+	
+	/**
+	 * @see	WCF.User.Panel.Abstract.updateBadge()
+	 */
+	updateBadge: function(count) {
+		count = parseInt(count) || 0;
+		
+		if (this._favico !== null) {
+			this._favico.badge(count);
+		}
+		
+		this._super(count);
+	},
+	
+	/**
+	 * Updates the badge counter and resets the dropdown's item list.
+	 * 
+	 * @param	integer		count
+	 */
+	updateUserNotificationCount: function(count) {
+		if (this._dropdown !== null) {
+			this._dropdown.resetItems();
+		}
+		
+		this.updateBadge(count);
+	}	
+});
+
+/**
  * Quick login box
  */
 WCF.User.QuickLogin = {
@@ -1295,15 +1717,19 @@ WCF.Notification.List = Class.extend({
 	_convertList: function() {
 		$('.userNotificationItemList > .notificationItem').each((function(index, item) {
 			var $item = $(item);
-			var $isConfirmed = $item.data('isConfirmed');
 			
-			if (!$isConfirmed) {
-				$item.find('a:not(.userLink)').prop('href', $item.data('confirmLink'));
+			if (!$item.data('isRead')) {
+				$item.find('a:not(.userLink)').prop('href', $item.data('link'));
 				
-				if (!$.browser.mobile) {
-					var $markAsConfirmed = $('<a href="#" class="icon icon24 fa-check green notificationItemMarkAsConfirmed jsTooltip" title="' + WCF.Language.get('wcf.user.notification.markAsConfirmed') + '" />').prependTo($item.find('> div.box24 > .framed'));
-					$markAsConfirmed.click($.proxy(this._markAsConfirmed, this));
-				}
+				var $markAsConfirmed = $('<a href="#" class="icon icon24 fa-check notificationItemMarkAsConfirmed jsTooltip" title="' + WCF.Language.get('wcf.user.notification.markAsConfirmed') + '" />').appendTo($item);
+				$markAsConfirmed.click($.proxy(this._markAsConfirmed, this));
+			}
+			
+			// work-around for legacy notifications
+			if (!$item.find('a').length) {
+				$item.find('.details > p:eq(0)').html(function(index, oldHTML) {
+					return '<a href="' + $item.data('link') + '">' + oldHTML + '</a>';
+				});
 			}
 		}).bind(this));
 		
@@ -1318,7 +1744,7 @@ WCF.Notification.List = Class.extend({
 	_markAsConfirmed: function(event) {
 		event.preventDefault();
 		
-		var $notificationID = $(event.currentTarget).parents('.notificationItem:eq(0)').data('notificationID');
+		var $notificationID = $(event.currentTarget).parents('.notificationItem:eq(0)').data('objectID');
 		
 		this._proxy.setOption('data', {
 			actionName: 'markAsConfirmed',
@@ -1338,288 +1764,12 @@ WCF.Notification.List = Class.extend({
 	 * @param	jQuery		jqXHR
 	 */
 	_success: function(data, textStatus, jqXHR) {
-		var $item = $('.userNotificationItemList > .notificationItem[data-notification-id=' + data.returnValues.notificationID + ']');
+		var $item = $('.userNotificationItemList > .notificationItem[data-object-id=' + data.returnValues.markAsRead + ']');
 		
-		$item.data('isConfirmed', true);
-		$item.find('.notificationItemMarkAsConfirmed').remove();
+		$item.data('isRead', true);
 		$item.find('.newContentBadge').remove();
+		$item.find('.notificationItemMarkAsConfirmed').remove();
 		$item.removeClass('notificationUnconfirmed');
-	}
-});
-
-/**
- * Loads notification for the user panel.
- * 
- * @see	WCF.UserPanel
- */
-WCF.Notification.UserPanel = WCF.UserPanel.extend({
-	/**
-	 * Favico object
-	 * @var	Favico
-	 */
-	_favico: null,
-	
-	/**
-	 * action proxy
-	 * @var	WCF.Action.Proxy
-	 */
-	_proxy: null,
-	
-	/**
-	 * link to show all notifications
-	 * @var	string
-	 */
-	_showAllLink: '',
-	
-	/**
-	 * @see	WCF.UserPanel.init()
-	 */
-	init: function(showAllLink) {
-		this._favico = null;
-		
-		try {
-			this._favico = new Favico({
-				animation: 'none',
-				type: 'circle',
-			});
-		}
-		catch (e) { /* ignore for now */ }
-		
-		this._noItems = 'wcf.user.notification.noMoreNotifications';
-		this._proxy = new WCF.Action.Proxy({
-			success: $.proxy(this._success, this)
-		});
-		this._showAllLink = showAllLink;
-		
-		this._super('userNotifications');
-		
-		// update page title
-		if (this._container.data('count') && this._favico !== null) {
-			this._favico.badge(this._container.data('count'));
-		}
-		
-		WCF.System.PushNotification.addCallback('userNotificationCount', $.proxy(this.updateUserNotificationCount, this));
-	},
-	
-	/**
-	 * @see	WCF.UserPanel._addDefaultItems()
-	 */
-	_addDefaultItems: function(dropdownMenu) {
-		this._addDivider(dropdownMenu);
-		$('<li><a href="' + this._showAllLink + '">' + WCF.Language.get('wcf.user.notification.showAll') + '</a></li>').appendTo(dropdownMenu);
-		this._addDivider(dropdownMenu);
-		$('<li id="userNotificationsMarkAllAsConfirmed"><a>' + WCF.Language.get('wcf.user.notification.markAllAsConfirmed') + '</a></li>').click($.proxy(this._markAllAsConfirmed, this)).appendTo(dropdownMenu);
-	},
-	
-	/**
-	 * @see	WCF.UserPanel._getParameters()
-	 */
-	_getParameters: function() {
-		return {
-			actionName: 'getOutstandingNotifications',
-			className: 'wcf\\data\\user\\notification\\UserNotificationAction'
-		};
-	},
-	
-	/**
-	 * @see	WCF.UserPanel._click()
-	 */
-	_click: function(event) {
-		if (this._didLoad) {
-			var $badge = this._container.find('.badge');
-			if ($badge.length && parseInt($badge.text()) > 0) {
-				var $dropdownMenu = WCF.Dropdown.getDropdownMenu(this._container.wcfIdentify());
-				
-				// check if there is at least one unconfirmed item
-				var $count = $dropdownMenu.children('li.notificationUnconfirmed').length;
-				if (!$count && $count != $badge.text() && !$dropdownMenu.is(':visible')) {
-					this._resetList();
-					
-					this._super(event);
-				}
-			}
-		}
-		else {
-			this._super(event);
-		}
-	},
-	
-	/**
-	 * @see	WCF.UserPanel._after()
-	 */
-	_after: function(dropdownMenu) {
-		var $items = WCF.Dropdown.getDropdownMenu(this._container.wcfIdentify()).children('li.jsNotificationItem');
-		
-		var $insertAfter = null;
-		$items.each((function(index, item) {
-			var $item = $(item);
-			var $isConfirmed = $item.data('isConfirmed');
-			
-			if (!$.browser.msie) {
-				$item.addClass('notificationItemLink');
-				$('<a href="' + ($isConfirmed ? $item.data('link') : $item.data('confirmLink')) + '" />').appendTo($item);
-			}
-			
-			if (!$isConfirmed) {
-				$item.find('a:not(.userLink)').prop('href', $item.data('confirmLink'));
-				
-				if (!$.browser.mobile) {
-					var $markAsConfirmed = $('<a href="#" class="icon icon24 fa-check green notificationItemMarkAsConfirmed jsTooltip" title="' + WCF.Language.get('wcf.user.notification.markAsConfirmed') + '" />').prependTo($item.find('> span.box24 > .framed'));
-					$markAsConfirmed.click($.proxy(this._markAsConfirmed, this));
-				}
-			}
-			
-			if (!$item.data('isConfirmed')) {
-				$insertAfter = $item;
-			}
-			
-			$item.click(function(event) {
-				if (event.target.tagName !== 'A') {
-					window.location = $item.data('link');
-				}
-			});
-		}).bind(this));
-		
-		if ($insertAfter !== null) {
-			// check if it is followed by a confirmed item
-			if ($insertAfter.next('.notificationItem').length) {
-				$('<li class="dropdownDivider" />').insertAfter($insertAfter);
-			}
-		}
-		
-		var $badge = this._container.find('.badge');
-		if (!$badge.length) {
-			this._removeMarkAllAsConfirmed();
-		}
-	},
-	
-	/**
-	 * Marks a notification as confirmed.
-	 * 
-	 * @param	object		event
-	 */
-	_markAsConfirmed: function(event) {
-		event.preventDefault();
-		
-		var $notificationID = $(event.currentTarget).parents('.notificationItem:eq(0)').data('notificationID');
-		
-		this._proxy.setOption('data', {
-			actionName: 'markAsConfirmed',
-			className: 'wcf\\data\\user\\notification\\UserNotificationAction',
-			objectIDs: [ $notificationID ]
-		});
-		this._proxy.sendRequest();
-		
-		return false;
-	},
-	
-	/**
-	 * Marks all notifications as confirmed.
-	 */
-	_markAllAsConfirmed: function() {
-		WCF.System.Confirmation.show(WCF.Language.get('wcf.user.notification.markAllAsConfirmed.confirmMessage'), $.proxy(function(action) {
-			if (action === 'confirm') {
-				this._proxy.setOption('data', {
-					actionName: 'markAllAsConfirmed',
-					className: 'wcf\\data\\user\\notification\\UserNotificationAction'
-				});
-				this._proxy.sendRequest();
-			}
-		}, this));
-	},
-	
-	/**
-	 * @see	WCF.UserPanel._success()
-	 */
-	_success: function(data, textStatus, jqXHR) {
-		switch (data.actionName) {
-			case 'markAsConfirmed':
-				WCF.Dropdown.getDropdownMenu(this._container.wcfIdentify()).children('li.jsNotificationItem').each(function(index, item) {
-					var $item = $(item);
-					if ($item.data('notificationID') == data.returnValues.notificationID) {
-						$item.data('isConfirmed', true);
-						$item.find('.notificationItemMarkAsConfirmed').remove();
-						$item.find('.newContentBadge').remove();
-						$item.removeClass('notificationUnconfirmed');
-						
-						return false;
-					}
-				});
-				
-				this._updateBadge(data.returnValues.totalCount);
-			break;
-			
-			case 'markAllAsConfirmed':
-				this._resetList();
-				
-				this._updateBadge(0);
-				this._removeMarkAllAsConfirmed();
-			break;
-			
-			case 'getOutstandingNotifications':
-				if (!data.returnValues || !data.returnValues.template) {
-					this._removeMarkAllAsConfirmed();
-				}
-				
-				this._super(data, textStatus, jqXHR);
-			break;
-		}
-	},
-	
-	/**
-	 * @see	WCF.UserPanel._updateBadge()
-	 */
-	_updateBadge: function(count) {
-		count = parseInt(count) || 0;
-		
-		this._super(count);
-		
-		if (this._favico !== null) {
-			this._favico.badge(count);
-		}
-		
-		if (count === 0) {
-			this._removeMarkAllAsConfirmed();
-		}
-	},
-	
-	/**
-	 * Resets the notification list to its initial state.
-	 */
-	_resetList: function() {
-		var $dropdownMenu = WCF.Dropdown.getDropdownMenu(this._container.wcfIdentify());
-		$dropdownMenu.children('li.jsNotificationItem').remove();
-		
-		$('<li class="jsDropdownPlaceholder"><span>' + WCF.Language.get('wcf.global.loading') + '</span></li>').prependTo($dropdownMenu);
-		
-		// remove double separators
-		$dropdownMenu.children('.dropdownDivider + .dropdownDivider').remove();
-		
-		this._didLoad = false;
-	},
-	
-	_removeMarkAllAsConfirmed: function() {
-		$('#userNotificationsMarkAllAsConfirmed').hide().prev('.dropdownDivider').hide();
-	},
-	
-	/**
-	 * Updates user notification count.
-	 * 
-	 * @param	integer		count
-	 */
-	updateUserNotificationCount: function(count) {
-		// close dropdown
-		WCF.Dropdown.close('userNotifications');
-		
-		// revert dropdown to initial state
-		this._resetList();
-		
-		// update badge
-		this._updateBadge(count);
-		
-		if (parseInt(count) > 0) {
-			$('#userNotificationsMarkAllAsConfirmed').show().prev('.dropdownDivider').show();
-		}
 	}
 });
 

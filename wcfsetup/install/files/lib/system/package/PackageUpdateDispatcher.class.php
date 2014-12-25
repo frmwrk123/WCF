@@ -78,21 +78,24 @@ class PackageUpdateDispatcher extends SingletonFactory {
 	 * @param	\wcf\data\package\update\server\PackageUpdateServer	$updateServer
 	 */
 	protected function getPackageUpdateXML(PackageUpdateServer $updateServer) {
-		$authData = $updateServer->getAuthData();
 		$settings = array();
+		$authData = $updateServer->getAuthData();
 		if ($authData) $settings['auth'] = $authData;
 		
-		$postData = array(
-			'apiVersion' => PackageUpdate::API_VERSION,
-			'lastUpdateTime' => $updateServer->lastUpdateTime
-		);
-		
 		// append auth code if set and update server resolves to woltlab.com
-		if (PACKAGE_SERVER_AUTH_CODE && Regex::compile('^https?://[a-z]+.woltlab.com/')->match($updateServer->serverURL)) {
+		/*if (PACKAGE_SERVER_AUTH_CODE && Regex::compile('^https?://[a-z]+.woltlab.com/')->match($updateServer->serverURL)) {
 			$postData['authCode'] = PACKAGE_SERVER_AUTH_CODE;
-		}
+		}*/
 		
-		$request = new HTTPRequest($updateServer->serverURL, $settings, $postData);
+		$request = new HTTPRequest($updateServer->getListURL(), $settings);
+		
+		if ($updateServer->apiVersion == '2.1') {
+			$metaData = $updateServer->getMetaData();
+			if (!empty($metaData['list'])) {
+				$request->addHeader('if-none-match', $metaData['list']['etag']);
+				$request->addHeader('if-modified-since', $metaData['list']['lastModified']);
+			}
+		}
 		
 		try {
 			$request->execute();
@@ -109,28 +112,61 @@ class PackageUpdateDispatcher extends SingletonFactory {
 		}
 		
 		// parse given package update xml
-		$allNewPackages = $this->parsePackageUpdateXML($reply['body']);
-		unset($request, $reply);
-		
-		// purge package list
-		$sql = "DELETE FROM	wcf".WCF_N."_package_update
-			WHERE		packageUpdateServerID = ?";
-		$statement = WCF::getDB()->prepareStatement($sql);
-		$statement->execute(array($updateServer->packageUpdateServerID));
-		
-		// save packages
-		if (!empty($allNewPackages)) {
-			$this->savePackageUpdates($allNewPackages, $updateServer->packageUpdateServerID);
+		$allNewPackages = false;
+		if ($updateServer->apiVersion == '2.0' || $reply['statusCode'] != 304) {
+			$allNewPackages = $this->parsePackageUpdateXML($reply['body']);
 		}
-		unset($allNewPackages);
 		
-		// update server status
-		$updateServerEditor = new PackageUpdateServerEditor($updateServer);
-		$updateServerEditor->update(array(
+		$data = array(
 			'lastUpdateTime' => TIME_NOW,
 			'status' => 'online',
 			'errorMessage' => ''
-		));
+		);
+		
+		// check if server indicates support for a newer API
+		if ($updateServer->apiVersion == '2.0' && !empty($reply['httpHeaders']['wcf-update-server-api'])) {
+			$apiVersions = explode(' ', reset($reply['httpHeaders']['wcf-update-server-api']));
+			if (in_array('2.1', $apiVersions)) {
+				$data['apiVersion'] = '2.1';
+			}
+		}
+		
+		$metaData = array();
+		if ($updateServer->apiVersion == '2.1' || (isset($data['apiVersion']) && $data['apiVersion'] == '2.1')) {
+			if (empty($reply['httpHeaders']['etag']) || empty($reply['httpHeaders']['last-modified'])) {
+				throw new SystemException("Missing required HTTP headers 'etag' and/or 'last-modified'.");
+			}
+			else if (empty($reply['httpHeaders']['wcf-update-server-ssl'])) {
+				throw new SystemException("Missing required HTTP header 'wcf-update-server-ssl'.");
+			}
+			
+			$metaData['list'] = array(
+				'etag' => reset($reply['httpHeaders']['etag']),
+				'lastModified' => reset($reply['httpHeaders']['last-modified'])
+			);
+			$metaData['ssl'] = (reset($reply['httpHeaders']['wcf-update-server-ssl']) == 'true') ? true : false;
+		}
+		$data['metaData'] = serialize($metaData);
+		
+		unset($request, $reply);
+		
+		if ($allNewPackages !== false) {
+			// purge package list
+			$sql = "DELETE FROM	wcf".WCF_N."_package_update
+				WHERE		packageUpdateServerID = ?";
+			$statement = WCF::getDB()->prepareStatement($sql);
+			$statement->execute(array($updateServer->packageUpdateServerID));
+			
+			// save packages
+			if (!empty($allNewPackages)) {
+				$this->savePackageUpdates($allNewPackages, $updateServer->packageUpdateServerID);
+			}
+			unset($allNewPackages);
+		}
+		
+		// update server status
+		$updateServerEditor = new PackageUpdateServerEditor($updateServer);
+		$updateServerEditor->update($data);
 	}
 	
 	/**
@@ -145,7 +181,6 @@ class PackageUpdateDispatcher extends SingletonFactory {
 		$xml->loadXML('packageUpdateServer.xml', $content);
 		$xpath = $xml->xpath();
 		
-		// loop through <package> tags inside the <section> tag.
 		$allNewPackages = array();
 		$packages = $xpath->query('/ns:section/ns:package');
 		foreach ($packages as $package) {
