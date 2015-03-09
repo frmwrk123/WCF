@@ -9,7 +9,7 @@ use wcf\system\WCF;
  * Shows transaction details.
  * 
  * @author	Marcel Werk
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	acp.page
@@ -20,6 +20,11 @@ class PaidSubscriptionTransactionLogPage extends AbstractPage {
 	 * @see	\wcf\page\AbstractPage::$activeMenuItem
 	 */
 	public $activeMenuItem = 'wcf.acp.menu.link.paidSubscription';
+	
+	/**
+	 * @see	\wcf\page\AbstractPage::$neededModules
+	 */
+	public $neededModules = array('MODULE_PAID_SUBSCRIPTION');
 	
 	/**
 	 * @see	\wcf\page\AbstractPage::$neededPermissions

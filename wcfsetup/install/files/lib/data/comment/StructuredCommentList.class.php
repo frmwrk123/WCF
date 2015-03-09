@@ -10,7 +10,7 @@ use wcf\system\like\LikeHandler;
  * Provides a structured comment list fetching last responses for every comment.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	data.comment
@@ -50,7 +50,7 @@ class StructuredCommentList extends CommentList {
 	/**
 	 * @see	\wcf\data\DatabaseObjectList::$sqlLimit
 	 */
-	public $sqlLimit = 10;
+	public $sqlLimit = 30;
 	
 	/**
 	 * @see	\wcf\data\DatabaseObjectList::$sqlOrderBy

@@ -11,7 +11,7 @@ use wcf\util\StringUtil;
  * Shows a list of templates.
  * 
  * @author	Marcel Werk
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	acp.page
@@ -98,7 +98,7 @@ class TemplateListPage extends SortablePage {
 		if ($this->templateGroupID) $this->objectList->getConditionBuilder()->add('template.templateGroupID = ?', array($this->templateGroupID));
 		else $this->objectList->getConditionBuilder()->add('template.templateGroupID IS NULL');
 		
-		if ($this->searchTemplateName) $this->objectList->getConditionBuilder()->add('templateName LIKE ?', array($this->searchTemplateName.'%'));
+		if ($this->searchTemplateName) $this->objectList->getConditionBuilder()->add('templateName LIKE ?', array('%'.$this->searchTemplateName.'%'));
 		if ($this->application) $this->objectList->getConditionBuilder()->add('application = ?', array($this->application));
 	}
 	

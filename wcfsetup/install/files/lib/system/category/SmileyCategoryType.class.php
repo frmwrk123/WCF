@@ -1,5 +1,7 @@
 <?php
 namespace wcf\system\category;
+use wcf\data\category\CategoryEditor;
+use wcf\system\cache\builder\SmileyCacheBuilder;
 use wcf\system\category\AbstractCategoryType;
 use wcf\system\WCF;
 
@@ -7,7 +9,7 @@ use wcf\system\WCF;
  * Category implementation for smilies.
  * 
  * @author	Tim Duesterhus
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.category
@@ -28,6 +30,13 @@ class SmileyCategoryType extends AbstractCategoryType {
 	 * @see	\wcf\system\category\AbstractCategoryType::$maximumNestingLevel
 	 */
 	protected $maximumNestingLevel = 0;
+	
+	/**
+	 * @see	\wcf\system\category\ICategoryType::afterDeletion()
+	 */
+	public function afterDeletion(CategoryEditor $categoryEditor) {
+		SmileyCacheBuilder::getInstance()->reset();
+	}
 	
 	/**
 	 * @see	\wcf\system\category\ICategoryType::canAddCategory()

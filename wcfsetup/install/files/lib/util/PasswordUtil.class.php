@@ -7,7 +7,7 @@ use wcf\system\Regex;
  * Provides functions to compute password hashes.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	util
@@ -50,6 +50,7 @@ final class PasswordUtil {
 		'joomla2',	// Joomla 2.x
 		'joomla3',	// Joomla 3.x
 		'cryptMD5',
+		'invalid',	// Never going to match anything
 	);
 	
 	/**
@@ -697,6 +698,19 @@ final class PasswordUtil {
 			return true;
 		}
 		
+		return false;
+	}
+	
+	/**
+	 * Returns false.
+	 * 
+	 * @param	string		$username
+	 * @param	string		$password
+	 * @param	string		$salt
+	 * @param	string		$dbHash
+	 * @return	boolean
+	 */
+	protected static function invalid($username, $password, $salt, $dbHash) {
 		return false;
 	}
 	

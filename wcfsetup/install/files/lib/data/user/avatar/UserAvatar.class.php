@@ -8,7 +8,7 @@ use wcf\system\WCF;
  * Represents a user's avatar.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	data.user.avatar
@@ -38,6 +38,12 @@ class UserAvatar extends DatabaseObject implements IUserAvatar {
 	public static $maxThumbnailSize = 128;
 	
 	/**
+	 * minimum height and width of an uploaded avatar
+	 * @var	integer
+	 */
+	const MIN_AVATAR_SIZE = 96;
+	
+	/**
 	 * Returns the physical location of this avatar.
 	 * 
 	 * @param	integer		$size
@@ -62,7 +68,7 @@ class UserAvatar extends DatabaseObject implements IUserAvatar {
 			
 			case 48:
 			case 64:
-				if ($this->width > 96) {
+				if ($this->width > 96 || $this->height > 96) {
 					$size = 96;
 				}
 				else {

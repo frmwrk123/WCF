@@ -11,7 +11,7 @@ use wcf\system\WCF;
  * Shows the smiley edit form.
  * 
  * @author	Tim Duesterhus
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	acp.form
@@ -78,7 +78,7 @@ class SmileyEditForm extends SmileyAddForm {
 				'showOrder' => $this->showOrder,
 				'categoryID' => $this->categoryID ?: null
 			)),
-			'fileLocation' => $this->uploadedFilename ? WCF_DIR.'images/smilies/tmp/'.$this->uploadedFilename : ''
+			'fileLocation' => $this->uploadedFilename ? WCF_DIR.'images/smilies/'.$this->uploadedFilename : ''
 		));
 		$this->objectAction->executeAction();
 		

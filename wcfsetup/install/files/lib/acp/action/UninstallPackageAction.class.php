@@ -13,7 +13,7 @@ use wcf\util\StringUtil;
  * Handles an AJAX-based package uninstallation.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	acp.action
@@ -136,7 +136,7 @@ class UninstallPackageAction extends InstallPackageAction {
 			$application = $statement->fetchObject('wcf\data\application\Application');
 			
 			// build redirect location
-			$location = $application->getPageURL() . 'acp/?PackageList/' . SID_ARG_2ND_NOT_ENCODED;
+			$location = $application->getPageURL() . 'acp/index.php?package-list/' . SID_ARG_2ND_NOT_ENCODED;
 			
 			// show success
 			$this->data = array(

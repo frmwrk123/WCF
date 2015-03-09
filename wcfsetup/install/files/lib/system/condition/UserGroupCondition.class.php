@@ -13,7 +13,7 @@ use wcf\util\ArrayUtil;
  * of and the user groups a user may not be a member of.
  * 
  * @author	Matthias Schmidt
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.condition
@@ -150,17 +150,15 @@ HTML;
 	 */
 	protected function getUserGroups() {
 		if ($this->userGroups == null) {
-			$groupTypes = array(UserGroup::OTHER);
-			if ($this->includeguests) {
-				$groupTypes[] = UserGroup::GUESTS;
+			$invalidGroupTypes = array(
+				UserGroup::EVERYONE,
+				UserGroup::USERS
+			);
+			if (!$this->includeguests) {
+				$invalidGroupTypes[] = UserGroup::GUESTS;
 			}
 			
-			$this->userGroups = UserGroup::getGroupsByType($groupTypes);
-			foreach ($this->userGroups as $key => $userGroup) {
-				if (!$userGroup->isAccessible()) {
-					unset($this->userGroups[$key]);
-				}
-			}
+			$this->userGroups = UserGroup::getAccessibleGroups(array(), $invalidGroupTypes);
 			
 			uasort($this->userGroups, function(UserGroup $groupA, UserGroup $groupB) {
 				return strcmp($groupA->getName(), $groupB->getName());

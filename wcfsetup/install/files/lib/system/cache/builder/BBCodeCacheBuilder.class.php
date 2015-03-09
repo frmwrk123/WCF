@@ -8,7 +8,7 @@ use wcf\system\WCF;
  * Caches the bbcodes.
  * 
  * @author	Marcel Werk
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.cache.builder
@@ -19,7 +19,8 @@ class BBCodeCacheBuilder extends AbstractCacheBuilder {
 	 * @see	\wcf\system\cache\builder\AbstractCacheBuilder::rebuild()
 	 */
 	protected function rebuild(array $parameters) {
-		$data = $attributes = array();
+		$attributes = array();
+		$data = array('bbcodes' => array(), 'highlighters' => array());
 		
 		// get attributes
 		$sql = "SELECT		attribute.*, bbcode.bbcodeTag
@@ -44,7 +45,17 @@ class BBCodeCacheBuilder extends AbstractCacheBuilder {
 		$statement->execute();
 		while ($row = $statement->fetchArray()) {
 			$row['attributes'] = (isset($attributes[$row['bbcodeTag']]) ? $attributes[$row['bbcodeTag']] : array());
-			$data[$row['bbcodeTag']] = new BBCode(null, $row);
+			$data['bbcodes'][$row['bbcodeTag']] = new BBCode(null, $row);
+		}
+		
+		// get code highlighters
+		$highlighters = glob(WCF_DIR . 'lib/system/bbcode/highlighter/*.class.php');
+		if (is_array($highlighters)) {
+			foreach ($highlighters as $highlighter) {
+				if (preg_match('~\/([a-zA-Z]+)Highlighter\.class\.php$~', $highlighter, $matches)) {
+					$data['highlighters'][] = strtolower($matches[1]);
+				}
+			}
 		}
 		
 		return $data;

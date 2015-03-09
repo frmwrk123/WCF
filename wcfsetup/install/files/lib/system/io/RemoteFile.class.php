@@ -6,7 +6,7 @@ use wcf\system\exception\SystemException;
  * The RemoteFile class opens a connection to a remote host as a file.
  * 
  * @author	Marcel Werk
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.io
@@ -123,5 +123,12 @@ class RemoteFile extends File {
 		}
 		
 		return static::$hasSSLSupport;
+	}
+	
+	/**
+	 * Disables SSL/TLS support on runtime regardless if PHP is theoretically capable of it.
+	 */
+	public static function disableSSL() {
+		static::$hasSSLSupport = false;
 	}
 }

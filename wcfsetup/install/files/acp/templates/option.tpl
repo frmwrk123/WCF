@@ -48,6 +48,13 @@
 </div>
 
 <form method="post" action="{link controller='Option' id=$category->categoryID}{/link}" enctype="multipart/form-data">
+	{*
+		fake fields are a workaround for chrome autofill getting the wrong fields
+		taken from http://stackoverflow.com/a/15917221
+	*}
+	<input style="display:none" type="text" name="fakeusernameremembered "/>
+	<input style="display:none" type="password" name="fakepasswordremembered" />
+	
 	<div class="tabMenuContainer" data-active="{$activeTabMenuItem}" data-store="activeTabMenuItem">
 		<nav class="tabMenu">
 			<ul>

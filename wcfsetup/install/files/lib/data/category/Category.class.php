@@ -13,7 +13,7 @@ use wcf\system\WCF;
  * Represents a category.
  * 
  * @author	Matthias Schmidt
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	data.category
@@ -157,6 +157,16 @@ class Category extends ProcessibleDatabaseObject implements IPermissionObject, I
 		}
 		
 		return $this->parentCategories;
+	}
+	
+	/**
+	 * Returns true if given category is a parent category of this category.
+	 * 
+	 * @param	\wcf\data\category\Category	$category
+	 * @return	boolean
+	 */
+	public function isParentCategory(Category $category) {
+		return in_array($category, $this->getParentCategories());
 	}
 	
 	/**

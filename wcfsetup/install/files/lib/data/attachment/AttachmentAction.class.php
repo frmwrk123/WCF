@@ -19,7 +19,7 @@ use wcf\util\FileUtil;
  * Executes attachment-related actions.
  * 
  * @author	Marcel Werk
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	data.attachment
@@ -173,7 +173,7 @@ class AttachmentAction extends AbstractDatabaseObjectAction {
 					$thumbnails[] = $attachment;
 					
 					// rotate image based on the exif data
-					$neededMemory = $attachment->width * $attachment->height * ($attachment->imageType == 'image/png' ? 4 : 3) * 2.1;
+					$neededMemory = $attachment->width * $attachment->height * ($attachment->fileType == 'image/png' ? 4 : 3) * 2.1;
 					if (FileUtil::getMemoryLimit() == -1 || FileUtil::getMemoryLimit() > (memory_get_usage() + $neededMemory)) {
 						$exifData = ExifUtil::getExifData($attachment->getLocation());
 						if (!empty($exifData)) {
@@ -318,7 +318,7 @@ class AttachmentAction extends AbstractDatabaseObjectAction {
 			$adapter = ImageHandler::getInstance()->getAdapter();
 			
 			// check memory limit
-			$neededMemory = $attachment->width * $attachment->height * ($attachment->imageType == 'image/png' ? 4 : 3) * 2.1;
+			$neededMemory = $attachment->width * $attachment->height * ($attachment->fileType == 'image/png' ? 4 : 3) * 2.1;
 			if (FileUtil::getMemoryLimit() != -1 && FileUtil::getMemoryLimit() < (memory_get_usage() + $neededMemory)) {
 				continue;
 			}

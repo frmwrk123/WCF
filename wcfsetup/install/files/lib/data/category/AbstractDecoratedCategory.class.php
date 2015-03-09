@@ -8,7 +8,7 @@ use wcf\system\exception\PermissionDeniedException;
  * Abstract implementation of a decorated category.
  * 
  * @author	Matthias Schmidt
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	data.category
@@ -86,6 +86,13 @@ abstract class AbstractDecoratedCategory extends DatabaseObjectDecorator {
 		}
 		
 		return $this->parentCategory;
+	}
+	
+	/**
+	 * @see	\wcf\data\category\Category::isParentCategory()
+	 */
+	public function isParentCategory(AbstractDecoratedCategory $category) {
+		return $this->getDecoratedObject()->isParentCategory($category->getDecoratedObject());
 	}
 	
 	/**

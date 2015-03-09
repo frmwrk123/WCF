@@ -3,15 +3,14 @@ namespace wcf\system\package;
 use wcf\data\package\update\server\PackageUpdateServer;
 use wcf\data\package\update\server\PackageUpdateServerEditor;
 use wcf\data\package\update\version\PackageUpdateVersionEditor;
-use wcf\data\package\update\PackageUpdate;
 use wcf\data\package\update\PackageUpdateEditor;
 use wcf\data\package\Package;
 use wcf\system\cache\builder\PackageUpdateCacheBuilder;
 use wcf\system\database\util\PreparedStatementConditionBuilder;
 use wcf\system\exception\HTTPUnauthorizedException;
 use wcf\system\exception\SystemException;
+use wcf\system\io\RemoteFile;
 use wcf\system\package\PackageUpdateUnauthorizedException;
-use wcf\system\Regex;
 use wcf\system\SingletonFactory;
 use wcf\system\WCF;
 use wcf\util\HTTPRequest;
@@ -21,7 +20,7 @@ use wcf\util\XML;
  * Provides functions to manage package updates.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.package
@@ -36,34 +35,49 @@ class PackageUpdateDispatcher extends SingletonFactory {
 	 */
 	public function refreshPackageDatabase(array $packageUpdateServerIDs = array(), $ignoreCache = false) {
 		// get update server data
-		$updateServers = PackageUpdateServer::getActiveUpdateServers($packageUpdateServerIDs);
+		$tmp = PackageUpdateServer::getActiveUpdateServers($packageUpdateServerIDs);
+		
+		// loop servers
+		$updateServers = array();
+		$foundWoltLabServer = false;
+		foreach ($tmp as $updateServer) {
+			if ($ignoreCache || $updateServer->lastUpdateTime < TIME_NOW - 600) {
+				// try to queue a woltlab.com update server first to probe for SSL support
+				if (!$foundWoltLabServer && preg_match('~^https?://(?:update|store)\.woltlab\.com~', $updateServer->serverURL)) {
+					array_unshift($updateServers, $updateServer);
+					$foundWoltLabServer = true;
+					
+					continue;
+				}
+				
+				$updateServers[] = $updateServer;
+			}
+		} 
 		
 		// loop servers
 		$refreshedPackageLists = false;
 		foreach ($updateServers as $updateServer) {
-			if ($ignoreCache || $updateServer->lastUpdateTime < TIME_NOW - 600) {
-				$errorMessage = '';
-				
-				try {
-					$this->getPackageUpdateXML($updateServer);
-					$refreshedPackageLists = true;
-				}
-				catch (SystemException $e) {
-					$errorMessage = $e->getMessage();
-				}
-				catch (PackageUpdateUnauthorizedException $e) {
-					$reply = $e->getRequest()->getReply();
-					$errorMessage = reset($reply['httpHeaders']);
-				}
-				
-				if ($errorMessage) {
-					// save error status
-					$updateServerEditor = new PackageUpdateServerEditor($updateServer);
-					$updateServerEditor->update(array(
-						'status' => 'offline',
-						'errorMessage' => $errorMessage
-					));
-				}
+			$errorMessage = '';
+			
+			try {
+				$this->getPackageUpdateXML($updateServer);
+				$refreshedPackageLists = true;
+			}
+			catch (SystemException $e) {
+				$errorMessage = $e->getMessage();
+			}
+			catch (PackageUpdateUnauthorizedException $e) {
+				$reply = $e->getRequest()->getReply();
+				list($errorMessage) = reset($reply['httpHeaders']);
+			}
+			
+			if ($errorMessage) {
+				// save error status
+				$updateServerEditor = new PackageUpdateServerEditor($updateServer);
+				$updateServerEditor->update(array(
+					'status' => 'offline',
+					'errorMessage' => $errorMessage
+				));
 			}
 		}
 		
@@ -76,25 +90,22 @@ class PackageUpdateDispatcher extends SingletonFactory {
 	 * Gets the package_update.xml from an update server.
 	 * 
 	 * @param	\wcf\data\package\update\server\PackageUpdateServer	$updateServer
+	 * @param	boolean							$forceHTTP
 	 */
-	protected function getPackageUpdateXML(PackageUpdateServer $updateServer) {
+	protected function getPackageUpdateXML(PackageUpdateServer $updateServer, $forceHTTP = false) {
 		$settings = array();
 		$authData = $updateServer->getAuthData();
 		if ($authData) $settings['auth'] = $authData;
 		
-		// append auth code if set and update server resolves to woltlab.com
-		/*if (PACKAGE_SERVER_AUTH_CODE && Regex::compile('^https?://[a-z]+.woltlab.com/')->match($updateServer->serverURL)) {
-			$postData['authCode'] = PACKAGE_SERVER_AUTH_CODE;
-		}*/
+		$secureConnection = $updateServer->attemptSecureConnection();
+		if ($secureConnection && !$forceHTTP) $settings['timeout'] = 5;
 		
-		$request = new HTTPRequest($updateServer->getListURL(), $settings);
+		$request = new HTTPRequest($updateServer->getListURL($forceHTTP), $settings);
 		
 		if ($updateServer->apiVersion == '2.1') {
 			$metaData = $updateServer->getMetaData();
-			if (!empty($metaData['list'])) {
-				$request->addHeader('if-none-match', $metaData['list']['etag']);
-				$request->addHeader('if-modified-since', $metaData['list']['lastModified']);
-			}
+			if (isset($metaData['list']['etag'])) $request->addHeader('if-none-match', $metaData['list']['etag']);
+			if (isset($metaData['list']['lastModified'])) $request->addHeader('if-modified-since', $metaData['list']['lastModified']);
 		}
 		
 		try {
@@ -108,6 +119,18 @@ class PackageUpdateDispatcher extends SingletonFactory {
 			$reply = $request->getReply();
 			
 			$statusCode = (is_array($reply['statusCode'])) ? reset($reply['statusCode']) : $reply['statusCode'];
+			// status code 0 is a connection timeout
+			if (!$statusCode && $secureConnection) {
+				if (preg_match('~https?://(?:update|store)\.woltlab\.com~', $updateServer->serverURL)) {
+					// woltlab.com servers are most likely to be available, thus we assume that SSL connections are dropped
+					RemoteFile::disableSSL();
+				}
+				
+				// retry via http
+				$this->getPackageUpdateXML($updateServer, true);
+				return;
+			}
+			
 			throw new SystemException(WCF::getLanguage()->get('wcf.acp.package.update.error.listNotFound') . ' ('.$statusCode.')');
 		}
 		
@@ -133,17 +156,17 @@ class PackageUpdateDispatcher extends SingletonFactory {
 		
 		$metaData = array();
 		if ($updateServer->apiVersion == '2.1' || (isset($data['apiVersion']) && $data['apiVersion'] == '2.1')) {
-			if (empty($reply['httpHeaders']['etag']) || empty($reply['httpHeaders']['last-modified'])) {
-				throw new SystemException("Missing required HTTP headers 'etag' and/or 'last-modified'.");
+			if (empty($reply['httpHeaders']['etag']) && empty($reply['httpHeaders']['last-modified'])) {
+				throw new SystemException("Missing required HTTP headers 'etag' and 'last-modified'.");
 			}
 			else if (empty($reply['httpHeaders']['wcf-update-server-ssl'])) {
 				throw new SystemException("Missing required HTTP header 'wcf-update-server-ssl'.");
 			}
 			
-			$metaData['list'] = array(
-				'etag' => reset($reply['httpHeaders']['etag']),
-				'lastModified' => reset($reply['httpHeaders']['last-modified'])
-			);
+			$metaData['list'] = array();
+			if (!empty($reply['httpHeaders']['etag'])) $metaData['list']['etag'] = reset($reply['httpHeaders']['etag']);
+			if (!empty($reply['httpHeaders']['last-modified'])) $metaData['list']['lastModified'] = reset($reply['httpHeaders']['last-modified']);
+			
 			$metaData['ssl'] = (reset($reply['httpHeaders']['wcf-update-server-ssl']) == 'true') ? true : false;
 		}
 		$data['metaData'] = serialize($metaData);
@@ -326,6 +349,7 @@ class PackageUpdateDispatcher extends SingletonFactory {
 	protected function savePackageUpdates(array &$allNewPackages, $packageUpdateServerID) {
 		// insert updates
 		$excludedPackagesParameters = $fromversionParameters = $insertParameters = $optionalInserts = $requirementInserts = array();
+		WCF::getDB()->beginTransaction();
 		foreach ($allNewPackages as $identifier => $packageData) {
 			// create new database entry
 			$packageUpdate = PackageUpdateEditor::create(array(
@@ -404,6 +428,7 @@ class PackageUpdateDispatcher extends SingletonFactory {
 				}
 			}
 		}
+		WCF::getDB()->commitTransaction();
 		
 		// save requirements, excluded packages and fromversions
 		// insert requirements
@@ -570,7 +595,7 @@ class PackageUpdateDispatcher extends SingletonFactory {
 					if (preg_match('~^(\d+\.\d+)\.~', $versionNumber, $matches)) {
 						$major = $matches[1];
 						if (isset($highestVersions[$major])) {
-							if (version_compare($highestVersions[$major], $versionNumber, '<')) {
+							if (Package::compareVersion($highestVersions[$major], $versionNumber, '<')) {
 								// version is newer, discard current version
 								unset($updateData['versions'][$highestVersions[$major]]);
 								$highestVersions[$major] = $versionNumber;
@@ -651,18 +676,20 @@ class PackageUpdateDispatcher extends SingletonFactory {
 			LEFT JOIN	wcf".WCF_N."_package_update_server pus
 			ON		(pus.packageUpdateServerID = pu.packageUpdateServerID)
 			WHERE		pu.package = ?
-					AND puv.packageVersion = ?";
+					AND puv.packageVersion = ?
+					AND pus.isDisabled = ?";
 		$statement = WCF::getDB()->prepareStatement($sql);
 		$statement->execute(array(
 			$package,
-			$version
+			$version,
+			0
 		));
 		while ($row = $statement->fetchArray()) {
 			$versions[] = $row;
 		}
 		
 		if (empty($versions)) {
-			throw new SystemException("Can not find package '".$package."' in version '".$version."'");
+			throw new SystemException("Cannot find package '".$package."' in version '".$version."'");
 		}
 		
 		return $versions;

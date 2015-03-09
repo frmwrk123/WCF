@@ -11,7 +11,7 @@ use wcf\util\StringStack;
  * Parses @user mentions.
  * 
  * @author	Tim Duesterhus
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.event.listener
@@ -32,14 +32,14 @@ class PreParserAtUserListener implements IParameterizedEventListener {
 		static $userRegex = null;
 		if ($userRegex === null) {
 			$userRegex = new Regex("
-				(?<=^|\s)					# either at start of string, or after whitespace
+				(?:^|(?<=\s|\]))					# either at start of string, or after whitespace
 				@
 				(
 					([^',\s][^,\s]{2,})(?:\s[^,\s]+)?	# either at most two strings, not containing
 										# whitespace or the comma, not starting with a single quote
 										# separated by a single whitespace character
 				|
-					'(?:''|[^'])*'				# or a string delimited by single quotes
+					'(?:''|[^']){3,}'			# or a string delimited by single quotes
 				)
 			", Regex::IGNORE_WHITESPACE);
 		}
@@ -108,6 +108,7 @@ class PreParserAtUserListener implements IParameterizedEventListener {
 				$text = $userRegex->replace($text, new Callback(function ($matches) use ($users) {
 					// containing the full match
 					$usernames = array($matches[1]);
+					
 					// containing only the part before the first space
 					if (isset($matches[2])) $usernames[] = $matches[2];
 					
@@ -119,7 +120,15 @@ class PreParserAtUserListener implements IParameterizedEventListener {
 							'appendSession' => false,
 							'object' => $users[$username]
 						));
-						return "[url='".$link."']@".$users[$username]->username.'[/url]';
+						
+						$mention = "[url='".$link."']@".$users[$username]->username.'[/url]';
+						
+						// check if only the part before the first space matched, in that case append the second word
+						if (isset($matches[2]) && $matches[2] == $username) {
+							$mention .= mb_substr($matches[1], strlen($matches[2]));
+						}
+						
+						return $mention;
 					}
 					
 					return $matches[0];

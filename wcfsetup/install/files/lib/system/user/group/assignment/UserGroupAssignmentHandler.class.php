@@ -11,7 +11,7 @@ use wcf\system\SingletonFactory;
  * Handles user group assignment-related matters.
  * 
  * @author	Matthias Schmidt
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.user.group.assignment
@@ -64,12 +64,14 @@ class UserGroupAssignmentHandler extends SingletonFactory {
 				}
 			}
 			
-			$userAction = new UserAction(array($user), 'addToGroups', array(
-				'addDefaultGroups' => false,
-				'deleteOldGroups' => false,
-				'groups' => $newGroupIDs
-			));
-			$userAction->executeAction();
+			if (!empty($newGroupIDs)) {
+				$userAction = new UserAction(array($user), 'addToGroups', array(
+					'addDefaultGroups' => false,
+					'deleteOldGroups' => false,
+					'groups' => $newGroupIDs
+				));
+				$userAction->executeAction();
+			}
 		}
 	}
 	

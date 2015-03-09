@@ -11,7 +11,7 @@ use wcf\util\StringUtil;
  * Shows a list of language items.
  * 
  * @author	Marcel Werk
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	acp.page
@@ -128,10 +128,10 @@ class LanguageItemListPage extends AbstractPage {
 		$this->languageItemList = new LanguageItemList();
 		$this->languageItemList->getConditionBuilder()->add('languageID = ?', array($this->languageID));
 		if ($this->languageCategoryID) $this->languageItemList->getConditionBuilder()->add('languageCategoryID = ?', array($this->languageCategoryID));
-		if ($this->languageItem) $this->languageItemList->getConditionBuilder()->add('languageItem LIKE ?', array($this->languageItem.'%'));
+		if ($this->languageItem) $this->languageItemList->getConditionBuilder()->add('languageItem LIKE ?', array('%'.$this->languageItem.'%'));
 		if ($this->languageItemValue) $this->languageItemList->getConditionBuilder()->add('((languageUseCustomValue = 0 AND languageItemValue LIKE ?) OR languageCustomItemValue LIKE ?)', array('%'.$this->languageItemValue.'%', '%'.$this->languageItemValue.'%'));
 		if ($this->hasCustomValue) $this->languageItemList->getConditionBuilder()->add("languageCustomItemValue IS NOT NULL");
-		if (!$this->languageCategoryID) $this->languageItemList->sqlLimit = 100;
+		$this->languageItemList->sqlLimit = 100;
 		
 		if (!empty($_POST)) {
 			$this->count = $this->languageItemList->countObjects();

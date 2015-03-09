@@ -69,6 +69,8 @@
 		position: relative;
 		
 		> ul.userPanelItems {
+			.clearfix;
+			
 			> li {
 				float: left;
 				
@@ -984,6 +986,7 @@ html[dir="rtl"] {
 			position: relative;
 			
 			> .buttonGroupNavigation {
+				margin-top: 0;
 				position: absolute;
 				right: 0;
 				top: 0;
@@ -1131,6 +1134,27 @@ html[dir="rtl"] {
 	}
 }
 
+.flexibleCategoryList {
+	position: relative;
+	
+	> li {
+		margin-bottom: @wcfGapMedium;
+		
+		> ol {
+			margin-left: @wcfGapLarge;
+		}
+		
+		> ol > li > ol {
+			margin-bottom: @wcfGapSmall;
+			margin-left: @wcfGapLarge;
+			
+			> li {
+				font-size: @wcfSmallFontSize;
+			}
+		}
+	}
+}
+
 @media all and (min-width: 801px) {
 	.nestedCategoryList.doubleColumned {
 		> li {
@@ -1152,13 +1176,41 @@ html[dir="rtl"] {
 			clear: left;
 		}
 	}
+	
+	.flexibleCategoryList {
+		/* WebKit */
+		-webkit-column-count: 2;
+		
+		/* Firefox */
+		-moz-column-count: 2;
+		
+		/* CSS 3 / Internet Explorer */
+		column-count: 2;
+		
+		> li {
+			/* WebKit */
+			-webkit-column-break-inside: avoid;
+			
+			/* Firefox */
+			page-break-inside: avoid;
+			
+			/* CSS 3 / Internet Explorer */
+			break-inside: avoid;
+			
+			> ol > li > ol {
+				font-size: 0;
+				
+				> li {
+					display: inline-block;
+				}
+			}
+		}
+	}
 }
 
 .sidebarNestedCategoryList {
-	> li {
-		> ol {
-			margin-left: @wcfGapMedium;
-		}
+	ol {
+		margin-left: @wcfGapMedium;
 	}
 	
 	li {
@@ -1270,6 +1322,8 @@ html[dir="rtl"] {
 	text-align: left;
 	
 	> ul {
+		.clearfix;
+		
 		> li {
 			float: left;
 			font-size: @wcfSmallFontSize;
@@ -1949,6 +2003,8 @@ dl.inlineDataList {
 }
 
 dl.dataList {
+	.clearfix;
+	
 	dt {
 		color: @wcfDimmedColor;
 		clear: right;
@@ -2299,6 +2355,10 @@ ul.inlineDataList {
 }
 
 /* ad locations */
+.wcfAdLocation {
+	overflow: hidden;
+}
+
 .wcfAdLocationHeaderContent,
 .wcfAdLocationFooterContent,
 .wcfAdLocationFooterBottom {

@@ -12,7 +12,7 @@ use wcf\util\HeaderUtil;
  * Provides special search options.
  * 
  * @author	Marcel Werk
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	acp.action
@@ -46,7 +46,7 @@ class UserQuickSearchAction extends AbstractAction {
 	 * shown columns
 	 * @var	array<string>
 	 */
-	public $columns = array('email', 'registrationDate');
+	public $columns = array('registrationDate', 'lastActivityTime');
 	
 	/**
 	 * sort field
@@ -82,6 +82,11 @@ class UserQuickSearchAction extends AbstractAction {
 		ACPMenu::getInstance()->setActiveMenuItem('wcf.acp.menu.link.user.search');
 		
 		parent::execute();
+		
+		// add email column for authorized users
+		if (WCF::getSession()->getPermission('admin.user.canEditMailAddress')) {
+			array_unshift($this->columns, 'email');
+		}
 		
 		switch ($this->mode) {
 			case 'banned':

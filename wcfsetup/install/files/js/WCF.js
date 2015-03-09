@@ -6,7 +6,7 @@
  * Major Contributors: Markus Bartz, Tim Duesterhus, Matthias Schmidt and Marcel Werk
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  */
 
@@ -103,7 +103,7 @@ String.prototype.hashCode = function() {
  * 
  * @see	http://stackoverflow.com/a/2450976
  */
-function shuffle(array) {
+window.shuffle = function(array) {
 	var currentIndex = array.length, temporaryValue, randomIndex;
 	
 	// While there remain elements to shuffle...
@@ -754,6 +754,32 @@ $.extend(WCF, {
 		}
 		
 		return new Blob($byteArrays, { type: contentType });
+	},
+	
+	/**
+	 * Converts legacy URLs to the URL schema used by WCF 2.1.
+	 * 
+	 * @param	string		url
+	 * @return	string
+	 */
+	convertLegacyURL: function(url) {
+		if (URL_LEGACY_MODE) {
+			return url;
+		}
+		
+		return url.replace(/^index\.php\/(.*?)\/\?/, function(match, controller) {
+			var $parts = controller.split(/([A-Z][a-z0-9]+)/);
+			var $controller = '';
+			for (var $i = 0, $length = $parts.length; $i < $length; $i++) {
+				var $part = $parts[$i].trim();
+				if ($part.length) {
+					if ($controller.length) $controller += '-';
+					$controller += $part.toLowerCase();
+				}
+			}
+			
+			return 'index.php?' + $controller + '/&';
+		});
 	}
 });
 
@@ -1425,6 +1451,12 @@ WCF.Dropdown.Interactive.Instance = Class.extend({
 	_linkList: null,
 	
 	/**
+	 * option list
+	 * @var	object
+	 */
+	_options: { },
+	
+	/**
 	 * arrow pointer
 	 * @var	jQuery
 	 */
@@ -1445,22 +1477,29 @@ WCF.Dropdown.Interactive.Instance = Class.extend({
 	 * @param	object		options
 	 */
 	init: function(dropdownContainer, triggerElement, identifier, options) {
+		this._options = options || { };
 		this._triggerElement = triggerElement;
 		
-		this._container = $('<div class="interactiveDropdown" data-source="' + identifier + '" />').click(function(event) { event.stopPropagation(); });
-		
-		var $header = $('<div class="interactiveDropdownHeader" />').appendTo(this._container);
-		$('<span class="interactiveDropdownTitle">' + options.title + '</span>').appendTo($header);
-		this._linkList = $('<ul class="interactiveDropdownLinks"></ul>').appendTo($header);
-		
-		var $itemContainer = $('<div class="interactiveDropdownItemsContainer" />').appendTo(this._container);
-		this._itemList = $('<ul class="interactiveDropdownItems" />').appendTo($itemContainer);
-		
-		$('<a href="' + options.showAllLink + '" class="interactiveDropdownShowAll">' + WCF.Language.get('wcf.user.panel.showAll') + '</a>').appendTo(this._container);
+		var $itemContainer = null;
+		if (options.staticDropdown === true) {
+			this._container = this._triggerElement.find('.interactiveDropdownStatic:eq(0)').data('source', identifier).click(function(event) { event.stopPropagation(); });
+		}
+		else {
+			this._container = $('<div class="interactiveDropdown" data-source="' + identifier + '" />').click(function(event) { event.stopPropagation(); });
+			
+			var $header = $('<div class="interactiveDropdownHeader" />').appendTo(this._container);
+			$('<span class="interactiveDropdownTitle">' + options.title + '</span>').appendTo($header);
+			this._linkList = $('<ul class="interactiveDropdownLinks"></ul>').appendTo($header);
+			
+			$itemContainer = $('<div class="interactiveDropdownItemsContainer" />').appendTo(this._container);
+			this._itemList = $('<ul class="interactiveDropdownItems" />').appendTo($itemContainer);
+			
+			$('<a href="' + options.showAllLink + '" class="interactiveDropdownShowAll">' + WCF.Language.get('wcf.user.panel.showAll') + '</a>').appendTo(this._container);
+		}
 		
 		this._pointer = $('<span class="pointer"><span /></span>').appendTo(this._container);
 		
-		if (!$.browser.mobile) {
+		if (!$.browser.mobile && $itemContainer !== null) {
 			// use jQuery scrollbar on desktop, mobile browsers have a similar display built-in
 			$itemContainer.perfectScrollbar({
 				suppressScrollX: true
@@ -1610,7 +1649,7 @@ WCF.Dropdown.Interactive.Instance = Class.extend({
 			$left = this._getPositionLeft($elementOffsets, $dropdownDimensions, $pageWidth);
 			
 			if (!$left.result) {
-				$right = this._getPositionRight($elementOffsets, $dropdownDimensions, $elementDimensions);
+				$right = this._getPositionRight($elementOffsets, $dropdownDimensions, $elementDimensions, $pageWidth);
 				
 				if ($right.result) {
 					$left = null;
@@ -1621,7 +1660,7 @@ WCF.Dropdown.Interactive.Instance = Class.extend({
 			}
 		}
 		else {
-			$right = this._getPositionRight($elementOffsets, $dropdownDimensions, $elementDimensions);
+			$right = this._getPositionRight($elementOffsets, $dropdownDimensions, $elementDimensions, $pageWidth);
 			
 			if (!$right.result) {
 				$left = this._getPositionLeft($elementOffsets, $dropdownDimensions, $pageWidth);
@@ -1642,7 +1681,7 @@ WCF.Dropdown.Interactive.Instance = Class.extend({
 			});
 			
 			this._pointer.css({
-				left: '4px'
+				left: (this._options.pointerOffset ? this._options.pointerOffset : '4px')
 			});
 		}
 		else {
@@ -1653,7 +1692,7 @@ WCF.Dropdown.Interactive.Instance = Class.extend({
 			});
 			
 			this._pointer.css({
-				right: '4px'
+				right: (this._options.pointerOffset ? this._options.pointerOffset : '4px')
 			});
 		}
 	},
@@ -1682,11 +1721,12 @@ WCF.Dropdown.Interactive.Instance = Class.extend({
 	 * @param	object		elementOffsets
 	 * @param	object		dropdownDimensions
 	 * @param	object		elementDimensions
+	 * @param	integer		pageWidth
 	 * @return	object
 	 */
-	_getPositionRight: function(elementOffsets, dropdownDimensions, elementDimensions) {
+	_getPositionRight: function(elementOffsets, dropdownDimensions, elementDimensions, pageWidth) {
 		var $left = (elementOffsets.left + elementDimensions.width) - dropdownDimensions.width;
-		var $right = elementOffsets.right;
+		var $right = pageWidth - (elementOffsets.left + elementDimensions.width);
 		
 		return {
 			result: ($left > 0),
@@ -2519,9 +2559,7 @@ WCF.Action.Proxy = Class.extend({
 			autoAbortPrevious: false
 		}, options);
 		
-		if (!URL_LEGACY_MODE) {
-			this.options.url = this.options.url.replace(/^index\.php\/(.*?)\/\?/, '?$1/&');
-		}
+		this.options.url = WCF.convertLegacyURL(this.options.url);
 		
 		this.confirmationDialog = null;
 		this.loading = null;
@@ -4633,29 +4671,40 @@ WCF.Template = Class.extend({
 		};
 		
 		template = template.replace(/\{(\$[^\}]+?)\}/g, function(_, content) {
-			content = unescape(content.replace(/\$([^.\[\s]+)/g, "(v['$1'])"));
+			content = unescape(content.replace(/\$([^.\[\(\)\]\s]+)/g, "(v['$1'])"));
 			
 			return "' + WCF.String.escapeHTML(" + content + ") + '";
 		})
 		// Numeric Variable
 		.replace(/\{#(\$[^\}]+?)\}/g, function(_, content) {
-			content = unescape(content.replace(/\$([^.\[\s]+)/g, "(v['$1'])"));
+			content = unescape(content.replace(/\$([^.\[\(\)\]\s]+)/g, "(v['$1'])"));
 			
 			return "' + WCF.String.formatNumeric(" + content + ") + '";
 		})
 		// Variable without escaping
 		.replace(/\{@(\$[^\}]+?)\}/g, function(_, content) {
-			content = unescape(content.replace(/\$([^.\[\s]+)/g, "(v['$1'])"));
+			content = unescape(content.replace(/\$([^.\[\(\)\]\s]+)/g, "(v['$1'])"));
 			
 			return "' + " + content + " + '";
 		})
 		// {lang}foo{/lang}
-		.replace(/{lang}(.+?){\/lang}/g, function(_, content) {
-			return "' + WCF.Language.get('" + unescape(content) + "') + '";
+		.replace(/\{lang\}(.+?)\{\/lang\}/g, function(_, content) {
+			return "' + WCF.Language.get('" + content + "', v) + '";
+		})
+		// {include}
+		.replace(/\{include (.+?)\}/g, function(_, content) {
+			content = content.replace(/\\\\/g, '\\').replace(/\\'/g, "'");
+			var $parameters = parseParameterList(content);
+			
+			if (typeof $parameters['file'] === 'undefined') throw new Error('Missing file attribute in include-tag');
+			
+			$parameters['file'] = $parameters['file'].replace(/\$([^.\[\(\)\]\s]+)/g, "(v.$1)");
+			
+			return "' + " + $parameters['file'] + ".fetch(v) + '";
 		})
 		// {if}
 		.replace(/\{if (.+?)\}/g, function(_, content) {
-			content = unescape(content.replace(/\$([^.\[\s]+)/g, "(v['$1'])"));
+			content = unescape(content.replace(/\$([^.\[\(\)\]\s]+)/g, "(v['$1'])"));
 			
 			return	"';\n" +
 				"if (" + content + ") {\n" +
@@ -4663,7 +4712,7 @@ WCF.Template = Class.extend({
 		})
 		// {elseif}
 		.replace(/\{else ?if (.+?)\}/g, function(_, content) {
-			content = unescape(content.replace(/\$([^.\[\s]+)/g, "(v['$1'])"));
+			content = unescape(content.replace(/\$([^.\[\(\)\]\s]+)/g, "(v['$1'])"));
 			
 			return	"';\n" +
 				"}\n" +
@@ -4681,7 +4730,7 @@ WCF.Template = Class.extend({
 			if (typeof $parameters['item'] === 'undefined') throw new Error('Missing item attribute in implode-tag');
 			if (typeof $parameters['glue'] === 'undefined') $parameters['glue'] = "', '";
 			
-			$parameters['from'] = $parameters['from'].replace(/\$([^.\[\s]+)/g, "(v.$1)");
+			$parameters['from'] = $parameters['from'].replace(/\$([^.\[\(\)\]\s]+)/g, "(v.$1)");
 			
 			return 	"';\n"+
 				"var $implode_" + $tagID + " = false;\n" +
@@ -4701,7 +4750,7 @@ WCF.Template = Class.extend({
 			
 			if (typeof $parameters['from'] === 'undefined') throw new Error('Missing from attribute in foreach-tag');
 			if (typeof $parameters['item'] === 'undefined') throw new Error('Missing item attribute in foreach-tag');
-			$parameters['from'] = $parameters['from'].replace(/\$([^.\[\s]+)/g, "(v.$1)");
+			$parameters['from'] = $parameters['from'].replace(/\$([^.\[\(\)\]\s]+)/g, "(v.$1)");
 			
 			return	"';\n" +
 				"$foreach_"+$tagID+" = false;\n" +
@@ -4760,7 +4809,7 @@ WCF.Template = Class.extend({
 		template = "$output += '" + template + "';";
 		
 		try {
-			this.fetch = new Function("v", "if (typeof v != 'object') { v = {}; } v.__window = window; v.__wcf = window.WCF; var $output = ''; " + template + ' return $output;');
+			this.fetch = new Function("v", "v = window.$.extend({}, v, { __wcf: window.WCF, __window: window }); var $output = ''; " + template + ' return $output;');
 		}
 		catch (e) {
 			console.debug("var $output = ''; " + template + ' return $output;');
@@ -5926,7 +5975,29 @@ WCF.DOMNodeRemovedHandler = {
 	_bindListener: function() {
 		if (this._isListening) return;
 		
-		$(document).bind('DOMNodeRemoved', $.proxy(this._executeCallbacks, this));
+		if (window.MutationObserver) {
+			var $mutationObserver = new MutationObserver((function(mutations) {
+				var $triggerEvent = false;
+				
+				mutations.forEach((function(mutation) {
+					if (mutation.removedNodes.length) {
+						$triggerEvent = true;
+					}
+				}).bind(this));
+				
+				if ($triggerEvent) {
+					this._executeCallbacks({ });
+				}
+			}).bind(this));
+			
+			$mutationObserver.observe(document.body, {
+				childList: true,
+				subtree: true
+			});
+		}
+		else {
+			$(document).bind('DOMNodeRemoved', $.proxy(this._executeCallbacks, this));
+		}
 		
 		this._isListening = true;
 	},
@@ -8880,9 +8951,7 @@ WCF.Upload = Class.extend({
 			url: 'index.php/AJAXUpload/?t=' + SECURITY_TOKEN + SID_ARG_2ND
 		}, options || { });
 		
-		if (!URL_LEGACY_MODE) {
-			this._options.url = this._options.url.replace(/^index\.php\/(.*?)\/\?/, '?$1/&');
-		}
+		this._options.url = WCF.convertLegacyURL(this._options.url);
 		
 		// check for ajax upload support
 		var $xhr = new XMLHttpRequest();
@@ -11447,6 +11516,18 @@ $.widget('ui.wcfSlideshow', {
 	},
 	
 	/**
+	 * Rebuilds slideshow height in case the initial height contained resources affecting the
+	 * element height, but loading has not completed on slideshow init.
+	 */
+	rebuildHeight: function() {
+		var $firstItem = $(this._items.get(0)).css('height', 'auto');
+		var $itemHeight = $firstItem.outerHeight();
+		
+		this._items.css('height', $itemHeight + 'px');
+		this.element.css('height', $itemHeight + 'px');
+	},
+	
+	/**
 	 * Handles browser resizing
 	 */
 	_resize: function() {
@@ -12101,6 +12182,143 @@ WCF.Category.NestedList = Class.extend({
 				var $childCategoryIDs = $category.data('childCategoryIDs');
 				for (var $i = 0, $length = $childCategoryIDs.length; $i < $length; $i++) {
 					this._categories[$childCategoryIDs[$i]].prop('checked', false);
+				}
+			}
+		}
+	}
+});
+
+/**
+ * Handles selection of categories.
+ */
+WCF.Category.FlexibleCategoryList = Class.extend({
+	/**
+	 * category list container
+	 * @var	jQuery
+	 */
+	_list: null,
+	
+	/**
+	 * list of children per category id
+	 * @var	object<integer>
+	 */
+	_categories: { },
+	
+	init: function(elementID) {
+		this._list = $('#' + elementID);
+		
+		this._buildStructure();
+		
+		if ($.browser.chrome) {
+			this._resize();
+			
+			$(window).resize(this._resize.bind(this));
+		}
+	},
+	
+	_buildStructure: function() {
+		var self = this;
+		this._list.find('.jsCategory').each(function(i, category) {
+			var $category = $(category).change(self._updateSelection.bind(self));
+			var $categoryID = parseInt($category.val());
+			var $childCategories = [ ];
+			
+			$category.parents('li:eq(0)').find('.jsChildCategory').each(function(j, childCategory) {
+				var $childCategory = $(childCategory);
+				$childCategory.data('parentCategory', $category).change(self._updateSelection.bind(self));
+				
+				var $childCategoryID = parseInt($childCategory.val());
+				$childCategories.push($childCategory);
+				
+				var $subChildCategories = [ ];
+				
+				$childCategory.parents('li:eq(0)').find('.jsSubChildCategory').each(function(k, subChildCategory) {
+					var $subChildCategory = $(subChildCategory);
+					$subChildCategory.data('parentCategory', $childCategory).change(self._updateSelection.bind(self));
+					$subChildCategories.push($subChildCategory);
+				});
+				
+				self._categories[$childCategoryID] = $subChildCategories;
+			});
+			
+			self._categories[$categoryID] = $childCategories;
+		});
+	},
+	
+	_resize: function() {
+		var $referenceOffset = -1;
+		var $realBottom = 0;
+		var $items = this._list.children('li');
+		
+		$items.each(function(index, item) {
+			if ($referenceOffset === -1) {
+				$referenceOffset = item.offsetLeft;
+			}
+			else {
+				if (index + 1 === $items.length || $items[index + 1].offsetLeft != $referenceOffset) {
+					var $item = $(item);
+					var $height = $item.outerHeight(true);
+					var $offset = $item.position();
+					
+					$realBottom = Math.max($realBottom, $offset.top + $height);
+					$referenceOffset = item.offsetLeft;
+				}
+			}
+		});
+		
+		this._list.css('max-height', $realBottom + 'px');
+	},
+	
+	_updateSelection: function(event) {
+		var $category = $(event.currentTarget);
+		var $categoryID = parseInt($category.val());
+		var $parentCategory = $category.data('parentCategory');
+		
+		if ($category.is(':checked')) {
+			if ($parentCategory) {
+				$parentCategory.prop('checked', 'checked');
+				
+				$parentCategory = $parentCategory.data('parentCategory');
+				if ($parentCategory) {
+					$parentCategory.prop('checked', 'checked');
+				}
+			}
+		}
+		else {
+			// uncheck child categories
+			if (this._categories[$categoryID]) {
+				for (var $i = 0, $length = this._categories[$categoryID].length; $i < $length; $i++) {
+					var $childCategory = this._categories[$categoryID][$i];
+					$childCategory.prop('checked', false);
+					
+					var $childCategoryID = parseInt($childCategory.val());
+					if (this._categories[$childCategoryID]) {
+						for (var $j = 0, $innerLength = this._categories[$childCategoryID].length; $j < $innerLength; $j++) {
+							this._categories[$childCategoryID][$j].prop('checked', false);
+						}
+					}
+				}
+			}
+			
+			// uncheck direct parent if it has no more checked children
+			if ($parentCategory) {
+				var $parentCategoryID = parseInt($parentCategory.val());
+				for (var $i = 0, $length = this._categories[$parentCategoryID].length; $i < $length; $i++) {
+					if (this._categories[$parentCategoryID][$i].prop('checked')) {
+						// at least one child is checked, break
+						return;
+					}
+				}
+				
+				$parentCategory = $parentCategory.data('parentCategory');
+				if ($parentCategory) {
+					$parentCategoryID = parseInt($parentCategory.val());
+					for (var $i = 0, $length = this._categories[$parentCategoryID].length; $i < $length; $i++) {
+						if (this._categories[$parentCategoryID][$i].prop('checked')) {
+							// at least one child is checked, break
+							return;
+						}
+					}
 				}
 			}
 		}

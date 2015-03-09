@@ -12,13 +12,13 @@ use wcf\system\WCF;
  * the Microsoft Public License (MS-PL) http://www.opensource.org/licenses/ms-pl.html
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.request
  * @category	Community Framework
  */
-class Route {
+class Route implements IRoute {
 	/**
 	 * route controller if controller is no part of the route schema
 	 * @var	string
@@ -54,6 +54,12 @@ class Route {
 	 * @var	array
 	 */
 	protected $routeData = null;
+	
+	/**
+	 * cached list of transformed controller names
+	 * @var	array<string>
+	 */
+	protected static $controllerNames = array();
 	
 	/**
 	 * list of application abbreviation and default controller name
@@ -128,10 +134,7 @@ class Route {
 	}
 	
 	/**
-	 * Returns true if given request url matches this route.
-	 * 
-	 * @param	string		$requestURL
-	 * @return	boolean
+	 * @see	\wcf\system\request\IRoute::matches()
 	 */
 	public function matches($requestURL) {
 		$urlParts = $this->getParts($requestURL);
@@ -146,6 +149,8 @@ class Route {
 					// validate parameter against a regex pattern
 					if ($this->parameterOptions[$schemaPart]['regexPattern'] !== null) {
 						$pattern = '~^' . $this->parameterOptions[$schemaPart]['regexPattern'] . '$~';
+						if (!URL_LEGACY_MODE && $schemaPart == 'controller') $pattern .= 'i';
+						
 						if (!preg_match($pattern, $urlParts[$i])) {
 							return false;
 						}
@@ -194,9 +199,7 @@ class Route {
 	}
 	
 	/**
-	 * Returns parsed route data.
-	 * 
-	 * @return	array
+	 * @see	\wcf\system\request\IRoute::getRouteData()
 	 */
 	public function getRouteData() {
 		return $this->routeData;
@@ -221,10 +224,7 @@ class Route {
 	}
 	
 	/**
-	 * Returns true if current route can handle the build request.
-	 * 
-	 * @param	array		$components
-	 * @return	boolean
+	 * @see	\wcf\system\request\IRoute::canHandle()
 	 */
 	public function canHandle(array $components) {
 		foreach ($this->routeSchema as $schemaPart) {
@@ -256,10 +256,7 @@ class Route {
 	}
 	
 	/**
-	 * Builds a link upon route components.
-	 * 
-	 * @param	array		$components
-	 * @return	string
+	 * @see	\wcf\system\request\IRoute::buildLink()
 	 */
 	public function buildLink(array $components) {
 		$application = (isset($components['application'])) ? $components['application'] : null;
@@ -312,6 +309,11 @@ class Route {
 					continue;
 				}
 				
+				// handle controller names
+				if (!URL_LEGACY_MODE && $component === 'controller') {
+					$components[$component] = $this->getControllerName($application, $components[$component]);
+				}
+				
 				// handle built-in SEO
 				if ($component === 'id' && isset($components['title'])) {
 					$link .= $components[$component] . '-' . $components['title'] . '/';
@@ -330,8 +332,8 @@ class Route {
 				$link = '?' . $link;
 			}
 		}
-		else if (!URL_OMIT_INDEX_PHP) {
-			$link = (URL_LEGACY_MODE ? 'index.php/' : (!empty($link) ? '?' : '')) . $link;
+		else if (!URL_OMIT_INDEX_PHP && !empty($link)) {
+			$link = (URL_LEGACY_MODE ? 'index.php/' : '?') . $link;
 		}
 		
 		if (!empty($components)) {
@@ -345,12 +347,28 @@ class Route {
 	}
 	
 	/**
-	 * Returns true if route applies for ACP.
-	 * 
-	 * @return	boolean
+	 * @see	\wcf\system\request\IRoute::isACP()
 	 */
 	public function isACP() {
 		return $this->isACP;
+	}
+	
+	/**
+	 * Returns the transformed controller name.
+	 *
+	 * @param	string		$application
+	 * @param	string		$controller
+	 * @return	string
+	 */
+	protected function getControllerName($application, $controller) {
+		if (!isset(self::$controllerNames[$controller])) {
+			$controllerName = RequestHandler::getTokenizedController($controller);
+			$alias = (!$this->isACP) ? RequestHandler::getInstance()->getAliasByController($controllerName) : null;
+			
+			self::$controllerNames[$controller] = ($alias) ?: $controllerName;
+		}
+		
+		return self::$controllerNames[$controller];
 	}
 	
 	/**
@@ -375,7 +393,6 @@ class Route {
 				
 				$controller = explode('\\', $controller);
 				$controllerName = preg_replace('~(Action|Form|Page)$~', '', array_pop($controller));
-				if (URL_TO_LOWERCASE) $controllerName = mb_strtolower($controllerName);
 				
 				self::$defaultControllers[$controller[0]] = $controllerName;
 			}

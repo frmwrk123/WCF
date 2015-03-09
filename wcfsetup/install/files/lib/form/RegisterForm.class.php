@@ -27,7 +27,7 @@ use wcf\util\UserRegistrationUtil;
  * Shows the user registration form.
  * 
  * @author	Marcel Werk
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	form
@@ -178,8 +178,6 @@ class RegisterForm extends UserAddForm {
 			
 			if (WCF::getSession()->getVar('noRegistrationCaptcha')) {
 				$this->captchaObjectType = null;
-				
-				WCF::getSession()->unregister('noRegistrationCaptcha');
 			}
 		}
 		
@@ -497,6 +495,10 @@ class RegisterForm extends UserAddForm {
 		
 		if ($this->captchaObjectType) {
 			$this->captchaObjectType->getProcessor()->reset();
+		}
+		
+		if (WCF::getSession()->getVar('noRegistrationCaptcha')) {
+			WCF::getSession()->unregister('noRegistrationCaptcha');
 		}
 		
 		// login user

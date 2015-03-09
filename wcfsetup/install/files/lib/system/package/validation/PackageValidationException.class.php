@@ -9,7 +9,7 @@ use wcf\system\WCF;
  * does not cause the details to be logged.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.package.validation
@@ -96,9 +96,9 @@ class PackageValidationException extends SystemException {
 	 * @param	array<string>	$details
 	 */
 	public function __construct($code, array $details = array()) {
-		parent::__construct($this->getLegacyMessage(), $code);
-		
 		$this->details = $details;
+		
+		parent::__construct($this->getLegacyMessage($code), $code);
 	}
 	
 	/**
@@ -113,19 +113,25 @@ class PackageValidationException extends SystemException {
 	/**
 	 * Returns the readable error message.
 	 * 
+	 * @param	integer		$code
 	 * @return	string
 	 */
-	public function getErrorMessage() {
-		return WCF::getLanguage()->getDynamicVariable('wcf.acp.package.validation.errorCode.' . $this->getCode(), $this->getDetails());
+	public function getErrorMessage($code = null) {
+		if (!empty($this->details['legacyMessage'])) {
+			return $this->details['legacyMessage'];
+		}
+		
+		return WCF::getLanguage()->getDynamicVariable('wcf.acp.package.validation.errorCode.' . ($code === null ? $this->getCode() : $code), $this->getDetails());
 	}
 	
 	/**
 	 * Returns legacy error messages to mimic WCF 2.0.x PackageArchive's exceptions.
 	 * 
+	 * @param	integer		$code
 	 * @return	string
 	 */
-	protected function getLegacyMessage() {
-		switch ($this->getCode()) {
+	protected function getLegacyMessage($code) {
+		switch ($code) {
 			case self::FILE_NOT_FOUND:
 				if (isset($this->details['targetArchive'])) {
 					return "tar archive '".$this->details['targetArchive']."' not found in '".$this->details['archive']."'.";
@@ -147,7 +153,7 @@ class PackageValidationException extends SystemException {
 			break;
 			
 			default:
-				return 'Using getMessage() is discouraged, please use getErrorMessage() instead';
+				return $this->getErrorMessage($code);
 			break;
 		}
 	}

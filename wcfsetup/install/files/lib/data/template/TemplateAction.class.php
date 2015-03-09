@@ -1,12 +1,13 @@
 <?php
 namespace wcf\data\template;
 use wcf\data\AbstractDatabaseObjectAction;
+use wcf\system\language\LanguageFactory;
 
 /**
  * Executes template-related actions.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	data.template
@@ -50,6 +51,17 @@ class TemplateAction extends AbstractDatabaseObjectAction {
 		}
 		
 		return $template;
+	}
+	
+	/**
+	 * @see	\wcf\data\AbstractDatabaseObjectAction::delete()
+	 */
+	public function delete() {
+		$count = parent::delete();
+		
+		LanguageFactory::getInstance()->deleteLanguageCache();
+		
+		return $count;
 	}
 	
 	/**

@@ -11,7 +11,7 @@ use wcf\system\WCF;
  * Represents an user menu item.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	data.user.menu.item
@@ -117,5 +117,14 @@ class UserMenuItem extends ProcessibleDatabaseObject implements ITreeMenuItem {
 	 */
 	public function __toString() {
 		return WCF::getLanguage()->getDynamicVariable($this->menuItem);
+	}
+	
+	/**
+	 * Returns FontAwesome icon class name.
+	 * 
+	 * @return	string
+	 */
+	public function getIconClassName() {
+		return ($this->iconClassName ?: 'fa-bars');
 	}
 }

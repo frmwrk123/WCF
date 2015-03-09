@@ -4,13 +4,14 @@ use wcf\data\dashboard\box\DashboardBox;
 use wcf\data\user\activity\event\ViewableUserActivityEventList;
 use wcf\page\IPage;
 use wcf\system\user\activity\event\UserActivityEventHandler;
+use wcf\system\request\LinkHandler;
 use wcf\system\WCF;
 
 /**
  * Dashboard box for recent activity in the sidebar.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.dashboard.box
@@ -44,6 +45,7 @@ class RecentActivitySidebarDashboardBox extends AbstractSidebarDashboardBox {
 	 */
 	protected function render() {
 		if (count($this->eventList)) {
+			$this->titleLink = LinkHandler::getInstance()->getLink('RecentActivityList');
 			WCF::getTPL()->assign(array(
 				'eventList' => $this->eventList
 			));

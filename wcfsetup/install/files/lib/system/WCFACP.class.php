@@ -18,7 +18,7 @@ use wcf\util\HeaderUtil;
  * Extends WCF class with functions for the ACP.
  * 
  * @author	Marcel Werk
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system
@@ -64,7 +64,7 @@ class WCFACP extends WCF {
 		// this is a work-around since neither RequestHandler
 		// nor RouteHandler are populated right now
 		$pathInfo = RouteHandler::getPathInfo();
-		if (empty($pathInfo) || !preg_match('~^/?(ACPCaptcha|Login|Logout)/~i', $pathInfo)) {
+		if (empty($pathInfo) || !preg_match('~^/?(acp-?captcha|login|logout)/~i', $pathInfo)) {
 			if (WCF::getUser()->userID == 0) {
 				// work-around for AJAX-requests within ACP
 				if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] == 'XMLHttpRequest') {
@@ -88,7 +88,7 @@ class WCFACP extends WCF {
 				// drop session id
 				$redirectURI = preg_replace('~[&\?]s=[a-f0-9]{40}(&|$)~', '', WCF::getSession()->requestURI);
 				
-				$path = $pageURL . 'acp/?Login/' . SID_ARG_2ND_NOT_ENCODED . '&url=' . rawurlencode(RouteHandler::getProtocol() . $_SERVER['HTTP_HOST'] . $redirectURI);
+				$path = $pageURL . 'acp/index.php?login/' . SID_ARG_2ND_NOT_ENCODED . '&url=' . rawurlencode(RouteHandler::getProtocol() . $_SERVER['HTTP_HOST'] . $redirectURI);
 				
 				HeaderUtil::redirect($path);
 				exit;

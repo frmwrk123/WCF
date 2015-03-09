@@ -4,7 +4,7 @@ if (!RedactorPlugins) var RedactorPlugins = {};
  * Provides utility methods extending $.Redactor
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  */
 RedactorPlugins.wutil = function() {
@@ -12,6 +12,9 @@ RedactorPlugins.wutil = function() {
 	
 	var $autosaveLastMessage = '';
 	var $autosaveNotice = null;
+	var $autosaveDidSave = false;
+	var $autosavePaused = false;
+	var $autosaveSaveNoticePE = null;
 	
 	return {
 		/**
@@ -58,12 +61,17 @@ RedactorPlugins.wutil = function() {
 		
 		/**
 		 * Saves current caret position.
+		 * 
+		 * @param	boolean		discardSavedIfEmpty
 		 */
-		saveSelection: function() {
+		saveSelection: function(discardSavedIfEmpty) {
 			var $selection = getSelection();
 			
 			if ($selection.rangeCount) {
 				this.wutil._range = $selection.getRangeAt(0);
+			}
+			else if (discardSavedIfEmpty) {
+				this.wutil._range = null;
 			}
 		},
 		
@@ -88,7 +96,16 @@ RedactorPlugins.wutil = function() {
 		 * Clears the current selection.
 		 */
 		clearSelection: function() {
-			this._wutil.range = null;
+			this.wutil._range = null;
+		},
+		
+		/**
+		 * Returns stored selection or null.
+		 * 
+		 * @return	Range
+		 */
+		getSelection: function() {
+			return this.wutil._range;
 		},
 		
 		/**
@@ -215,8 +232,7 @@ RedactorPlugins.wutil = function() {
 			
 			var $text = $.trim(this.$textarea.val());
 			
-			// remove linebreak after [/quote]
-			$text = $text.replace(/\[\/quote\]\n/g, '[/quote]');
+			$text = this.wutil._removeSuperfluousNewlines($text);
 			
 			return $text;
 		},
@@ -240,10 +256,47 @@ RedactorPlugins.wutil = function() {
 		submit: function() {
 			if (this.wutil.inWysiwygMode()) {
 				this.code.startSync();
-				this.$textarea.val($.trim(this.wbbcode.convertFromHtml(this.$textarea.val())));
+				
+				var $text = $.trim(this.wbbcode.convertFromHtml(this.$textarea.val()));
+				
+				$text = this.wutil._removeSuperfluousNewlines($text);
+				
+				this.$textarea.val($text);
 			}
 			
 			this.wutil.autosavePurge();
+		},
+		
+		/**
+		 * Removes newlines after certain elements which have been inserted for
+		 * readability but do not represent an actual newline.
+		 * 
+		 * @param	string		text
+		 * @return	string
+		 */
+		_removeSuperfluousNewlines: function(text) {
+			text = text.replace(/(\[\/(?:align|code|quote)\])\n/g, '$1');
+			
+			var $data = { text: text };
+			WCF.System.Event.fireEvent('com.woltlab.wcf.redactor', 'wutil_removeSuperfluousNewlines', $data);
+			
+			return $data.text;
+		},
+		
+		/**
+		 * Adds newlines after certain elements, this is actually the reverse of
+		 * _removeSuperfluousNewlines() which removes them prior to submitting.
+		 * 
+		 * @param	string
+		 * @return	string
+		 */
+		addNewlines: function(text) {
+			text = text.replace(/(\[\/(?:align|code|quote)\])/g, '$1\n');
+			
+			var $data = { text: text };
+			WCF.System.Event.fireEvent('com.woltlab.wcf.redactor', 'wutil_addNewlines', $data);
+			
+			return $data.text;
 		},
 		
 		/**
@@ -276,7 +329,9 @@ RedactorPlugins.wutil = function() {
 			if (this.wutil._autosaveWorker === null) {
 				this.wutil.autosavePurgeOutdated();
 				
-				this.wutil._autosaveWorker = new WCF.PeriodicalExecuter($.proxy(this.wutil.saveTextToStorage, this), 15 * 1000);
+				this.wutil._autosaveWorker = new WCF.PeriodicalExecuter((function(pe) {
+					this.wutil.saveTextToStorage(false);
+				}).bind(this), 15 * 1000);
 			}
 			
 			return true;
@@ -299,8 +354,25 @@ RedactorPlugins.wutil = function() {
 					timestamp: Date.now()
 				}));
 				$autosaveLastMessage = $content;
+				$autosaveDidSave = true;
 				
-				this.wutil.autosaveShowNotice('saved');
+				if ($autosaveSaveNoticePE === null) {
+					$autosaveSaveNoticePE = new WCF.PeriodicalExecuter((function(pe) {
+						if ($autosavePaused === true) {
+							return;
+						}
+						
+						if ($autosaveDidSave === false) {
+							pe.stop();
+							$autosaveSaveNoticePE = null;
+							
+							return;
+						}
+						
+						this.wutil.autosaveShowNotice('saved');
+						$autosaveDidSave = false;
+					}).bind(this), 120 * 1000);
+				}
 			}
 			catch (e) {
 				console.debug("[wutil.saveTextToStorage] Unable to access local storage: " + e.message);
@@ -367,6 +439,19 @@ RedactorPlugins.wutil = function() {
 				return false;
 			}
 			
+			if ($options.lastEditTime && ($options.lastEditTime * 1000) > $text.timestamp) {
+				// stored message is older than last edit time, consider it tainted and discard
+				this.wutil.autosavePurge();
+				
+				return false;
+			}
+			
+			if ($options.prompt) {
+				this.wutil.autosaveShowNotice('prompt', $text);
+				
+				return false;
+			}
+			
 			if (this.wutil.inWysiwygMode()) {
 				this.wutil.setOption('woltlab.originalValue', $text.content);
 			}
@@ -375,7 +460,6 @@ RedactorPlugins.wutil = function() {
 			}
 			
 			this.wutil.autosaveShowNotice('restored', { timestamp: $text.timestamp });
-			WCF.DOMNodeInsertedHandler.execute();
 			
 			return true;
 		},
@@ -390,12 +474,13 @@ RedactorPlugins.wutil = function() {
 			if ($autosaveNotice === null) {
 				$autosaveNotice = $('<div class="redactorAutosaveNotice"><span class="redactorAutosaveMessage" /></div>');
 				$autosaveNotice.appendTo(this.$box);
-				$autosaveNotice.on('transitionend webkitTransitionEnd', (function(event) {
-					if (event.originalEvent.propertyName !== 'opacity') {
+				
+				var $resetNotice = (function(event) {
+					if (event !== null && event.originalEvent.propertyName !== 'opacity') {
 						return;
 					}
 					
-					if ($autosaveNotice.hasClass('open')) {
+					if ($autosaveNotice.hasClass('open') && event !== null) {
 						if ($autosaveNotice.data('callbackOpen')) {
 							$autosaveNotice.data('callbackOpen')();
 						}
@@ -408,15 +493,47 @@ RedactorPlugins.wutil = function() {
 						$autosaveNotice.removeData('callbackClose');
 						$autosaveNotice.removeData('callbackOpen');
 						
-						$autosaveNotice.removeClass('redactorAutosaveNoticeRestore');
+						$autosaveNotice.removeClass('redactorAutosaveNoticeIcons');
 						$autosaveNotice.empty();
 						$('<span class="redactorAutosaveMessage" />').appendTo($autosaveNotice);
 					}
-				}).bind(this));
+				}).bind(this);
+				
+				$autosaveNotice.on('transitionend webkitTransitionEnd', $resetNotice);
 			}
 			
 			var $message = '';
 			switch (type) {
+				case 'prompt':
+					$('<span class="icon icon16 fa-info blue jsTooltip" title="' + WCF.Language.get('wcf.message.autosave.restored.version', { date: new Date(data.timestamp).toLocaleString() }) + '"></span>').prependTo($autosaveNotice);
+					var $accept = $('<span class="icon icon16 fa-check green pointer jsTooltip" title="' + WCF.Language.get('wcf.message.autosave.prompt.confirm') + '"></span>').appendTo($autosaveNotice);
+					var $discard = $('<span class="icon icon16 fa-times red pointer jsTooltip" title="' + WCF.Language.get('wcf.message.autosave.prompt.discard') + '"></span>').appendTo($autosaveNotice);
+					
+					$accept.click((function() {
+						this.wutil.replaceText(data.content);
+						
+						$resetNotice(null);
+						
+						this.wutil.autosaveShowNotice('restored', data);
+					}).bind(this));
+					
+					$discard.click((function() {
+						this.wutil.autosavePurge();
+						
+						$autosaveNotice.removeClass('open');
+					}).bind(this));
+					
+					$message = WCF.Language.get('wcf.message.autosave.prompt');
+					$autosaveNotice.addClass('redactorAutosaveNoticeIcons');
+					
+					var $uuid = '';
+					$uuid = WCF.System.Event.addListener('com.woltlab.wcf.redactor', 'keydown_' + this.$textarea.wcfIdentify(), (function(data) {
+						WCF.System.Event.removeListener('com.woltlab.wcf.redactor', 'keydown_' + this.$textarea.wcfIdentify(), $uuid);
+						
+						setTimeout(function() { $autosaveNotice.removeClass('open'); }, 3000);
+					}).bind(this));
+				break;
+				
 				case 'restored':
 					$('<span class="icon icon16 fa-info blue jsTooltip" title="' + WCF.Language.get('wcf.message.autosave.restored.version', { date: new Date(data.timestamp).toLocaleString() }) + '"></span>').prependTo($autosaveNotice);
 					var $accept = $('<span class="icon icon16 fa-check green pointer jsTooltip" title="' + WCF.Language.get('wcf.message.autosave.restored.confirm') + '"></span>').appendTo($autosaveNotice);
@@ -436,8 +553,14 @@ RedactorPlugins.wutil = function() {
 					}).bind(this));
 					
 					$message = WCF.Language.get('wcf.message.autosave.restored');
+					$autosaveNotice.addClass('redactorAutosaveNoticeIcons');
 					
-					$autosaveNotice.addClass('redactorAutosaveNoticeRestore');
+					var $uuid = '';
+					$uuid = WCF.System.Event.addListener('com.woltlab.wcf.redactor', 'keydown_' + this.$textarea.wcfIdentify(), (function(data) {
+						WCF.System.Event.removeListener('com.woltlab.wcf.redactor', 'keydown_' + this.$textarea.wcfIdentify(), $uuid);
+						
+						setTimeout(function() { $accept.trigger('click'); }, 3000);
+					}).bind(this));
 				break;
 				
 				case 'saved':
@@ -455,6 +578,10 @@ RedactorPlugins.wutil = function() {
 			
 			$autosaveNotice.children('span.redactorAutosaveMessage').text($message);
 			$autosaveNotice.addClass('open');
+			
+			if (type !== 'saved') {
+				WCF.DOMNodeInsertedHandler.execute();
+			}
 		},
 		
 		/**
@@ -509,6 +636,20 @@ RedactorPlugins.wutil = function() {
 					console.debug("[wutil.autosavePurgeOutdated] Unable to access local storage: " + e.message);
 				}
 			}
+		},
+		
+		/**
+		 * Temporarily pauses autosave worker.
+		 */
+		autosavePause: function() {
+			$autosavePaused = true;
+		},
+		
+		/**
+		 * Resumes autosave worker.
+		 */
+		autosaveResume: function() {
+			$autosavePaused = false;
 		},
 		
 		/**
@@ -600,6 +741,37 @@ RedactorPlugins.wutil = function() {
 		},
 		
 		/**
+		 * Inserting block-level elements into other blocks or inline elements can mess up the entire DOM,
+		 * this method tries to find the best nearby insert location.
+		 */
+		adjustSelectionForBlockElement: function() {
+			if (document.activeElement !== this.$editor[0]) {
+				this.wutil.restoreSelection();
+			}
+			
+			if (getSelection().getRangeAt(0).collapsed) {
+				var $startContainer = getSelection().getRangeAt(0).startContainer;
+				if ($startContainer.nodeType === Node.TEXT_NODE && $startContainer.textContent === '\u200b' && $startContainer.parentElement && $startContainer.parentElement.tagName === 'P' && $startContainer.parentElement.parentElement === this.$editor[0]) {
+					// caret position is fine
+					return;
+				}
+				else {
+					// walk tree up until we find a direct children of the editor and place the caret afterwards
+					var $insertAfter = $($startContainer).parentsUntil(this.$editor[0]).last();
+					if ($insertAfter[0] === document.body.parentElement) {
+						// work-around if selection never has been within the editor before
+						this.wutil.selectionEndOfEditor();
+					}
+					else {
+						var $p = $('<p><br></p>').insertAfter($insertAfter);
+						
+						this.caret.setEnd($p);
+					}
+				}
+			}
+		},
+		
+		/**
 		 * Returns true if current selection is just a caret or false if selection spans content.
 		 * 
 		 * @return	boolean
@@ -618,26 +790,31 @@ RedactorPlugins.wutil = function() {
 		 * @return	boolean
 		 */
 		isEndOfElement: function(element) {
-			this.selection.get();
+			// prefer our range because it is more reliable
+			var $range = this.selection.implicitRange;
+			if ($range === null) {
+				this.selection.get();
+				$range = this.range;
+			}
 			
 			// range is not a plain caret
 			if (!this.wutil.isCaret()) {
 				return false;
 			}
 			
-			if (this.range.endContainer.nodeType === Element.TEXT_NODE) {
+			if ($range.endContainer.nodeType === Element.TEXT_NODE) {
 				// caret is not at the end
-				if (this.range.endOffset < this.range.endContainer.length) {
+				if ($range.endOffset < $range.endContainer.length) {
 					return false;
 				}
 			}
 			
 			// range is not within the provided element
-			if (!this.wutil.isNodeWithin(this.range.endContainer, element)) {
+			if (!this.wutil.isNodeWithin($range.endContainer, element)) {
 				return false;
 			}
 			
-			var $current = this.range.endContainer;
+			var $current = $range.endContainer;
 			while ($current !== element) {
 				// end of range is not the last element
 				if ($current.nextSibling) {
@@ -717,6 +894,7 @@ RedactorPlugins.wutil = function() {
 				$wasInWysiwygMode = true;
 			}
 			
+			value = this.wutil.addNewlines(value);
 			this.$textarea.val(value);
 			
 			if ($wasInWysiwygMode) {
@@ -755,13 +933,22 @@ RedactorPlugins.wutil = function() {
 		 * @param	boolean		setBefore
 		 */
 		_setCaret: function(element, setBefore) {
-			var $node = $(this.opts.emptyHtml);
+			var $node;
+			if ((element[0] || element).parentElement && (element[0] || element).parentElement.tagName === 'BLOCKQUOTE') {
+				$node = $('<div>' + this.opts.invisibleSpace + '</div>');
+			}
+			else {
+				$node = $('<p>' + this.opts.invisibleSpace + '</p>');
+			}
+			
 			$node[(setBefore ? 'insertBefore' : 'insertAfter')](element);
 			this.caret.setEnd($node[0]);
 		},
 		
 		/**
-		 * Fixes the DOM by moving all non-element children of the editor into a paragraph.
+		 * Fixes the DOM after pasting:
+		 *  - move all non-element children of the editor into a paragraph
+		 *  - pasting lists/list-items in lists can yield empty <li></li>
 		 */
 		fixDOM: function() {
 			var $current = this.$editor[0].childNodes[0];
@@ -799,6 +986,46 @@ RedactorPlugins.wutil = function() {
 					}
 					
 					$p.append($current);
+				}
+			}
+			
+			var $listItems = this.$editor[0].getElementsByTagName('li');
+			for (var $i = 0, $length = $listItems.length; $i < $length; $i++) {
+				var $listItem = $listItems[$i];
+				if (!$listItem.innerHTML.length) {
+					var $parent = $listItem.parentElement;
+					if ($parent.children.length > 1) {
+						$listItem.parentElement.removeChild($listItem);
+					}
+				}
+			}
+			
+			// fix markup for empty lines
+			for (var $i = 0, $length = this.$editor[0].children.length; $i < $length; $i++) {
+				var $child = this.$editor[0].children[$i];
+				if ($child.nodeType !== Node.ELEMENT_NODE || $child.tagName !== 'P') {
+					// not a <p> element
+					continue;
+				}
+				
+				if ($child.textContent.length > 0) {
+					// element is non-empty
+					continue;
+				}
+				
+				if ($child.children.length > 1 || ($child.children.length === 1 && $child.children[0].tagName === 'BR')) {
+					// element contains more than one children or it is just a <br>
+					continue;
+				}
+				
+				// head all the way down to the most inner node
+				while ($child.children.length === 1) {
+					$child = $child.children[0];
+				}
+				
+				if ($child.childNodes.length === 0 && $child.tagName !== 'BR') {
+					var $node = document.createTextNode('\u200b');
+					$child.appendChild($node);
 				}
 			}
 		}

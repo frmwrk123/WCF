@@ -9,7 +9,7 @@ use wcf\util\StringUtil;
  * This class represents an e-mail.
  * 
  * @author	Marcel Werk
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	data.mail
@@ -337,7 +337,7 @@ class Mail {
 	 */
 	public function setFrom($from) {
 		if (is_array($from)) {
-			$this->from = self::buildAddress(key($from), current($from), false);
+			$this->from = self::buildAddress(key($from), current($from));
 		}
 		else {
 			$this->from = $from;

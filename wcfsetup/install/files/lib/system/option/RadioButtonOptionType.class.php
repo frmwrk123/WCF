@@ -12,7 +12,7 @@ use wcf\util\StringUtil;
  * Option type implementation for radio buttons.
  * 
  * @author	Marcel Werk
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.option
@@ -69,7 +69,7 @@ class RadioButtonOptionType extends AbstractOptionType implements ISearchableCon
 	 */
 	public function getSearchFormElement(Option $option, $value) {
 		$this->templateName = 'radioButtonSearchableOptionType';
-		WCF::getTPL()->assign('searchOption', $value !== $option->defaultValue || isset($_POST['searchOptions'][$option->optionName]));
+		WCF::getTPL()->assign('searchOption', $value !== null && ($value !== $option->defaultValue || isset($_POST['searchOptions'][$option->optionName])));
 		
 		return $this->getFormElement($option, $value);
 	}

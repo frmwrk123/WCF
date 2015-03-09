@@ -6,7 +6,7 @@ use wcf\page\MultipleLinkPage;
  * Lists the available ads.
  * 
  * @author	Matthias Schmidt
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	acp.page
@@ -32,4 +32,9 @@ class AdListPage extends MultipleLinkPage {
 	 * @see	\wcf\page\MultipleLinkPage::$objectListClassName
 	 */
 	public $objectListClassName = 'wcf\data\ad\AdList';
+	
+	/**
+	 * @see	\wcf\page\MultipleLinkPage::$objectListClassName
+	 */
+	public $sqlOrderBy = 'ad.showOrder';
 }

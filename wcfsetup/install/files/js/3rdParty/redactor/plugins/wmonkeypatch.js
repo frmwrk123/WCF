@@ -6,12 +6,12 @@ if (!RedactorPlugins) var RedactorPlugins = {};
  * way or a work-around would cause a giant pile of boilerplates.
  * 
  * ATTENTION!
- * This plugin partially contains code taken from Redactor, Copyright (c) 2009-2014 Imperavi LLC.
+ * This plugin partially contains code taken from Redactor, Copyright (c) 2009-2015 Imperavi LLC.
  * Under no circumstances you are allowed to use potions or entire code blocks for use anywhere
  * except when directly working with WoltLab Community Framework.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH, 2009-2014 Imperavi LLC.
+ * @copyright	2001-2015 WoltLab GmbH, 2009-2015 Imperavi LLC.
  * @license	http://imperavi.com/redactor/license/
  */
 RedactorPlugins.wmonkeypatch = function() {
@@ -23,19 +23,23 @@ RedactorPlugins.wmonkeypatch = function() {
 		 */
 		init: function() {
 			// module overrides
+			this.wmonkeypatch.alignment();
 			this.wmonkeypatch.button();
 			this.wmonkeypatch.caret();
 			this.wmonkeypatch.clean();
 			this.wmonkeypatch.code();
 			this.wmonkeypatch.dropdown();
 			this.wmonkeypatch.image();
+			this.wmonkeypatch.indent();
 			this.wmonkeypatch.inline();
 			this.wmonkeypatch.insert();
 			this.wmonkeypatch.keydown();
+			this.wmonkeypatch.keyup();
 			this.wmonkeypatch.link();
 			this.wmonkeypatch.modal();
 			this.wmonkeypatch.paste();
 			this.wmonkeypatch.observe();
+			this.wmonkeypatch.selection();
 			this.wmonkeypatch.utils();
 			
 			// templates
@@ -100,6 +104,172 @@ RedactorPlugins.wmonkeypatch = function() {
 					this.wutil.saveSelection();
 				}
 			}).bind(this));
+			
+			var $setCaretBeforeOrAfter = (function(element, setBefore) {
+				if (setBefore) {
+					if (element.previousElementSibling && (element.previousElementSibling.tagName === 'P' || element.previousElementSibling.tagName === 'DIV')) {
+						this.caret.setEnd(element.previousElementSibling);
+					}
+					else {
+						this.wutil.setCaretBefore(element);
+					}
+				}
+				else {
+					if (element.nextElementSibling && (element.nextElementSibling.tagName === 'P' || element.nextElementSibling.tagName === 'DIV')) {
+						this.caret.setEnd(element.nextElementSibling);
+					}
+					else {
+						this.wutil.setCaretAfter(element);
+					}
+				}
+			}).bind(this);
+			
+			var $editorPadding = null;
+			this.$editor.on('click.wmonkeypatch', (function(event) {
+				if (event.target === this.$editor[0]) {
+					var $range = (window.getSelection().rangeCount) ? window.getSelection().getRangeAt(0) : null;
+					
+					if ($range && $range.collapsed) {
+						var $current = $range.startContainer;
+						
+						// this can occur if click occurs within the editor padding
+						var $offsets = this.$editor.offset();
+						if ($editorPadding === null) {
+							$editorPadding = {
+								left: this.$editor.cssAsNumber('padding-left'),
+								top: this.$editor.cssAsNumber('padding-top')
+							};
+						}
+						
+						if (event.pageY <= $offsets.top + $editorPadding.top) {
+							var $firstChild = this.$editor[0].children[0];
+							if ($firstChild.tagName !== 'BLOCKQUOTE' && ($firstChild.tagName !== 'DIV' || !/\bcodeBox\b/.test($firstChild.className))) {
+								return;
+							}
+						}
+						else {
+							if (event.pageX <= $offsets.left + $editorPadding.left) {
+								return;
+							}
+							else {
+								if (event.pageX > $offsets.left + this.$editor.width()) {
+									return;
+								}
+							}
+						}
+						
+						while ($current && $current !== this.$editor[0]) {
+							if ($current.nodeType === Node.ELEMENT_NODE) {
+								if ($current.tagName === 'BLOCKQUOTE' || ($current.tagName === 'DIV' && /\bcodeBox\b/.test($current.className))) {
+									var $offset = $($current).offset();
+									if (event.pageY <= $offset.top) {
+										$setCaretBeforeOrAfter($current, true);
+									}
+									else {
+										$setCaretBeforeOrAfter($current, false);
+									}
+									
+									// stop processing
+									return false;
+								}
+							}
+							
+							$current = $current.parentElement;
+						}
+					}
+					
+					var $elements = this.$editor.children('blockquote, div.codeBox');
+					$elements.each(function(index, element) {
+						var $element = $(element);
+						var $offset = $element.offset();
+						
+						if (event.pageY <= $offset.top) {
+							$setCaretBeforeOrAfter(element, true);
+							
+							return false;
+						}
+						else {
+							var $height = $element.outerHeight() + (parseInt($element.css('margin-bottom'), 10) || 0);
+							if (event.pageY <= $offset.top + $height) {
+								$setCaretBeforeOrAfter(element, false);
+								
+								return false;
+							}
+						}
+					});
+					
+					return false;
+				}
+				else if (event.target.tagName === 'LI') {
+					// work-around for #1942
+					var $range = (window.getSelection().rangeCount) ? window.getSelection().getRangeAt(0) : null;
+					var $caretInsideList = false;
+					if ($range !== null) {
+						if (!$range.collapsed) {
+							return;
+						}
+						
+						var $current = $range.startContainer;
+						while ($current !== null && $current !== this.$editor[0]) {
+							if ($current.tagName === 'LI') {
+								$caretInsideList = true;
+								break;
+							}
+							
+							$current = $current.parentElement;
+						}
+					}
+					
+					if (!$caretInsideList || $range === null) {
+						var $node = document.createTextNode('\u200b');
+						var $firstChild = event.target.children[0];
+						$firstChild.appendChild($node);
+						
+						this.caret.setEnd($firstChild);
+					}
+				}
+				else if (event.target.tagName === 'BLOCKQUOTE') {
+					var $range = (window.getSelection().rangeCount) ? window.getSelection().getRangeAt(0) : null;
+					if ($range !== null && $range.collapsed) {
+						// check if caret is now inside a quote
+						var $blockquote = null;
+						var $current = ($range.startContainer.nodeType === Node.TEXT_NODE) ? $range.startContainer.parentElement : $range.startContainer;
+						while ($current !== null && $current !== this.$editor[0]) {
+							if ($current.tagName === 'BLOCKQUOTE') {
+								$blockquote = $current;
+								break;
+							}
+							
+							$current = $current.parentElement;
+						}
+						
+						if ($blockquote !== null && $blockquote !== event.target) {
+							// click occured within inner quote margin, check if click happened before inner quote
+							if (event.pageY <= $($blockquote).offset().top) {
+								$setCaretBeforeOrAfter($blockquote, true);
+							}
+							else {
+								$setCaretBeforeOrAfter($blockquote, false);
+							}
+						}
+					}
+				}
+			}).bind(this));
+		},
+		
+		/**
+		 * Partially overwrites the 'alignment' module.
+		 * 
+		 *  - Firing an event after setBlocks() has been called, useful to strip unwanted formatting
+		 */
+		alignment: function() {
+			// alignment.setBlocks
+			var $mpSetBlocks = this.alignment.setBlocks;
+			this.alignment.setBlocks = (function(type) {
+				$mpSetBlocks.call(this, type);
+				
+				WCF.System.Event.fireEvent('com.woltlab.wcf.redactor', 'fixFormatting_' + this.$textarea.wcfIdentify());
+			}).bind(this);
 		},
 		
 		/**
@@ -153,9 +323,9 @@ RedactorPlugins.wmonkeypatch = function() {
 				
 				if (orgn.tagName == 'BR' && this.opts.linebreaks === false)
 				{
-					var par = $(this.opts.emptyHtml)[0];
-					$(orgn).replaceWith(par);
-					orgn = par;
+					var parent = $(this.opts.emptyHtml)[0];
+					$(orgn).replaceWith(parent);
+					orgn = parent;
 					focn = orgn;
 				}
 				
@@ -341,6 +511,8 @@ RedactorPlugins.wmonkeypatch = function() {
 						var $item = $('<a href="#" class="redactor-dropdown-' + btnName + '">' + btnObject.title + '</a>');
 						
 						$item.on('click', $.proxy(function(e) {
+							e.preventDefault();
+							
 							var type = 'func';
 							var callback = btnObject.func;
 							if (btnObject.command) {
@@ -353,7 +525,7 @@ RedactorPlugins.wmonkeypatch = function() {
 							}
 							
 							this.button.onClick(e, btnName, type, callback);
-							
+							this.dropdown.hideAll();
 						}, this));
 						
 						$item.appendTo($listItem);
@@ -467,24 +639,91 @@ RedactorPlugins.wmonkeypatch = function() {
 		},
 		
 		/**
+		 * Partially overwrites the 'indent' module.
+		 * 
+		 *  - prevent browsers from screwing up the DOM when indenting the only item
+		 */
+		indent: function() {
+			// indent.increaseLists
+			var $mpIncrease = this.indent.increase;
+			this.indent.increase = (function() {
+				var $block = this.selection.getBlock();
+				if ($block && $block.tagName === 'LI') {
+					// do not allow indenting the first list item because it yields invalid HTML
+					if ($block.parentElement.firstChild !== $block) {
+						$mpIncrease.call(this);
+					}
+				}
+			}).bind(this);
+		},
+		
+		/**
 		 * Partially overwrites the 'inline' module.
 		 * 
 		 *  - restore the text selection on iOS (#2003)
+		 *  - work-around existing formatting is removed in Firefox (#1962)
+		 *  - fix formatting with the same property stacking up in Chrome (#2080)
 		 */
 		inline: function() {
+			var $purgeSimilarFormatting = (function($el, newProperty) {
+				var $current = $el.parent();
+				
+				while ($current[0] !== this.$editor[0]) {
+					if ($current.children(':not(.redactor-selection-marker)').length > 1) {
+						break;
+					}
+					
+					if ($current[0].tagName === 'SPAN' && $current[0].style.getPropertyValue(newProperty)) {
+						$current.contents().unwrap();
+						
+						break;
+					}
+					
+					$current = $current.parent();
+				}
+			}).bind(this);
+			
+			// inline.format
 			var $mpFormat = this.inline.format;
 			this.inline.format = (function(tag, type, value) {
 				if ($.browser.iOS) {
-					this.wmonkeypatch.restoreSelection();
+					this.wutil.restoreSelection();
 				}
 				
 				$mpFormat.call(this, tag, type, value);
 			}).bind(this);
 			
+			// inline.formatRemoveSameChildren;
+			/*var $mpFormatRemoveSameChildren = this.inline.formatRemoveSameChildren;
+			this.inline.formatRemoveSameChildren = (function($el, tag) {
+				// check if this represents a style
+				if (tag === 'span' && this.inline.type === 'style') {*/
+					//var $newProperty = this.inline.value.replace(/^([^:]+?):.*/, '$1');
+					/*
+					$el.children(tag).each((function(index, child) {
+						var $child = $(child);
+						if (!$child.hasClass('redactor-selection-marker')) {
+							if (!child.style.getPropertyValue($newProperty)) {
+								// child carries a different CSS property, skip
+								return true;
+							}
+							
+							$child.contents().unwrap();
+						}
+					}).bind(this));
+					
+					$purgeSimilarFormatting($el, $newProperty);
+				}
+				else {
+					$mpFormatRemoveSameChildren.call(this, $el, tag);
+				}
+			}).bind(this);*/
+			
+			// inline.removeStyleRule
 			var $mpRemoveStyleRule = this.inline.removeStyleRule;
 			this.inline.removeStyleRule = (function(name) {
 				if ($.browser.iOS) {
-					this.wmonkeypatch.restoreSelection();
+					this.wuil.restoreSelection();
 				}
 				
 				$mpRemoveStyleRule.call(this, name);
@@ -503,7 +742,7 @@ RedactorPlugins.wmonkeypatch = function() {
 				var $html = this.$editor.html();
 				if (this.utils.isEmpty($html)) {
 					var $cleared = false;
-					if (html.match(/^<(blockquote|div|p)/)) {
+					if (html.match(/^<(blockquote|div|p)/i)) {
 						// inserting a block-level element into a <p /> yields inconsistent behaviors in different browsers
 						// but since the HTML to be inserted is already a block element, we can place it directly in the root
 						this.$editor.empty();
@@ -520,6 +759,14 @@ RedactorPlugins.wmonkeypatch = function() {
 				else {
 					if (document.activeElement !== this.$editor[0]) {
 						this.wutil.restoreSelection();
+					}
+					
+					if (html.match(/^<(blockquote|div|p)/i) && getSelection().getRangeAt(0).collapsed) {
+						var $startContainer = getSelection().getRangeAt(0).startContainer;
+						if ($startContainer.nodeType === Node.TEXT_NODE && $startContainer.textContent === '\u200b') {
+							// Safari breaks if inserting block-level elements into a <p /> w/ only a zero-width space
+							this.caret.setEnd($($startContainer.parentElement).html('<br />'));
+						}
 					}
 				}
 			}).bind(this);
@@ -627,6 +874,21 @@ RedactorPlugins.wmonkeypatch = function() {
 		},
 		
 		/**
+		 * Partially overwrites the 'keyup' module.
+		 * 
+		 *  - prevent divs inside a quote being replace with paragraphs
+		 */
+		keyup: function() {
+			// keyup.replaceToParagraph
+			var $mpReplaceToParagraph = this.keyup.replaceToParagraph;
+			this.keyup.replaceToParagraph = (function(clone) {
+				if (this.keyup.current.tagName !== 'DIV' || this.keyup.current.parentElement.tagName !== 'BLOCKQUOTE') {
+					$mpReplaceToParagraph.call(this, clone);
+				}
+			}).bind(this);
+		},
+		
+		/**
 		 * Partially overwrites the 'link' module.
 		 * 
 		 * - force consistent caret position upon link insert
@@ -639,10 +901,33 @@ RedactorPlugins.wmonkeypatch = function() {
 				
 				this.selection.get();
 				var $current = this.selection.getCurrent();
+				if ($current.nodeType === Node.TEXT_NODE) {
+					$current = $current.parentElement;
+				}
+				
 				if ($current.tagName === 'A') {
 					this.caret.setAfter($current);
 				}
 			}).bind(this);
+			
+			// link.set
+			/*var $mpSet = this.link.set;
+			this.link.set = (function(text, link, target) {
+				$mpSet.call(this, text, link, target);
+				
+				if (text.length && this.link.text !== text) {
+					this.selection.get();
+					
+					var $current = this.selection.getCurrent();
+					if ($current.nodeType === Node.TEXT_NODE) {
+						$current = $current.parentElement;
+					}
+					
+					if ($current.tagName === 'A') {
+						$($current).text(text);
+					}
+				}
+			}).bind(this);*/
 		},
 		
 		/**
@@ -707,9 +992,20 @@ RedactorPlugins.wmonkeypatch = function() {
 				
 				try {
 					this.modal.dialog.wcfDialog('close');
-					this.modal.dialog.remove();
 				}
-				catch (e) { }
+				catch (e) {
+					// ignore
+				}
+				finally {
+					if (this.modal.dialog) {
+						var $container = this.modal.dialog.parents('.dialogContainer:eq(0)');
+						if ($container.length) {
+							setTimeout(function() {
+								$container.remove();
+							}, 500);
+						}
+					}
+				}
 				
 				this.modal.dialog = null;
 			}).bind(this);
@@ -754,6 +1050,19 @@ RedactorPlugins.wmonkeypatch = function() {
 				$toggleButtons(parent, 'blockquote.quoteBox', 'a.re-__wcf_quote', false, 'redactor-button-disabled', true);
 				$toggleButtons(parent, 'sub', 'a.re-subscript', false, 'redactor-act');
 				$toggleButtons(parent, 'sup', 'a.re-superscript', false, 'redactor-act');
+				
+				if (btnName) {
+					// work-around for buttons stuck after disabling -- #2138
+					this.observe.buttons(e);
+				}
+			}).bind(this);
+			
+			// observe.load
+			var $mpLoad = this.observe.load;
+			this.observe.load = (function() {
+				$mpLoad.call(this);
+				
+				WCF.System.Event.fireEvent('com.woltlab.wcf.redactor', 'observe_load_' + this.$textarea.wcfIdentify());
 			}).bind(this);
 			
 			// observe.showTooltip
@@ -773,6 +1082,34 @@ RedactorPlugins.wmonkeypatch = function() {
 		 *  - fixes text pasting in Internet Explorer 11 (#2040) 
 		 */
 		paste: function() {
+			// paste.createPasteBox
+			var $mpCreatePasteBox = this.paste.createPasteBox;
+			this.paste.createPasteBox = (function() {
+				if ($.browser.iOS) {
+					var $top = 0;
+					if (window.getSelection().rangeCount) {
+						var $container = window.getSelection().getRangeAt(0).endContainer;
+						if ($container.nodeType !== Node.ELEMENT_NODE) {
+							$container = $container.parentElement;
+						}
+						$container = $($container);
+						
+						$top = $($container).offset().top;
+					}
+					else {
+						$top = $(window).scrollTop();
+					}
+					
+					this.$pasteBox = $('<div>').html('').attr('contenteditable', 'true').css({ position: 'fixed', /*width: 0, */top: $top + 'px', /*left: '-9999px', */fontSize: '16px' });
+					
+					this.$box.parent().append(this.$pasteBox);
+					this.$pasteBox.focus();
+				}
+				else {
+					$mpCreatePasteBox.call(this);
+				}
+			}).bind(this);
+			
 			// paste.insert
 			var $mpInsert = this.paste.insert;
 			this.paste.insert = (function(html) {
@@ -787,6 +1124,49 @@ RedactorPlugins.wmonkeypatch = function() {
 					
 					this.wutil.saveSelection();
 				}).bind(this), 20);
+			}).bind(this);
+		},
+		
+		/**
+		 * Partially overwrites the 'selection' module.
+		 * 
+		 *  - remove superflous empty text nodes caused by the selection markers (#2083)
+		 */
+		selection: function() {
+			this.selection.implicitRange = null;
+			
+			var $removeEmptyTextNodes = (function(index, marker) {
+				var $nextSibling = marker.nextSibling;
+				if ($nextSibling !== null && $nextSibling.nodeType === Node.TEXT_NODE && $nextSibling.length === 0) {
+					$($nextSibling).remove();
+				}
+				
+				var $node = null;
+				if ((marker.id === 'selection-marker-1' && !this.$editor.find('#selection-marker-2').length) || marker.id === 'nodes-marker-1' && !this.$editor.find('#nodes-marker-2').length) {
+					$node = marker.previousSibling;
+				}
+				
+				$(marker).remove();
+				
+				if ($node !== null) {
+					this.selection.implicitRange = document.createRange();
+					this.selection.implicitRange.setStart($node, $node.length);
+					this.selection.implicitRange.setEnd($node, $node.length);
+				}
+				else {
+					this.selection.implicitRange = null;
+				}
+			}).bind(this);
+			
+			// selection.removeMarkers
+			this.selection.removeMarkers = (function() {
+				this.$editor.find('span.redactor-selection-marker').each($removeEmptyTextNodes);
+			}).bind(this);
+			
+			// selection.removeNodesMarkers
+			this.selection.removeNodesMarkers = (function() {
+				$(document).find('span.redactor-nodes-marker').each($removeEmptyTextNodes);
+				this.$editor.find('span.redactor-nodes-marker').each($removeEmptyTextNodes);
 			}).bind(this);
 		},
 		
@@ -848,6 +1228,50 @@ RedactorPlugins.wmonkeypatch = function() {
 					+ '<dl>'
 						+ '<dt><label for="redactorQuoteLink">' + WCF.Language.get('wcf.bbcode.quote.edit.link') + '</label></dt>'
 						+ '<dd><input type="text" id="redactorQuoteLink" class="long" /></dd>'
+					+ '</dl>'
+				+ '</fieldset>';
+			
+			// template: code
+			var $highlighters = '';
+			$.each(__REDACTOR_CODE_HIGHLIGHTERS, function(k, v) {
+				if (k === 'plain') return true;
+				
+				$highlighters += '<option value="' + k + '">' + v + '</option>';
+			});
+			
+			this.opts.modal.code =
+				'<fieldset>'
+					+ '<legend>' + WCF.Language.get('wcf.bbcode.code.settings') + '</legend>'
+					+ '<dl>'
+						+ '<dt><label for="redactorCodeHighlighter">' + WCF.Language.get('wcf.bbcode.code.highlighter') + '</label></dt>'
+						+ '<dd>'
+							+ '<select id="redactorCodeHighlighter">'
+								+ '<option value="plain">' + WCF.Language.get('wcf.bbcode.code.highlighter.none') + '</option>'
+								+ $highlighters
+							+ '</select>'
+							+ '<small>' + WCF.Language.get('wcf.bbcode.code.highlighter.description') + '</small>'
+						+ '</dd>'
+					+ '</dl>'
+					+ '<dl>'
+						+ '<dt><label for="redactorCodeLineNumber">' + WCF.Language.get('wcf.bbcode.code.lineNumber') + '</label></dt>'
+						+ '<dd>'
+							+ '<input type="number" id="redactorCodeLineNumber" min="1" max="99999" value="1" />'
+							+ '<small>' + WCF.Language.get('wcf.bbcode.code.lineNumber.description') + '</small>'
+						+ '</dd>'
+					+ '</dl>'
+					+ '<dl>'
+						+ '<dt><label for="redactorCodeFilename">' + WCF.Language.get('wcf.bbcode.code.filename') + '</label></dt>'
+						+ '<dd>'
+							+ '<input type="text" id="redactorCodeFilename" value="" class="long" />'
+							+ '<small>' + WCF.Language.get('wcf.bbcode.code.filename.description') + '</small>'
+						+ '</dd>'
+					+ '</dl>'
+				+ '</fieldset>'
+				+ '<fieldset>'
+					+ '<legend>' + WCF.Language.get('wcf.bbcode.code') + '</legend>'
+					+ '<dl class="wide">'
+						+ '<dt></dt>'
+						+ '<dd><textarea id="redactorCodeBox" class="long" rows="12" /></dd>'
 					+ '</dl>'
 				+ '</fieldset>';
 			

@@ -17,7 +17,7 @@ use wcf\util\StringUtil;
  * MessageForm is an abstract form implementation for a message with optional captcha suppport.
  * 
  * @author	Marcel Werk
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	form
@@ -172,7 +172,13 @@ abstract class MessageForm extends AbstractCaptchaForm {
 			$this->tmpHash = $_REQUEST['tmpHash'];
 		}
 		if (empty($this->tmpHash)) {
-			$this->tmpHash = StringUtil::getRandomID();
+			$this->tmpHash = WCF::getSession()->getVar('__wcfAttachmentTmpHash');
+			if ($this->tmpHash === null) {
+				$this->tmpHash = StringUtil::getRandomID();
+			}
+			else {
+				WCF::getSession()->unregister('__wcfAttachmentTmpHash');
+			}
 		}
 		
 		if ($this->enableMultilingualism) {
@@ -335,15 +341,7 @@ abstract class MessageForm extends AbstractCaptchaForm {
 		
 		// get default smilies
 		if (MODULE_SMILEY) {
-			$this->smileyCategories = SmileyCache::getInstance()->getCategories();
-			foreach ($this->smileyCategories as $index => $category) {
-				$category->loadSmilies();
-				
-				// remove empty categories
-				if (!count($category) || $category->isDisabled) {
-					unset($this->smileyCategories[$index]);
-				}
-			}
+			$this->smileyCategories = SmileyCache::getInstance()->getVisibleCategories();
 			
 			$firstCategory = reset($this->smileyCategories);
 			if ($firstCategory) {

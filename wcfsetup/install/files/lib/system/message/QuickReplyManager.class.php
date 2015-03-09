@@ -19,7 +19,7 @@ use wcf\util\StringUtil;
  * Manages quick replies and stored messages.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.message
@@ -194,7 +194,7 @@ class QuickReplyManager extends SingletonFactory {
 		$parameters['data'] = array_merge($additionalFields, $parameters['data']);
 		
 		// attachment support
-		if (MODULE_ATTACHMENT && $object instanceof IAttachmentMessageQuickReplyAction) {
+		if (MODULE_ATTACHMENT && !empty($parameters['tmpHash']) && $object instanceof IAttachmentMessageQuickReplyAction) {
 			$parameters['attachmentHandler'] = $object->getAttachmentHandler($this->container);
 		}
 		
@@ -258,5 +258,14 @@ class QuickReplyManager extends SingletonFactory {
 	 */
 	public function getContainer() {
 		return $this->container;
+	}
+	
+	/**
+	 * Stores tmpHash in current session, used in combination with the extended form.
+	 * 
+	 * @param	string		$tmpHash
+	 */
+	public function setTmpHash($tmpHash) {
+		WCF::getSession()->register('__wcfAttachmentTmpHash', $tmpHash);
 	}
 }

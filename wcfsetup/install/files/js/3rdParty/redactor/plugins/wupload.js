@@ -4,7 +4,7 @@ if (!RedactorPlugins) var RedactorPlugins = {};
  * Handles drag&drop upload using the attachment system for Redactor.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  */
 RedactorPlugins.wupload = function() {
@@ -46,6 +46,10 @@ RedactorPlugins.wupload = function() {
 		 */
 		_dragOver: function(event) {
 			event = event.originalEvent;
+			
+			if (!this.$editor.is(':visible')) {
+				return;
+			}
 			
 			if (!event.dataTransfer || !event.dataTransfer.types) {
 				return;
@@ -185,10 +189,7 @@ RedactorPlugins.wupload = function() {
 				this.wupload._revertDropArea(undefined, $containerID);
 				
 				for (var $i = 0; $i < event.dataTransfer.files.length; $i++) {
-					var $file = event.dataTransfer.files[$i];
-					if ($file.type) {
-						WCF.System.Event.fireEvent('com.woltlab.wcf.redactor', 'upload_' + $containerID, { file: $file });
-					}
+					WCF.System.Event.fireEvent('com.woltlab.wcf.redactor', 'upload_' + $containerID, { file: event.dataTransfer.files[$i] });
 				}
 			}
 		},

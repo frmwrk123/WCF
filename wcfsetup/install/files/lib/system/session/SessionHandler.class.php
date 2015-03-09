@@ -26,7 +26,7 @@ use wcf\util\UserUtil;
  * Handles sessions.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.session
@@ -382,7 +382,7 @@ class SessionHandler extends SingletonFactory {
 		}
 		
 		$this->user = new User($this->session->userID);
-		$this->loadVirtualSession();
+		if ($this->supportsVirtualSessions) $this->virtualSession = SessionVirtual::getExistingSession($sessionID);
 		
 		if (!$this->validate()) {
 			$this->session = null;
@@ -391,6 +391,8 @@ class SessionHandler extends SingletonFactory {
 			
 			return;
 		}
+		
+		if ($this->supportsVirtualSessions) $this->loadVirtualSession();
 	}
 	
 	/**
@@ -405,8 +407,18 @@ class SessionHandler extends SingletonFactory {
 			$this->virtualSession = null;
 			if ($this->user->userID && $this->supportsVirtualSessions) {
 				$virtualSessionAction = new SessionVirtualAction(array(), 'create', array('data' => array('sessionID' => $this->session->sessionID)));
-				$returnValues = $virtualSessionAction->executeAction();
-				$this->virtualSession = $returnValues['returnValues'];
+				
+				try {
+					$returnValues = $virtualSessionAction->executeAction();
+					$this->virtualSession = $returnValues['returnValues'];
+				}
+				catch (DatabaseException $e) {
+					// MySQL error 23000 = unique key
+					// do not check against the message itself, some weird systems localize them
+					if ($e->getCode() == 23000) {
+						$this->virtualSession = SessionVirtual::getExistingSession($this->session->sessionID);
+					}
+				}
 			}
 		}
 	}
@@ -504,7 +516,33 @@ class SessionHandler extends SingletonFactory {
 			);
 			
 			if ($spiderID !== null) $sessionData['spiderID'] = $spiderID;
-			$this->session = call_user_func(array($this->sessionEditorClassName, 'create'), $sessionData);
+			
+			try {
+				$this->session = call_user_func(array($this->sessionEditorClassName, 'create'), $sessionData);
+			}
+			catch (DatabaseException $e) {
+				// MySQL error 23000 = unique key
+				// do not check against the message itself, some weird systems localize them
+				if ($e->getCode() == 23000 && $this->supportsVirtualSessions) {
+					// find existing session
+					$session = call_user_func(array($this->sessionClassName, 'getSessionByUserID'), $this->user->userID);
+					
+					if ($session === null) {
+						// MySQL reported a unique key error, but no corresponding session exists, rethrow exception
+						throw $e;
+					}
+					else {
+						// inherit existing session
+						$this->session = $session;
+						$this->loadVirtualSession(true);
+					}
+				}
+				else {
+					// unrelated to user id
+					throw $e;
+				}
+			}
+			
 			$this->firstVisit = true;
 			$this->loadVirtualSession(true);
 		}
@@ -695,8 +733,10 @@ class SessionHandler extends SingletonFactory {
 			//
 			case 0:
 				// delete virtual session
-				$virtualSessionEditor = new SessionVirtualEditor($this->virtualSession);
-				$virtualSessionEditor->delete();
+				if ($this->virtualSession) {
+					$virtualSessionEditor = new SessionVirtualEditor($this->virtualSession);
+					$virtualSessionEditor->delete();
+				}
 				
 				// there are still other virtual sessions, create a new session
 				if (SessionVirtual::countVirtualSessions($this->session->sessionID)) {

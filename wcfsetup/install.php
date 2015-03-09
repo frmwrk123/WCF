@@ -3,7 +3,7 @@
  * This script tries to find the temp folder and unzip all setup files into.
  * 
  * @author	Marcel Werk
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  */
 // @codingStandardsIgnoreFile
@@ -722,17 +722,28 @@ class File {
  */
 class ZipFile extends File {
 	/**
+	 * checks if gz*64 functions are available instead of gz*
+	 * https://bugs.php.net/bug.php?id=53829
+	 * @var	boolean
+	 */
+	protected static $gzopen64 = null;
+	
+	/**
 	 * Opens a new zipped file.
 	 *
 	 * @param	string		$filename
 	 * @param	string		$mode
 	 */
 	public function __construct($filename, $mode = 'wb') {
+		if (self::$gzopen64 === null) {
+			self::$gzopen64 = (function_exists('gzopen64'));
+		}
+		
 		$this->filename = $filename;
-		if (!function_exists('gzopen')) {
+		if (!self::$gzopen64 && !function_exists('gzopen')) {
 			throw new SystemException('Can not find functions of the zlib extension');
 		}
-		$this->resource = @gzopen($filename, $mode);
+		$this->resource = (self::$gzopen64 ? @gzopen64($filename, $mode) : @gzopen($filename, $mode));
 		if ($this->resource === false) {
 			throw new SystemException('Can not open file ' . $filename);
 		}
@@ -745,7 +756,11 @@ class ZipFile extends File {
 	 * @param	array		$arguments
 	 */
 	public function __call($function, $arguments) {
-		if (function_exists('gz' . $function)) {
+		if (self::$gzopen64 && function_exists('gz' . $function . '64')) {
+			array_unshift($arguments, $this->resource);
+			return call_user_func_array('gz' . $function . '64', $arguments);
+		}
+		else if (function_exists('gz' . $function)) {
 			array_unshift($arguments, $this->resource);
 			return call_user_func_array('gz' . $function, $arguments);
 		}
@@ -868,7 +883,7 @@ if (!file_exists(TMP_DIR . 'install/files/lib/system/WCFSetup.class.php')) {
 	$tar = new Tar(SETUP_FILE);
 	$contentList = $tar->getContentList();
 	if (empty($contentList)) {
-		throw new SystemException("Can not unpack 'WCFSetup.tar.gz'. File is probably broken.");
+		throw new SystemException("Cannot unpack 'WCFSetup.tar.gz'. File is probably broken.");
 	}
 	
 	foreach ($contentList as $file) {
@@ -896,7 +911,7 @@ if (!file_exists(TMP_DIR . 'install/files/lib/system/WCFSetup.class.php')) {
 }
 
 if (!class_exists('wcf\system\WCFSetup')) {
-	throw new SystemException("Can not find class 'WCFSetup'");
+	throw new SystemException("Cannot find class 'WCFSetup'");
 }
 
 // start setup

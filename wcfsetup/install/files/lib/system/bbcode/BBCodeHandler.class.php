@@ -7,7 +7,7 @@ use wcf\system\SingletonFactory;
  * Handles BBCodes displayed as buttons within the WYSIWYG editor.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.bbcode
@@ -115,5 +115,14 @@ class BBCodeHandler extends SingletonFactory {
 		}
 		
 		return $this->sourceBBCodes;
+	}
+	
+	/**
+	 * Returns a list of known highlighters.
+	 * 
+	 * @return	array<string>
+	 */
+	public function getHighlighters() {
+		return BBCodeCache::getInstance()->getHighlighters();
 	}
 }

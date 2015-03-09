@@ -4,7 +4,7 @@
  * User-related classes.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  */
 
@@ -172,6 +172,7 @@ WCF.User.Panel.Abstract = Class.extend({
 	 */
 	init: function(triggerElement, identifier, options) {
 		this._dropdown = null;
+		this._loadData = true;
 		this._identifier = identifier;
 		this._triggerElement = triggerElement;
 		this._options = options;
@@ -186,9 +187,14 @@ WCF.User.Panel.Abstract = Class.extend({
 			this._triggerElement.dblclick($.proxy(this._dblClick, this));
 		}
 		
-		var $badge = this._triggerElement.find('span.badge');
-		if ($badge.length) {
-			this._badge = $badge;
+		if (this._options.staticDropdown === true) {
+			this._loadData = false;
+		}
+		else {
+			var $badge = this._triggerElement.find('span.badge');
+			if ($badge.length) {
+				this._badge = $badge;
+			}
 		}
 	},
 	
@@ -384,6 +390,7 @@ WCF.User.Panel.Abstract = Class.extend({
 		}
 		else if (this._badge !== null) {
 			this._badge.remove();
+			this._badge = null;
 		}
 		
 		if (this._options.enableMarkAsRead) {
@@ -521,7 +528,24 @@ WCF.User.Panel.Notification = WCF.User.Panel.Abstract.extend({
 		}
 		
 		this.updateBadge(count);
-	}	
+	}
+});
+
+/**
+ * User Panel implementation for user menu dropdown.
+ * 
+ * @see	WCF.User.Panel.Abstract
+ */
+WCF.User.Panel.UserMenu = WCF.User.Panel.Abstract.extend({
+	/**
+	 * @see	WCF.User.Panel.Abstract.init()
+	 */
+	init: function() {
+		this._super($('#userMenu'), 'userMenu', {
+			pointerOffset: '13px',
+			staticDropdown: true
+		});
+	}
 });
 
 /**
@@ -1668,7 +1692,7 @@ WCF.User.Registration.LostPassword = Class.extend({
  * Notification system for WCF.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  */
 WCF.Notification = { };

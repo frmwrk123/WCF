@@ -1,6 +1,5 @@
 <?php
 namespace wcf\acp\form;
-use wcf\data\user\group\UserGroup;
 use wcf\data\user\group\UserGroupAction;
 use wcf\data\user\group\UserGroupEditor;
 use wcf\system\exception\UserInputException;
@@ -13,7 +12,7 @@ use wcf\util\StringUtil;
  * Shows the group add form.
  * 
  * @author	Marcel Werk
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	acp.form
@@ -144,8 +143,6 @@ class UserGroupAddForm extends AbstractOptionListForm {
 	public function save() {
 		parent::save();
 		
-		// get default group
-		$defaultGroup = UserGroup::getGroupByType(UserGroup::EVERYONE);
 		$optionValues = $this->optionHandler->save();
 		
 		$data = array(

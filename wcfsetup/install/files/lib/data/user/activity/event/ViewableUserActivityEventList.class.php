@@ -9,7 +9,7 @@ use wcf\system\WCF;
  * Represents a list of viewable user activity events.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	data.user.activity.event
@@ -110,11 +110,11 @@ class ViewableUserActivityEventList extends UserActivityEventList {
 		$orphanedEventIDs = array();
 		
 		foreach ($this->objects as $index => $event) {
-			if (!$event->isAccessible()) {
+			if ($event->isOrphaned()) {
+				$orphanedEventIDs[] = $event->eventID;
 				unset($this->objects[$index]);
 			}
-			else if ($event->isOrphaned()) {
-				$orphanedEventIDs[] = $event->eventID;
+			else if (!$event->isAccessible()) {
 				unset($this->objects[$index]);
 			}
 		}

@@ -4,11 +4,13 @@ if (!RedactorPlugins) var RedactorPlugins = {};
  * Provides the smiley button and modifies the source mode to transform HTML into BBCodes.
  * 
  * @author	Alexander Ebert, Marcel Werk
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  */
 RedactorPlugins.wbbcode = function() {
 	"use strict";
+	
+	var $skipOnSyncReplacementOnce = false;
 	
 	return {
 		/**
@@ -18,6 +20,10 @@ RedactorPlugins.wbbcode = function() {
 			var $identifier = this.$textarea.wcfIdentify();
 			
 			this.opts.initCallback = (function() {
+				if ($.browser.msie) {
+					this.$editor.addClass('msie');
+				}
+				
 				// use stored editor contents
 				var $content = $.trim(this.wutil.getOption('woltlab.originalValue'));
 				if ($content.length) {
@@ -37,10 +43,16 @@ RedactorPlugins.wbbcode = function() {
 			this.opts.pasteCallback = $.proxy(this.wbbcode._pasteCallback, this);
 			
 			var $mpCleanOnSync = this.clean.onSync;
-			this.clean.onSync = function(html) {
-				html = html.replace(/<p><br([^>]+)?><\/p>/g, '<p>@@@wcf_empty_line@@@</p>');
-				return $mpCleanOnSync.call(self, html);
-			};
+			this.clean.onSync = (function(html) {
+				if ($skipOnSyncReplacementOnce === true) {
+					$skipOnSyncReplacementOnce = false;
+				}
+				else {
+					html = html.replace(/<p><br([^>]+)?><\/p>/g, '<p>@@@wcf_empty_line@@@</p>');
+				}
+				
+				return $mpCleanOnSync.call(this, html);
+			}).bind(this);
 			
 			if (this.wutil.getOption('woltlab.autosaveOnce')) {
 				this.wutil.saveTextToStorage();
@@ -68,6 +80,13 @@ RedactorPlugins.wbbcode = function() {
 				data.cancel = true;
 				
 				this.wbbcode._handleInsertQuote();
+			}, this));
+			
+			// handle 'insert code' button
+			WCF.System.Event.addListener('com.woltlab.wcf.redactor', 'insertBBCode_code_' + $identifier, $.proxy(function(data) {
+				data.cancel = true;
+				
+				this.wbbcode._handleInsertCode(null, true);
 			}, this));
 			
 			// handle keydown
@@ -102,9 +121,10 @@ RedactorPlugins.wbbcode = function() {
 					this.$textarea.val(this.wbbcode.convertToHtml(this.$textarea.val()));
 					this.code.offset = this.$textarea.val().length;
 					this.code.showVisual();
-					this.wbbcode._fixQuotes();
+					this.wbbcode.fixBlockLevelElements();
 					this.wutil.selectionEndOfEditor();
-					this.wbbcode._observeQuotes();
+					this.wbbcode.observeQuotes();
+					this.wbbcode.observeCodeListings();
 					
 					this.button.get('html').children('i').removeClass('fa-square').addClass('fa-square-o');
 					$tooltip.text(WCF.Language.get('wcf.bbcode.button.toggleBBCode'));
@@ -131,6 +151,14 @@ RedactorPlugins.wbbcode = function() {
 			if ($index > -1) {
 				this.opts.verifiedTags.splice($index, 1);
 			}
+			
+			// reattach event listeners
+			WCF.System.Event.addListener('com.woltlab.wcf.redactor', 'observe_load_' + $identifier, (function(data) {
+				this.wbbcode.observeCodeListings();
+				this.wbbcode.observeQuotes();
+			}).bind(this));
+			
+			WCF.System.Event.addListener('com.woltlab.wcf.redactor', 'fixFormatting_' + $identifier, $.proxy(this.wbbcode.fixFormatting, this));
 		},
 		
 		/**
@@ -171,7 +199,46 @@ RedactorPlugins.wbbcode = function() {
 			}
 			
 			if (this.opts.visual) {
-				this.insert.html('&nbsp;<img src="' + smileyPath + '" class="smiley" alt="' + smileyCode + '" />&nbsp;', false);
+				var $parentBefore = null;
+				if (window.getSelection().rangeCount && window.getSelection().getRangeAt(0).collapsed) {
+					$parentBefore = window.getSelection().getRangeAt(0).startContainer;
+					if ($parentBefore.nodeType === Node.TEXT_NODE) {
+						$parentBefore = $parentBefore.parentElement;
+					}
+					
+					if (!this.utils.isRedactorParent($parentBefore)) {
+						$parentBefore = null;
+					}
+				}
+				
+				this.insert.html('<img src="' + smileyPath + '" class="smiley" alt="' + smileyCode + '" id="redactorSmiley">', false);
+				
+				var $smiley = document.getElementById('redactorSmiley');
+				$smiley.removeAttribute('id');
+				if ($parentBefore !== null) {
+					var $currentParent = window.getSelection().getRangeAt(0).startContainer;
+					if ($currentParent.nodeType === Node.TEXT_NODE) {
+						$currentParent = $currentParent.parentElement;
+					}
+					
+					// smiley has been inserted outside the original caret parent, move
+					if ($parentBefore !== $currentParent) {
+						$parentBefore.appendChild($smiley);
+					}
+				}
+				
+				// add spaces as paddings
+				var $parent = $smiley.parentElement;
+				var $node = document.createTextNode('\u00A0');
+				$parent.insertBefore($node, $smiley);
+				
+				var $node = document.createTextNode('\u00A0');
+				if ($parent.lastChild === $smiley) {
+					$parent.appendChild($node);
+				}
+				else {
+					$parent.insertBefore($node, $smiley.nextSibling);
+				}
 			}
 			else {
 				this.wutil.insertAtCaret(' ' + smileyCode + ' ');
@@ -201,10 +268,15 @@ RedactorPlugins.wbbcode = function() {
 		 * @param	string		html
 		 */
 		convertFromHtml: function(html) {
+			var $searchFor = [ ];
+			
 			WCF.System.Event.fireEvent('com.woltlab.wcf.redactor', 'beforeConvertFromHtml', { html: html });
 			
 			// remove data-redactor-tag="" attribute
 			html = html.replace(/(<[^>]+?) data-redactor-tag="[^"]+"/g, '$1');
+			
+			// remove rel="" attribute
+			html = html.replace(/(<[^>]+?) rel="[^"]+"/g, '$1');
 			
 			// remove zero-width space sometimes slipping through
 			html = html.replace(/&#(8203|x200b);/g, '');
@@ -216,11 +288,25 @@ RedactorPlugins.wbbcode = function() {
 			html = html.replace(/&mdash;/gi, '\u2014');
 			html = html.replace(/&dash;/gi, '\u2010');
 			
-			// preserve newlines in <pre> tags
-			var $cachedPreTags = { };
-			html = html.replace(/<pre>[\s\S]+?<\/pre>/g, function(match) {
+			// preserve code listings
+			var $cachedCodeListings = { };
+			html = html.replace(/<div class="codeBox[^"]+"(.*?)>\n*<div>[\s\S]+?<ol start="(\d+)">([\s\S]+?)<\/ol>\n*<\/div>\n*<\/div>/g, function(match, codeBoxAttributes, lineNumber, codeContent) {
+				var $highlighter = '';
+				var $filename = '';
+				if (codeBoxAttributes.match(/data-highlighter="([a-zA-Z]+)"/)) {
+					$highlighter = RegExp.$1;
+				}
+				if (codeBoxAttributes.match(/data-filename="([^"]+)"/)) {
+					$filename = $.trim(RegExp.$1);
+				}
+				
 				var $uuid = WCF.getUUID();
-				$cachedPreTags[$uuid] = match;
+				$cachedCodeListings[$uuid] = {
+					codeContent: codeContent.replace(/<li>/g, '').replace(/<\/li>/g, '\n').replace(/\n$/, ''),
+					filename: $filename.replace(/['"]/g, ''),
+					highlighter: ($highlighter === 'plain' ? '' : $highlighter),
+					lineNumber: (lineNumber > 1 ? lineNumber : 0)
+				};
 				
 				return '@@@' + $uuid + '@@@';
 			});
@@ -228,18 +314,20 @@ RedactorPlugins.wbbcode = function() {
 			// drop all new lines
 			html = html.replace(/\r?\n/g, '');
 			
-			// restore <pre> tags
-			if ($.getLength($cachedPreTags)) {
-				$.each($cachedPreTags, function(key, value) {
-					html = html.replace('@@@' + key + '@@@', value);
-				});
-			}
-			
 			// remove empty links
 			html = html.replace(/<a[^>]*?><\/a>/g, '');
 			
-			// drop empty paragraphs
-			html = html.replace(/<p><\/p>/g, '');
+			// unwrap <p></p><table></table><p></p>
+			html = html.replace(/<p><\/p><table/g, '<table');
+			html = html.replace(/<\/table><p><\/p>/g, '</table>');
+			
+			// unwrap code boxes
+			for (var $uuid in $cachedCodeListings) {
+				html = html.replace(new RegExp('<p><\/p>@@@' + $uuid + '@@@<p><\/p>'), '@@@' + $uuid + '@@@');
+			}
+			
+			// handle empty paragraphs not followed by an empty one
+			html = html.replace(/<p><\/p><p>(?!<br>)/g, '<p>@@@wcf_empty_line@@@</p><p>');
 			
 			// remove <br> right in front of </p> (does not match <p><br></p> since it has been converted already)
 			html = html.replace(/<br( \/)?><\/p>/g, '</p>');
@@ -291,7 +379,7 @@ RedactorPlugins.wbbcode = function() {
 			html = html.replace(/&nbsp;/gi, " ");
 			
 			// [quote]
-			html = html.replace(/<blockquote([^>]+)>\n?<div[^>]+>\n?<header[^>]*?>[\s\S]*?<\/header>/gi, function(match, attributes, innerContent) {
+			html = html.replace(/<blockquote([^>]+)>\n?<header[^>]*?>[\s\S]*?<\/header>/gi, function(match, attributes, innerContent) {
 				var $quote;
 				var $author = '';
 				var $link = '';
@@ -332,27 +420,51 @@ RedactorPlugins.wbbcode = function() {
 			});
 			
 			// [b]
-			html = html.replace(/<(?:b|strong)>/gi, '[b]');
+			html = html.replace(/<(?:b|strong)>/gi, function() {
+				if ($searchFor.indexOf('b') === -1) $searchFor.push('b');
+				
+				return '[b]';
+			});
 			html = html.replace(/<\/(?:b|strong)>/gi, '[/b]');
 			
 			// [i]
-			html = html.replace(/<(?:i|em)>/gi, '[i]');
+			html = html.replace(/<(?:i|em)>/gi, function() {
+				if ($searchFor.indexOf('i') === -1) $searchFor.push('i');
+				
+				return '[i]';
+			});
 			html = html.replace(/<\/(?:i|em)>/gi, '[/i]');
 			
 			// [u]
-			html = html.replace(/<u>/gi, '[u]');
+			html = html.replace(/<u>/gi, function() {
+				if ($searchFor.indexOf('u') === -1) $searchFor.push('u');
+				
+				return '[u]';
+			});
 			html = html.replace(/<\/u>/gi, '[/u]');
 			
 			// [sub]
-			html = html.replace(/<sub>/gi, '[sub]');
+			html = html.replace(/<sub>/gi, function() {
+				if ($searchFor.indexOf('sub') === -1) $searchFor.push('sub');
+				
+				return '[sub]';
+			});
 			html = html.replace(/<\/sub>/gi, '[/sub]');
 			
 			// [sup]
-			html = html.replace(/<sup>/gi, '[sup]');
+			html = html.replace(/<sup>/gi, function() {
+				if ($searchFor.indexOf('sup') === -1) $searchFor.push('sup');
+				
+				return '[sup]';
+			});
 			html = html.replace(/<\/sup>/gi, '[/sup]');
 			
 			// [s]
-			html = html.replace(/<(?:s(trike)?|del)>/gi, '[s]');
+			html = html.replace(/<(?:s(trike)?|del)>/gi, function() {
+				if ($searchFor.indexOf('s') === -1) $searchFor.push('s');
+				
+				return '[s]';
+			});
 			html = html.replace(/<\/(?:s(trike)?|del)>/gi, '[/s]');
 			
 			// handle [color], [size], [font] and [tt]
@@ -377,7 +489,7 @@ RedactorPlugins.wbbcode = function() {
 				
 				if ($value == '</span>') {
 					var $opening = $openElements.pop();
-					var $tmp = $opening.start + $.trim($buffer.pop()) + $opening.end;
+					var $tmp = $opening.start + $buffer.pop() + $opening.end;
 					
 					if ($buffer.length) {
 						$buffer[$buffer.length - 1] += $tmp;
@@ -393,28 +505,36 @@ RedactorPlugins.wbbcode = function() {
 							var $start;
 							var $end;
 							
-							if ($style.match(/color: ?rgb\((\d{1,3}), ?(\d{1,3}), ?(\d{1,3})\);?/i)) {
+							if ($style.match(/(?:^|;\s*)color: ?rgb\((\d{1,3}), ?(\d{1,3}), ?(\d{1,3})\);?/i)) {
 								var $r = RegExp.$1;
 								var $g = RegExp.$2;
 								var $b = RegExp.$3;
 								
 								var $hex = ("0123456789ABCDEF".charAt(($r - $r % 16) / 16) + '' + "0123456789ABCDEF".charAt($r % 16)) + '' + ("0123456789ABCDEF".charAt(($g - $g % 16) / 16) + '' + "0123456789ABCDEF".charAt($g % 16)) + '' + ("0123456789ABCDEF".charAt(($b - $b % 16) / 16) + '' + "0123456789ABCDEF".charAt($b % 16));
 								$start = '[color=#' + $hex + ']';
-								$end = '[/color]';
+								$end = '[/color=#' + $hex + ']';
+								
+								if ($searchFor.indexOf('color') === -1) $searchFor.push('color');
 							}
-							else if ($style.match(/color: ?([^;]+);?/i)) {
+							else if ($style.match(/(?:^|;\s*)color: ?([^;]+);?/i)) {
 								$start = '[color=' + RegExp.$1 + ']';
-								$end = '[/color]';
+								$end = '[/color=' + RegExp.$1 + ']';
+								
+								if ($searchFor.indexOf('color') === -1) $searchFor.push('color');
 							}
 							else if ($style.match(/font-size: ?(\d+)(pt|px);?/i)) {
 								if (RegExp.$2 == 'pt') {
 									$start = '[size=' + RegExp.$1 + ']';
-									$end = '[/size]';
+									$end = '[/size=' + RegExp.$1 + ']';
+									
+									if ($searchFor.indexOf('size') === -1) $searchFor.push('size');
 								}
 								else {
 									if ($pixelToPoint[RegExp.$1]) {
 										$start = '[size=' + $pixelToPoint[RegExp.$1] + ']';
-										$end = '[/size]';
+										$end = '[/size=' + $pixelToPoint[RegExp.$1] + ']';
+										
+										if ($searchFor.indexOf('size') === -1) $searchFor.push('size');
 									}
 									else {
 										// unsupported size
@@ -425,7 +545,9 @@ RedactorPlugins.wbbcode = function() {
 							}
 							else if ($style.match(/font-family: ?([^;]+);?/)) {
 								$start = "[font='" + RegExp.$1.replace(/'/g, '') + "']";
-								$end = '[/font]';
+								$end = "[/font='" + RegExp.$1.replace(/'/g, '') + "']";
+								
+								if ($searchFor.indexOf('font') === -1) $searchFor.push('font');
 							}
 							else {
 								$start = '<span style="' + $style + '">';
@@ -469,23 +591,48 @@ RedactorPlugins.wbbcode = function() {
 			
 			// [align]
 			html = html.replace(/<(div|p) style="text-align: ?(left|center|right|justify);? ?">([\s\S]*?)\n/gi, function(match, tag, alignment, content) {
-				return '[align=' + alignment + ']' + $.trim(content) + '[/align]';
+				if ($searchFor.indexOf('align') === -1) $searchFor.push('align');
+				
+				return '[align=' + alignment + ']' + $.trim(content) + '[/align=' + alignment + ']\n';
 			});
 			
+			if ($searchFor.length) {
+				var $didReplace = true;
+				while ($didReplace) {
+					$didReplace = false;
+					html = html.replace(new RegExp('\\[\\/((?:' + $searchFor.join('|') + ')=[^\\]]+?)\\]\n\\[\\1\\]', 'gi'), function() {
+						$didReplace = true;
+						
+						return '\n';
+					});
+				}
+				
+				html = html.replace(new RegExp('\\[\\/(' + $searchFor.join('|') + ')=[^\\]]+?\\]', 'gi'), '[/$1]');
+			}
+			
 			// smileys
-			html = html.replace(/ ?<img [^>]*?alt="([^"]+?)" class="smiley".*?> ?/gi, ' $1 '); // firefox
-			html = html.replace(/ ?<img [^>]*?class="smiley" alt="([^"]+?)".*?> ?/gi, ' $1 '); // chrome, ie
+			html = html.replace(/ ?<img [^>]*?alt="([^"]+?)"[^>]*?class="smiley"[^>]*?> ?/gi, ' $1 '); // firefox
+			html = html.replace(/ ?<img [^>]*?class="smiley"[^>]*?alt="([^"]+?)"[^>]*?> ?/gi, ' $1 '); // chrome, ie
 			
 			// attachments
-			html = html.replace(/<img [^>]*?class="redactorEmbeddedAttachment[^"]*" data-attachment-id="(\d+)"( style="([^"]+)")?>/gi, function(match, attachmentID, styleTag, style) {
+			html = html.replace(/<img(.*?)class="[^"]*redactorEmbeddedAttachment[^"]*"(.*?)>/gi, function(match, attributesBefore, attributesAfter) {
+				var $attributes = attributesBefore + ' ' + attributesAfter;
+				var $attachmentID;
+				if ($attributes.match(/data-attachment-id="(\d+)"/)) {
+					$attachmentID = RegExp.$1;
+				}
+				else {
+					return match;
+				}
+				
 				var $float = 'none';
 				var $width = null;
 				
-				if (style) {
-					style = style.split(';');
+				if ($attributes.match(/style="([^"]+)"/)) {
+					var $styles = RegExp.$1.split(';');
 					
-					for (var $i = 0; $i < style.length; $i++) {
-						var $style = $.trim(style[$i]);
+					for (var $i = 0; $i < $styles.length; $i++) {
+						var $style = $.trim($styles[$i]);
 						if ($style.match(/^float: (left|right)$/)) {
 							$float = RegExp.$1;
 						}
@@ -495,18 +642,18 @@ RedactorPlugins.wbbcode = function() {
 					}
 					
 					if ($width !== null) {
-						return '[attach=' + attachmentID + ',' + $float + ',' + $width + '][/attach]';
+						return '[attach=' + $attachmentID + ',' + $float + ',' + $width + '][/attach]';
 					}
 					else if ($float !== 'none') {
-						return '[attach=' + attachmentID + ',' + $float + '][/attach]';
+						return '[attach=' + $attachmentID + ',' + $float + '][/attach]';
 					}
 				}
 				
-				return '[attach=' + attachmentID + '][/attach]';
+				return '[attach=' + $attachmentID + '][/attach]';
 			});
 			
 			// [img]
-			html = html.replace(/<img [^>]*?src=(["'])([^"']+?)\1 style="([^"]+)".*?>/gi, function(match, quotationMarks, source, style) {
+			html = html.replace(/<img [^>]*?src=(["'])([^"']+?)\1.*?style="([^"]+)".*?>/gi, function(match, quotationMarks, source, style) {
 				var $float = 'none';
 				var $width = 0;
 				
@@ -530,11 +677,12 @@ RedactorPlugins.wbbcode = function() {
 				
 				return "[img]" + source + "[/img]";
 			});
+			
 			html = html.replace(/<img [^>]*?src=(["'])([^"']+?)\1.*?>/gi, '[img]$2[/img]');
 			
 			// [*]
 			html = html.replace(/<li>/gi, '[*]');
-			html = html.replace(/<\/li>/gi, '');
+			html = html.replace(/<\/li>/gi, '\n');
 			
 			// [list]
 			html = html.replace(/<ul>/gi, '[list]');
@@ -542,9 +690,18 @@ RedactorPlugins.wbbcode = function() {
 			html = html.replace(/<ul style="list-style-type: (none|circle|square|disc|decimal|lower-roman|upper-roman|decimal-leading-zero|lower-greek|lower-latin|upper-latin|armenian|georgian)">/gi, '[list=$1]');
 			html = html.replace(/<\/(ul|ol)>/gi, '[/list]');
 			
+			// ensure there is a newline in front of a [list]
+			html = html.replace(/\n?\[list\]/g, '\n[list]');
+			
+			// drop newline between [/list] and [*]
+			html = html.replace(/\[\/list\]\n\[\*\]/g, '[/list][*]');
+			
+			// drop newline between two [/list]
+			html = html.replace(/\[\/list\]\n\[\/list\]/g, '[/list][/list]');
+			
 			// [table]
 			html = html.replace(/<table[^>]*>/gi, '[table]\n');
-			html = html.replace(/<\/table>/gi, '[/table]\n');
+			html = html.replace(/<\/table>\n?/gi, '[/table]\n');
 			
 			// remove <tbody>
 			html = html.replace(/<tbody>([\s\S]*?)<\/tbody>/, function(match, p1) {
@@ -585,6 +742,57 @@ RedactorPlugins.wbbcode = function() {
 				}
 			}
 			
+			// restore code listings
+			if ($.getLength($cachedCodeListings)) {
+				$.each($cachedCodeListings, function(uuid, listing) {
+					var $count = 0;
+					if (listing.highlighter) $count++;
+					if (listing.lineNumber) $count++;
+					if (listing.filename) $count++;
+					
+					var $attributes = '';
+					switch ($count) {
+						case 1:
+							if (listing.highlighter) {
+								$attributes = listing.highlighter;
+							}
+							else if (listing.filename) {
+								$attributes = "'" + listing.filename + "'";
+							}
+							else {
+								$attributes = listing.lineNumber;
+							}
+						break;
+						
+						case 2:
+							if (listing.highlighter) {
+								$attributes = listing.highlighter;
+							}
+							
+							if (listing.lineNumber) {
+								if ($attributes.length) $attributes += ',';
+								
+								$attributes += listing.lineNumber;
+							}
+							
+							if (listing.filename) {
+								if ($attributes.length) $attributes += ',';
+								
+								$attributes += "'" + listing.filename + "'";
+							}
+						break;
+						
+						case 3:
+							$attributes = listing.highlighter + ',' + listing.lineNumber + ",'" + listing.filename + "'";
+						break;
+					}
+					
+					var $bbcode = '[code' + ($attributes.length ? '=' + $attributes : '') + ']' + listing.codeContent + '[/code]\n';
+					
+					html = html.replace(new RegExp('@@@' + uuid + '@@@\n?', 'g'), $bbcode);
+				});
+			}
+			
 			// Restore <, > and &
 			html = html.replace(/&lt;/g, '<');
 			html = html.replace(/&gt;/g, '>');
@@ -594,34 +802,7 @@ RedactorPlugins.wbbcode = function() {
 			html = html.replace(/%28/g, '(');
 			html = html.replace(/%29/g, ')');
 			
-			// Restore %20
-			//html = html.replace(/%20/g, ' ');
-			
-			// cache source code tags to preserve leading tabs
-			/*var $cachedCodes = { };
-			for (var $i = 0, $length = __REDACTOR_SOURCE_BBCODES.length; $i < $length; $i++) {
-				var $bbcode = __REDACTOR_SOURCE_BBCODES[$i];
-				
-				var $regExp = new RegExp('\\[' + $bbcode + '([\\S\\s]+?)\\[\\/' + $bbcode + '\\]', 'gi');
-				html = html.replace($regExp, function(match) {
-					var $key = match.hashCode();
-					$cachedCodes[$key] = match.replace(/\$/g, '$$$$');
-					return '@@' + $key + '@@';
-				});
-			}*/
-			
-			// ensure that [/code] is always followed by at least one empty line
-			html = html.replace(/\[\/code\]\n\n?/g, '[/code]\n\n');
-			
 			WCF.System.Event.fireEvent('com.woltlab.wcf.redactor', 'afterConvertFromHtml', { html: html });
-			
-			// insert codes
-			/*if ($.getLength($cachedCodes)) {
-				for (var $key in $cachedCodes) {
-					var $regex = new RegExp('@@' + $key + '@@', 'g');
-					html = html.replace($regex, $cachedCodes[$key]);
-				}
-			}*/
 			
 			// remove all leading and trailing whitespaces, but add one empty line at the end
 			html = $.trim(html);
@@ -668,23 +849,46 @@ RedactorPlugins.wbbcode = function() {
 			data = data.replace(/\[email\]([^"]+?)\[\/email]/gi, '<a href="mailto:$1">$1</a>' + this.opts.invisibleSpace);
 			data = data.replace(/\[email\=([^"\]]+)](.+?)\[\/email]/gi, '<a href="mailto:$1">$2</a>' + this.opts.invisibleSpace);
 			
+			// cleanup inline formattings that could stack in a weird way
+			
+			// replaces [b][b] with [b]
+			data = data.replace(/\[(b|i|s|sub|sup|u)\]\[\1\]/gi, '[$1]');
+			
+			// replaces [/b][/b] with [/b]
+			data = data.replace(/\[(\/(?:b|i|s|sub|sup|u))\]\[\1\]/gi, '[$1]');
+			
+			// drops [b][/b] (we can safely remove them because empty lines will preserve their formatting due to the expand formatting function
+			data = data.replace(/\[(b|i|s|sub|sup|u)\]\[\/\1\]/gi, '');
+			
 			// [b]
-			data = data.replace(/\[b\]([\s\S]*?)\[\/b]/gi, '<b>$1</b>');
+			data = data.replace(/\[b\]([\s\S]*?)\[\/b]/gi, (function(match, content) {
+				return this.wbbcode._expandFormatting(content, '<strong>', '</strong>');
+			}).bind(this));
 			
 			// [i]
-			data = data.replace(/\[i\]([\s\S]*?)\[\/i]/gi, '<i>$1</i>');
+			data = data.replace(/\[i\]([\s\S]*?)\[\/i]/gi, (function(match, content) {
+				return this.wbbcode._expandFormatting(content, '<em>', '</em>');
+			}).bind(this));
 			
 			// [u]
-			data = data.replace(/\[u\]([\s\S]*?)\[\/u]/gi, '<u>$1</u>');
+			data = data.replace(/\[u\]([\s\S]*?)\[\/u]/gi, (function(match, content) {
+				return this.wbbcode._expandFormatting(content, '<u>', '</u>');
+			}).bind(this));
 			
 			// [s]
-			data = data.replace(/\[s\]([\s\S]*?)\[\/s]/gi, '<strike>$1</strike>');
+			data = data.replace(/\[s\]([\s\S]*?)\[\/s]/gi, (function(match, content) {
+				return this.wbbcode._expandFormatting(content, '<strike>', '</strike>');
+			}).bind(this));
 			
 			// [sub]
-			data = data.replace(/\[sub\]([\s\S]*?)\[\/sub]/gi, '<sub>$1</sub>');
+			data = data.replace(/\[sub\]([\s\S]*?)\[\/sub]/gi, (function(match, content) {
+				return this.wbbcode._expandFormatting(content, '<sub>', '</sub>');
+			}).bind(this));
 			
 			// [sup]
-			data = data.replace(/\[sup\]([\s\S]*?)\[\/sup]/gi, '<sup>$1</sup>');
+			data = data.replace(/\[sup\]([\s\S]*?)\[\/sup]/gi, (function(match, content) {
+				return this.wbbcode._expandFormatting(content, '<sup>', '</sup>');
+			}).bind(this));
 				
 			// [img]
 			data = data.replace(/\[img\]([^"]+?)\[\/img\]/gi,'<img src="$1" />');
@@ -700,7 +904,7 @@ RedactorPlugins.wbbcode = function() {
 				return '<img src="' + src + '" style="' + $style + '" />';
 			});
 			data = data.replace(/\[img='?([^"]*?)'?,'?(left|right|none)'?,'?(\d+)'?\]\[\/img\]/gi, function(match, src, alignment, width) {
-				var $style = 'float: ' + alignment + '; width: ' + width + 'px';
+				var $style = 'float: ' + alignment + '; width: ' + width + 'px;';
 				if (alignment === 'left') {
 					$style += 'margin: 0 15px 7px 0';
 				}
@@ -714,39 +918,52 @@ RedactorPlugins.wbbcode = function() {
 			
 			// [size]
 			data = data.replace(/\[size=(\d+)\]([\s\S]*?)\[\/size\]/gi, (function(match, size, content) {
-				content = $.trim(content);
-				if (!content.length) {
-					content = this.opts.invisibleSpace;
-				}
-				
-				return '<span style="font-size: ' + size + 'pt">' + content + '</span>';
+				return this.wbbcode._expandFormatting(content, '<span style="font-size: ' + size + 'pt">', '</span>');
 			}).bind(this));
 			
 			// [color]
 			data = data.replace(/\[color=([#a-z0-9]*?)\]([\s\S]*?)\[\/color\]/gi, (function(match, color, content) {
-				content = $.trim(content);
-				if (!content.length) {
-					content = this.opts.invisibleSpace;
-				}
-				
-				return '<span style="color: ' + color + '">' + content + '</span>';
+				return this.wbbcode._expandFormatting(content, '<span style="color: ' + color + '">', '</span>');
 			}).bind(this));
 			
 			// [font]
 			data = data.replace(/\[font='?([a-z,\- ]*?)'?\]([\s\S]*?)\[\/font\]/gi, (function(match, fontFamily, content) {
-				content = $.trim(content);
-				if (!content.length) {
-					content = this.opts.invisibleSpace;
-				}
-				
-				return '<span style="font-family: ' + fontFamily + '">' + content + '</span>';
+				return this.wbbcode._expandFormatting(content, '<span style="font-family: ' + fontFamily + '">', '</span>');
 			}).bind(this));
 			
 			// [align]
-			data = data.replace(/\[align=(left|right|center|justify)\]([\s\S]*?)\[\/align\]/gi,'<div style="text-align: $1">$2</div>');
+			data = data.replace(/\[align=(left|right|center|justify)\]([\s\S]*?)\[\/align\]\n?/gi, (function(match, alignment, content) {
+				return this.wbbcode._expandFormatting(content, '<div style="text-align: ' + alignment + '">', '</div>');
+			}).bind(this));
+			
+			// search for [*] not preceeded by [list by searching for the first occurence of [list and then check the left
+			var $firstList = data.indexOf('[list');
+			if ($firstList > 0) {
+				var $tmp = data.substr(0, $firstList);
+				$tmp = $tmp.replace(/\[\*\]/g, '');
+				data = $tmp  + data.substr($firstList);
+			}
+			
+			// search for [*] not followed by [/list]
+			var $lastList = data.lastIndexOf('[/list]');
+			if ($lastList === -1) {
+				// drop all [list*] and [*]
+				data = data.replace(/\[\*\]/g, '');
+				data = data.replace(/\[list[^\]]*\]/g, '');
+			}
+			else {
+				var $tmp = data.substr($lastList + 7);
+				$tmp = $tmp.replace(/\[\*\]/g, '');
+				data = data.substr(0, $lastList + 7) + $tmp;
+			}
 			
 			// [*]
-			data = data.replace(/\[\*\]([\s\S]*?)(?=\[\*\]|\[\/list\])/gi,'<li>$1</li>');
+			data = data.replace(/\[\*\]([\s\S]*?)(?=\[\*\]|\[\/list\])/gi, function(match, content) {
+				return '<li>' + $.trim(content) + '</li>';
+			});
+			
+			// fix superflous newlines with nested lists
+			data = data.replace(/\n*(\[list\]<\/li>)/g, '$1');
 			
 			// [list]
 			data = data.replace(/\[list\]/gi, '<ul>');
@@ -874,13 +1091,13 @@ RedactorPlugins.wbbcode = function() {
 			var $cachedQuotes = [ ];
 			var $knownQuotes = [ ];
 			
-			var $parts = data.split(/(\[(?:\/quote|quote|quote='[^']*?'(?:,'[^']*?')?|quote="[^"]*?"(?:,"[^"]*?")?)\])/);
+			var $parts = data.split(/(\[(?:\/quote|quote|quote='[^']*?'(?:,'[^']*?')?|quote="[^"]*?"(?:,"[^"]*?")?)\])/i);
 			var $lostQuote = WCF.getUUID();
 			while (true) {
 				var $foundClosingTag = false;
 				for (var $i = 0; $i < $parts.length; $i++) {
 					var $part = $parts[$i];
-					if ($part === '[/quote]') {
+					if ($part.toLowerCase() === '[/quote]') {
 						$foundClosingTag = true;
 						
 						var $content = '';
@@ -889,7 +1106,7 @@ RedactorPlugins.wbbcode = function() {
 						while ($previous.length) {
 							var $prev = $previous.pop();
 							$content = $prev + $content;
-							if ($prev.match(/^\[quote/)) {
+							if ($prev.match(/^\[quote/i)) {
 								$part = $content + $part;
 								
 								var $key = WCF.getUUID();
@@ -952,7 +1169,7 @@ RedactorPlugins.wbbcode = function() {
 				var $line = $.trim($tmp[$i]);
 				
 				if ($line.match(/^<([a-z]+)/) || $line.match(/<\/([a-z]+)>$/)) {
-					if (this.reIsBlock.test(RegExp.$1.toUpperCase())) {
+					if (this.reIsBlock.test(RegExp.$1.toUpperCase()) || RegExp.$1.toUpperCase() === 'TABLE') {
 						// check if line starts and ends with the same tag
 						if ($line.match(/^<([a-z]+).*<\/\1>/)) {
 							data += $line;
@@ -1020,8 +1237,7 @@ RedactorPlugins.wbbcode = function() {
 							$link = WCF.String.escapeHTML($unquoteString($.trim($link)));
 						}
 						
-						var $quote = '<blockquote class="quoteBox" cite="' + $link + '" data-author="' + $author + '">'
-							+ '<div class="container containerPadding">'
+						var $quote = '<blockquote class="quoteBox container containerPadding quoteBoxSimple" cite="' + $link + '" data-author="' + $author + '">'
 								+ '<header contenteditable="false">'
 									+ '<h3>'
 										+ self.wbbcode._buildQuoteHeader($author, $link)
@@ -1055,7 +1271,7 @@ RedactorPlugins.wbbcode = function() {
 						}
 						
 						$quote += $tmp;
-						$quote += '</div></blockquote>';
+						$quote += '</blockquote>';
 						
 						return $quote;
 					});
@@ -1069,6 +1285,10 @@ RedactorPlugins.wbbcode = function() {
 				}
 			}
 			
+			// remove <p> wrapping a quote or a div
+			data = data.replace(/<(?:div|p)><(blockquote|div)/g, '<$1');
+			data = data.replace(/<\/(blockquote|div)><\/(?:div|p)>/g, '</$1>');
+			
 			// insert codes
 			if ($cachedCodes.length) {
 				for (var $i = $cachedCodes.length - 1; $i >= 0; $i--) {
@@ -1080,20 +1300,112 @@ RedactorPlugins.wbbcode = function() {
 					// [tt]
 					//$value = $value.replace(/^\[tt\](.*)\[\/tt\]/, '<span class="inlineCode">$1</span>');
 					
-					// preserve leading whitespaces in [code] tags
-					$value = $value.replace(/^\[code[^\]]*\][\S\s]*\[\/code\]$/, '<pre>$&</pre>');
+					// [code]
+					$value = $value.replace(/^\[code([^\]]*)\]([\S\s]*)\[\/code\]$/, function(matches, parameters, content) {
+						var $highlighter = 'plain';
+						var $lineNumber = 0;
+						var $filename = '';
+						
+						if (parameters) {
+							parameters = parameters.substring(1);
+							parameters = parameters.split(',');
+							
+							var $isNumber = function(string) { return string.match(/^\d+$/); };
+							var $isFilename = function(string) { return (string.indexOf('.') !== -1); };
+							var $isHighlighter = function(string) { return  (__REDACTOR_CODE_HIGHLIGHTERS[parameters[0]] !== undefined); };
+							
+							var $unquoteFilename = function(filename) {
+								return filename.replace(/^(["'])(.*)\1$/, '$2');
+							};
+							
+							switch (parameters.length) {
+								case 1:
+									if ($isNumber(parameters[0])) {
+										$lineNumber = (parseInt(parameters[0]) > 1) ? parameters[0] : 0;
+									}
+									else if ($isFilename(parameters[0])) {
+										$filename = $unquoteFilename(parameters[0]);
+									}
+									else if ($isHighlighter(parameters[0])) {
+										$highlighter = parameters[0];
+									}
+								break;
+								
+								case 2:
+									if ($isNumber(parameters[0])) {
+										$lineNumber = (parseInt(parameters[0]) > 1) ? parameters[0] : 0;
+										
+										if ($isFilename(parameters[1])) {
+											$filename = $unquoteFilename(parameters[1]);
+										}
+										else if ($isHighlighter(parameters[1])) {
+											$highlighter = parameters[1];
+										}
+									}
+									else {
+										if ($isHighlighter(parameters[0])) $highlighter = parameters[0];
+										if ($isFilename(parameters[1])) $filename = $unquoteFilename(parameters[1]);
+									}
+								break;
+								
+								case 3:
+									if ($isHighlighter(parameters[0])) $highlighter = parameters[0];
+									if ($isNumber(parameters[1])) $lineNumber = parameters[1];
+									if ($isFilename(parameters[2])) $filename = $unquoteFilename(parameters[2]);
+								break;
+							}
+						}
+						
+						content = content.replace(/^\n+/, '').replace(/\n+$/, '').split(/\n/);
+						var $lines = '';
+						for (var $i = 0; $i < content.length; $i++) {
+							$lines += '<li>' + content[$i] + '</li>';
+						}
+						
+						return '<div class="codeBox container" contenteditable="false" data-highlighter="' + $highlighter + '"' + ($filename ? ' data-filename="' + WCF.String.escapeHTML($filename) + '"' : '' ) + '>'
+							+ '<div>'
+								+ '<div>'
+									+ '<h3>' + __REDACTOR_CODE_HIGHLIGHTERS[$highlighter] + ($filename ? ': ' + WCF.String.escapeHTML($filename) : '') + '</h3>'
+								+ '</div>'
+								+ '<ol start="' + ($lineNumber > 1 ? $lineNumber : 1) + '">'
+									+ $lines
+								+ '</ol>'
+							+ '</div>'
+						+ '</div>';
+					});
 					
 					data = data.replace($regex, $value);
 				}
 			}
 			
-			// remove <p> wrapping a quote
-			data = data.replace(/<p><blockquote/g, '<blockquote');
-			data = data.replace(/<\/blockquote><\/p>/g, '</blockquote>');
-			
 			WCF.System.Event.fireEvent('com.woltlab.wcf.redactor', 'afterConvertToHtml', { data: data });
 			
 			return data;
+		},
+		
+		/**
+		 * Expands formatting to convert markup like [b]Hello\nWorld[/b] into [b]Hello[/b]\n[b]World[/b].
+		 * 
+		 * @param	string		content
+		 * @param	string		openingTag
+		 * @param	string		closingTag
+		 * @return	string
+		 */
+		_expandFormatting: function(content, openingTag, closingTag) {
+			if (!content.length) {
+				return openingTag + this.opts.invisibleSpace + closingTag;
+			}
+			
+			var $tmp = content.split("\n");
+			content = '';
+			
+			for (var $i = 0, $length = $tmp.length; $i < $length; $i++) {
+				if (content.length) content += '\n';
+				
+				content += openingTag + $tmp[$i] + closingTag;
+			}
+			
+			return content;
 		},
 		
 		/**
@@ -1113,7 +1425,40 @@ RedactorPlugins.wbbcode = function() {
 			};
 			
 			// replace <h1> ... </h6> tags
-			html = html.replace(/<h([1-6])[^>]+>/g, function(match, level) {
+			html = html.replace(/<h([1-6])([^>]*)>/g, function(match, level, elementAttributes) {
+				if (elementAttributes && elementAttributes.match(/style="([^"]+?)"/)) {
+					if (/font-size: ?(\d+|\d+\.\d+)(px|pt|em|rem|%)/.test(RegExp.$1)) {
+						var $div = $('<div style="width: ' + RegExp.$1 + RegExp.$2 + '; position: absolute;" />').appendTo(document.body);
+						var $width = parseInt($div[0].clientWidth);
+						$div.remove();
+						
+						// look for the closest matching size
+						var $bestMatch = -1;
+						var $isExactMatch = false;
+						$.each($levels, function(k, v) {
+							if ($bestMatch === -1) {
+								$bestMatch = k;
+							}
+							else {
+								if (Math.abs($width - v) < Math.abs($width - $levels[$bestMatch])) {
+									$bestMatch = k;
+								}
+							}
+							
+							if ($width == v) {
+								$isExactMatch = true;
+							}
+						});
+						
+						if (!$isExactMatch) {
+							// if dealing with non-exact matches, lower size by one level
+							$bestMatch = ($bestMatch < 6) ? parseInt($bestMatch) + 1 : $bestMatch;
+						}
+						
+						level = $bestMatch;
+					}
+				}
+				
 				return '[size=' + $levels[level] + ']';
 			});
 			html = html.replace(/<\/h[1-6]>/g, '[/size]');
@@ -1127,6 +1472,9 @@ RedactorPlugins.wbbcode = function() {
 			html = html.replace(/<\/(div|p)><\/(div|p)>/g, '</p>');
 			//html = html.replace(/<(div|p)><br><\/(div|p)>/g, '<p>');
 			
+			// drop <wbr>
+			html = html.replace(/<\/?wbr[^>]*>/g, '');
+			
 			WCF.System.Event.fireEvent('com.woltlab.wcf.redactor', 'beforePaste', { html: html });
 			
 			return html;
@@ -1139,21 +1487,41 @@ RedactorPlugins.wbbcode = function() {
 		 * @return	string
 		 */
 		_pasteCallback: function(html) {
-			// reduce successive <br> by one
-			//html = html.replace(/<br[^>]*>(<br[^>]*>)+/g, '$1');
+			/*var $uuid = WCF.getUUID();
 			
-			// replace <p>...</p> with <p>...</p><p><br></p>
-			/*html = html.replace(/<p>([\s\S]*?)<\/p>/g, function(match, content) {
-				if (content.match(/<br( \/)?>$/)) {
+			// replace <p>...</p> with <p>...</p><p><br></p> unless there is already a newline
+			html = html.replace(/<p>([\s\S]*?)<\/p>/gi, function(match, content) {
+				if (content.match(/^<br( \/)?>$/)) {
 					return match;
 				}
 				
-				return '<p>' + content + '</p><p><br></p>';
+				return match + '@@@' + $uuid + '@@@';
+			});
+			html = html.replace(new RegExp('@@@' + $uuid + '@@@(<p><br(?: /)?></p>)?', 'g'), function(match, next) {
+				if (next) {
+					return next;
+				}
+				
+				return '<p><br></p>';
 			});*/
 			
 			// restore font size
 			html = html.replace(/\[size=(\d+)\]/g, '<p><span style="font-size: $1pt">');
 			html = html.replace(/\[\/size\]/g, '</span></p>');
+			
+			// strip background-color
+			html = html.replace(/style="([^"]+)"/, function(match, inlineStyles) {
+				var $parts = inlineStyles.split(';');
+				var $styles = [ ];
+				for (var $i = 0, $length = $parts.length; $i < $length; $i++) {
+					var $part = $parts[$i];
+					if (!$part.match(/^\s*background-color/)) {
+						$styles.push($part);
+					}
+				}
+				
+				return 'style="' + $styles.join(';') + '"';
+			});
 			
 			WCF.System.Event.fireEvent('com.woltlab.wcf.redactor', 'afterPaste', { html: html });
 			
@@ -1262,7 +1630,7 @@ RedactorPlugins.wbbcode = function() {
 			}
 			
 			this.selection.get();
-			var $current = $(this.selection.getCurrent());
+			var current = this.selection.getCurrent();
 			var $parent = this.selection.getParent();
 			$parent = ($parent) ? $($parent) : $parent;
 			var $quote = ($parent) ? $parent.closest('blockquote.quoteBox', this.$editor.get()[0]) : { length: 0 };
@@ -1271,41 +1639,70 @@ RedactorPlugins.wbbcode = function() {
 				// backspace key
 				case $.ui.keyCode.BACKSPACE:
 					if (this.wutil.isCaret()) {
+						var $preventAndSelectQuote = false;
+						
 						if ($quote.length) {
 							// check if quote is empty
 							var $isEmpty = true;
-							$quote.find('div > div').each(function() {
-								if ($(this).text().replace(/\u200B/, '').length) {
-									$isEmpty = false;
-									return false;
+							for (var $i = 0; $i < $quote[0].children.length; $i++) {
+								var $child = $quote[0].children[$i];
+								if ($child.tagName === 'DIV') {
+									if ($child.textContent.replace(/\u200b/, '').length) {
+										$isEmpty = false;
+										break;
+									}
 								}
-							});
+							}
 							
 							if ($isEmpty) {
-								// expand selection and prevent delete
-								var $selection = window.getSelection();
-								if ($selection.rangeCount) $selection.removeAllRanges();
-								
-								var $quoteRange = document.createRange();
-								$quoteRange.selectNode($quote[0]);
-								$selection.addRange($quoteRange);
-								
-								data.cancel = true;
+								$preventAndSelectQuote = true;
 							}
+						}
+						else {
+							var $range = (this.selection.implicitRange === null) ? this.range : this.selection.implicitRange;
+							var $scope = $range.startContainer;
+							if ($scope.nodeType === Node.TEXT_NODE) {
+								if ($range.startOffset === 0 || ($range.startOffset === 1 && $scope.textContent === '\u200b')) {
+									if (!$scope.previousSibling) {
+										$scope = $scope.parentElement;
+									}
+								}
+							}
+							
+							if ($scope.nodeType === Node.ELEMENT_NODE) {
+								var $previous = $scope.previousSibling;
+								if ($previous && $previous.nodeType === Node.ELEMENT_NODE && $previous.tagName === 'BLOCKQUOTE') {
+									$quote = $previous;
+									$preventAndSelectQuote = true;
+								}
+							}
+						}
+						
+						if ($preventAndSelectQuote) {
+							// expand selection and prevent delete
+							var $selection = window.getSelection();
+							if ($selection.rangeCount) $selection.removeAllRanges();
+							
+							var $quoteRange = document.createRange();
+							$quoteRange.selectNode($quote[0] || $quote);
+							$selection.addRange($quoteRange);
+							
+							data.cancel = true;
 						}
 					}
 				break;
 				
 				// delete key
 				case $.ui.keyCode.DELETE:
-					if (this.wutil.isCaret()) {
-						if (this.wutil.isEndOfElement($current[0]) && $current.next('blockquote').length) {
+					if (this.wutil.isCaret() && this.wutil.isEndOfElement(current)) {
+						var $next = current.nextElementSibling;
+						if ($next && $next.tagName === 'BLOCKQUOTE') {
 							// expand selection and prevent delete
 							var $selection = window.getSelection();
 							if ($selection.rangeCount) $selection.removeAllRanges();
 							
 							var $quoteRange = document.createRange();
-							$quoteRange.selectNode($current.next()[0]);
+							$quoteRange.selectNode($next);
 							$selection.addRange($quoteRange);
 							
 							data.cancel = true;
@@ -1315,14 +1712,15 @@ RedactorPlugins.wbbcode = function() {
 				
 				// arrow down
 				case $.ui.keyCode.DOWN:
+					var $current = $(current);
 					if ($current.next('blockquote').length) {
-						this.caret.setStart($current.next().find('> div > div:first'));
+						this.caret.setStart($current.next().children('div:first'));
 						
 						data.cancel = true;
 					}
 					else if ($parent) {
 						if ($parent.next('blockquote').length) {
-							this.caret.setStart($parent.next().find('> div > div:first'));
+							this.caret.setStart($parent.next().children('div:first'));
 							
 							data.cancel = true;
 						}
@@ -1358,16 +1756,13 @@ RedactorPlugins.wbbcode = function() {
 						return;
 					}
 					
-					var $container = $current.closest('div', $quote[0]);
+					var $container = $(current).closest('div', $quote[0]);
 					var $prev = $container.prev();
 					if ($prev[0].tagName === 'DIV') {
 						return;
 					}
 					else if ($prev[0].tagName === 'BLOCKQUOTE') {
-						// TODO
-						// set focus to quote text rather than the element itself
 						return;
-						//this.selectionEnd($prev.find('> div > div:last'));
 					}
 					
 					var $previousElement = $quote.prev();
@@ -1377,7 +1772,7 @@ RedactorPlugins.wbbcode = function() {
 					else {
 						if ($previousElement[0].tagName === 'BLOCKQUOTE') {
 							// set focus to quote text rather than the element itself
-							this.caret.sendEnd($previousElement.find('> div > div:last'));
+							this.caret.sendEnd($previousElement.children('div:last'));
 						}
 						else {
 							// focus is wrong if the previous element is empty (e.g. only a newline present)
@@ -1427,41 +1822,60 @@ RedactorPlugins.wbbcode = function() {
 		 * @param	object		data
 		 */
 		_keyupCallback: function(data) {
-			if (data.event.which !== $.ui.keyCode.BACKSPACE && data.event.which !== $.ui.keyCode.DELETE) {
-				return;
+			switch (data.event.which) {
+				case $.ui.keyCode.BACKSPACE:
+				case $.ui.keyCode.DELETE:
+					// check for empty <blockquote>
+					this.$editor.find('blockquote').each(function(index, blockquote) {
+						var $blockquote = $(blockquote);
+						if (!$blockquote.children('header').length) {
+							$blockquote.remove();
+						}
+					});
+				break;
+				
+				case $.ui.keyCode.ENTER:
+					// fix markup for empty lines
+					for (var $i = 0, $length = this.$editor[0].children.length; $i < $length; $i++) {
+						var $child = this.$editor[0].children[$i];
+						if ($child.nodeType !== Node.ELEMENT_NODE || $child.tagName !== 'P') {
+							// not a <p> element
+							continue;
+						}
+						
+						if ($child.textContent.length > 0) {
+							// element is non-empty
+							continue;
+						}
+						
+						if ($child.children.length > 1 || $child.children[0].tagName === 'BR') {
+							// element contains more than one children or it is just a <br>
+							continue;
+						}
+						
+						// head all the way down to the most inner node
+						$child = $child.children[0];
+						while ($child.children.length === 1) {
+							$child = $child.children[0];
+						}
+						
+						// check if node has no children and it is a <br>
+						if ($child.children.length === 0 && $child.tagName === 'BR') {
+							var $parent = $child.parentNode;
+							var $node = document.createTextNode('\u200b');
+							$parent.appendChild($node);
+							$parent.removeChild($child);
+						}
+					}
+				break;
 			}
-			
-			// check for empty <blockquote
-			this.$editor.find('blockquote').each(function(index, blockquote) {
-				var $blockquote = $(blockquote);
-				if (!$blockquote.find('> div > header').length) {
-					$blockquote.remove();
-				}
-			});
 		},
 		
 		/**
 		 * Initializes source editing for quotes.
 		 */
-		_observeQuotes: function() {
-			var $editHeader = this.$editor.find('.redactorQuoteEdit:not(.jsRedactorQuoteEdit)');
-			if ($editHeader.length) {
-				$editHeader.each((function(index, editHeader) {
-					var $editHeader = $(editHeader);
-					$editHeader.addClass('jsRedactorQuoteEdit').click($.proxy(this.wbbcode._observeQuotesClick, this));
-					
-					if ($.browser.msie) {
-						var $outerDiv = $editHeader.parent().parent();
-						$outerDiv.attr('contenteditable', false);
-						$outerDiv.children('div').attr('contenteditable', true);
-						
-						// prevent resize handles being displayed
-						$outerDiv.on('mscontrolselect', function(event) {
-							event.preventDefault();
-						});
-					}
-				}).bind(this));
-			}
+		observeQuotes: function() {
+			this.$editor.find('.redactorQuoteEdit').off('click.wbbcode').on('click.wbbcode', $.proxy(this.wbbcode._observeQuotesClick, this));
 		},
 		
 		/**
@@ -1490,7 +1904,24 @@ RedactorPlugins.wbbcode = function() {
 			$tooltip.appendTo(document.body);
 			
 			// prevent the cursor being placed in the quote header
-			$('<div contenteditable="true" />').appendTo(document.body).focus().remove();
+			this.selection.remove();
+		},
+		
+		/**
+		 * Initializes editing for code listings.
+		 */
+		observeCodeListings: function() {
+			this.$editor.find('.codeBox').each((function(index, codeBox) {
+				var $codeBox = $(codeBox);
+				var $editBox = $codeBox.find('.redactorEditCodeBox');
+				if (!$editBox.length) {
+					$editBox = $('<div class="redactorEditCodeBox"><div>' + WCF.Language.get('wcf.bbcode.code.edit') + '</div></div>').insertAfter($codeBox.find('> div > div > h3'));
+				}
+				
+				$editBox.off('click.wbbcode').on('click.wbbcode', (function() {
+					this.wbbcode._handleInsertCode($codeBox, false);
+				}).bind(this));
+			}).bind(this));
 		},
 		
 		/**
@@ -1511,6 +1942,7 @@ RedactorPlugins.wbbcode = function() {
 					var $link = WCF.String.escapeHTML($('#redactorQuoteLink').val());
 					
 					this.selection.restore();
+					$skipOnSyncReplacementOnce = true;
 					var $html = this.selection.getHtml();
 					if (this.utils.isEmpty($html)) {
 						$html = '';
@@ -1520,7 +1952,12 @@ RedactorPlugins.wbbcode = function() {
 					if ($quote !== null) {
 						// set caret inside the quote
 						if (!$html.length) {
-							this.caret.setStart($quote.find('> div > div')[0]);
+							// careful, Firefox is stupid and replaces an empty div with br[type=_moz]
+							if ($.browser.mozilla) {
+								$quote.children('br[type=_moz]').replaceWith('<div>' + this.opts.invisibleSpace + '</div>');
+							}
+							
+							this.caret.setStart($quote.children('div')[0]);
 						}
 					}
 					
@@ -1599,7 +2036,7 @@ RedactorPlugins.wbbcode = function() {
 				$quote = this.$editor.find('#' + $id);
 				if ($quote.length) {
 					// quote may be empty if $innerHTML was empty, fix it
-					var $inner = $quote.find('> div > div');
+					var $inner = $quote.find('> div');
 					if ($inner.length == 1) {
 						if ($inner[0].innerHTML === '') {
 							$inner[0].innerHTML = this.opts.invisibleSpace;
@@ -1618,8 +2055,8 @@ RedactorPlugins.wbbcode = function() {
 					this.wutil.setCaretAfter($quote[0]);
 				}
 				
-				this.wbbcode._observeQuotes();
-				this.wbbcode._fixQuotes();
+				this.wbbcode.observeQuotes();
+				this.wbbcode.fixBlockLevelElements();
 				
 				this.$toolbar.find('a.re-__wcf_quote').removeClass('redactor-button-disabled');
 			}
@@ -1648,7 +2085,7 @@ RedactorPlugins.wbbcode = function() {
 			}
 			
 			if (author) {
-				if (link) $header += '<a href="' + link + '">';
+				if (link) $header += '<a href="' + link + '" tabindex="-1">';
 				
 				$header += WCF.Language.get('wcf.bbcode.quote.title.javascript', { quoteAuthor: WCF.String.unescapeHTML(author) });
 				
@@ -1666,13 +2103,148 @@ RedactorPlugins.wbbcode = function() {
 		},
 		
 		/**
-		 * Ensures that there is a paragraph in front of each quotes because you cannot click in between two of them.
+		 * Opens the code edit dialog.
+		 * 
+		 * @param	jQuery		codeBox
+		 * @param	boolean		isInsert
 		 */
-		_fixQuotes: function() {
+		_handleInsertCode: function(codeBox, isInsert) {
+			this.modal.load('code', WCF.Language.get('wcf.bbcode.code.' + (isInsert ? 'insert' : 'edit')), 400);
+			
+			var $button = this.modal.createActionButton(this.lang.get('save')).addClass('buttonPrimary');
+			
+			if (isInsert) {
+				this.selection.get();
+				var $selectedText = this.selection.getText();
+				
+				this.selection.save();
+				this.modal.show();
+				
+				var $codeBox = $('#redactorCodeBox').focus();
+				$codeBox.val($selectedText);
+				
+				$button.click($.proxy(function() {
+					var $codeBox = $('#redactorCodeBox');
+					var $filename = $('#redactorCodeFilename');
+					var $highlighter = $('#redactorCodeHighlighter');
+					var $lineNumber = $('#redactorCodeLineNumber');
+					
+					var $codeBoxContent = $codeBox.val().replace(/^\n+/, '').replace(/\n+$/, '');
+					if ($.trim($codeBoxContent).length === 0) {
+						if (!$codeBox.next('small.innerError').length) {
+							$('<small class="innerError">' + WCF.Language.get('wcf.global.form.error.empty') + '</small>').insertAfter($codeBox);
+						}
+						
+						return;
+					}
+					
+					var $codeFilename = $.trim($filename.val().replace(/['"]/g, ''));
+					var $bbcode = '[code=' + $highlighter.val() + ',' + $lineNumber.val() + ($codeFilename.length ? ",'" + $codeFilename + "'" : '') + ']';
+					$bbcode += $codeBoxContent;
+					$bbcode += '[/code]';
+					
+					this.wutil.adjustSelectionForBlockElement();
+					this.wutil.saveSelection();
+					var $html = this.wbbcode.convertToHtml($bbcode);
+					
+					this.buffer.set();
+					this.insert.html($html, false);
+					
+					// set caret after code listing
+					var $codeBox = this.$editor.find('.codeBox:not(.jsRedactorCodeBox)');
+					
+					this.wbbcode.observeCodeListings();
+					this.wbbcode.fixBlockLevelElements();
+					
+					// document.execCommand('insertHTML') seems to drop 'contenteditable="false"' for root element
+					$codeBox.attr('contenteditable', 'false');
+					this.wutil.setCaretAfter($codeBox[0]);
+					
+					this.modal.close();
+				}, this));
+			}
+			else {
+				var $deleteButton = this.modal.createActionButton(WCF.Language.get('wcf.global.button.delete'));
+				$deleteButton.click((function() {
+					this.buffer.set();
+					
+					codeBox.remove();
+					
+					this.modal.close();
+				}).bind(this));
+				
+				this.modal.show();
+				
+				var $codeBox = $('#redactorCodeBox').focus();
+				var $filename = $('#redactorCodeFilename');
+				var $highlighter = $('#redactorCodeHighlighter');
+				var $lineNumber = $('#redactorCodeLineNumber');
+				
+				$highlighter.val(codeBox.data('highlighter'));
+				$filename.val(codeBox.data('filename') || '');
+				var $list = codeBox.find('> div > ol');
+				$lineNumber.val(parseInt($list.prop('start')));
+				
+				var $code = '';
+				$list.children('li').each(function(index, listItem) {
+					$code += $(listItem).text() + "\n";
+				});
+				$codeBox.val($code.replace(/^\n+/, '').replace(/\n+$/, ''));
+				
+				$button.click($.proxy(function() {
+					var $codeBoxContent = $codeBox.val().replace(/^\n+/, '').replace(/\n+$/, '');
+					if ($.trim($codeBoxContent).length === 0) {
+						if (!$codeBox.next('small.innerError').length) {
+							$('<small class="innerError">' + WCF.Language.get('wcf.global.form.error.empty') + '</small>').insertAfter($codeBox);
+						}
+						
+						return;
+					}
+					
+					var $selectedHighlighter = $highlighter.val();
+					codeBox.data('highlighter', $selectedHighlighter);
+					codeBox.attr('data-highlighter', $selectedHighlighter);
+					
+					var $headline = __REDACTOR_CODE_HIGHLIGHTERS[$selectedHighlighter];
+					var $codeFilename = $.trim($filename.val().replace(/['"]/g, ''));
+					if ($codeFilename) {
+						$headline += ': ' + WCF.String.escapeHTML($codeFilename);
+						codeBox.data('filename', $codeFilename);
+						codeBox.attr('data-filename', $codeFilename);
+					}
+					else {
+						codeBox.removeAttr('data-filename');
+						codeBox.removeData('filename');
+					}
+					
+					codeBox.data('highlighter', $highlighter.val());
+					codeBox.find('> div > div > h3').html($headline);
+					
+					var $list = codeBox.find('> div > ol').empty();
+					var $start = parseInt($lineNumber.val());
+					$list.prop('start', ($start > 1 ? $start : 1));
+					
+					$codeBoxContent = $codeBoxContent.split('\n');
+					var $codeContent = '';
+					for (var $i = 0; $i < $codeBoxContent.length; $i++) {
+						$codeContent += '<li>' + WCF.String.escapeHTML($codeBoxContent[$i]) + '</li>';
+					}
+					$list.append($($codeContent));
+					
+					this.modal.close();
+				}, this));
+			}
+		},
+		
+		/**
+		 * Ensures that there is a paragraph in front of each block-level element because you cannot click in between two of them.
+		 */
+		fixBlockLevelElements: function() {
+			return;
 			var $addSpacing = (function(referenceElement, target) {
 				var $tagName = 'P';
 				
-				// fix reference element if blockquote is within a quote (wrapped by <div>...</div>)
+				// fix reference element if a block element is within a quote (wrapped by <div>...</div>)
 				if (referenceElement.parentElement.tagName === 'DIV' && referenceElement.parentElement !== this.$editor[0]) {
 					referenceElement = referenceElement.parentElement;
 					$tagName = 'DIV';
@@ -1683,17 +2255,48 @@ RedactorPlugins.wbbcode = function() {
 					$('<' + $tagName + '>' + this.opts.invisibleSpace + '</' + $tagName + '>')[(target === 'previousElementSibling' ? 'insertBefore' : 'insertAfter')](referenceElement);
 				}
 				else if (referenceElement.previousElementSibling.tagName === $tagName) {
-					// previous/next element is empty or contains an empty <p></p> (blockquote is a direct children of the editor)
+					// previous/next element is empty or contains an empty <p></p> (block element is a direct children of the editor)
 					if (!referenceElement[target].innerHTML.length || referenceElement[target].innerHTML.toLowerCase() === '<p></p>') {
 						$(referenceElement[target]).html(this.opts.invisibleSpace);
 					}
 				}
 			}).bind(this);
 			
-			this.$editor.find('blockquote').each((function(index, blockquote) {
-				$addSpacing(blockquote, 'previousElementSibling');
-				$addSpacing(blockquote, 'nextElementSibling');
+			this.$editor.find('blockquote, .codeBox').each((function(index, blockElement) {
+				$addSpacing(blockElement, 'previousElementSibling');
+				$addSpacing(blockElement, 'nextElementSibling');
 			}).bind(this));
+		},
+		
+		/**
+		 * Fixes incorrect formatting applied to element that should be left untouched.
+		 * 
+		 * @param	object		data
+		 */
+		fixFormatting: function(data) {
+			var $stripTextAlign = function(element) {
+				element.style.removeProperty('text-align');
+				
+				for (var $i = 0; $i < element.children.length; $i++) {
+					$stripTextAlign(element.children[$i]);
+				}
+			};
+			
+			for (var $i = 0; $i < this.alignment.blocks.length; $i++) {
+				var $block = this.alignment.blocks[$i];
+				switch ($block.tagName) {
+					case 'BLOCKQUOTE':
+						$block.style.removeProperty('text-align');
+						$stripTextAlign($block.children[0]);
+					break;
+					
+					case 'DIV':
+						if (/\bcodeBox\b/.test($block.className)) {
+							$stripTextAlign($block);
+						}
+					break;
+				}
+			}
 		}
 	};
 };

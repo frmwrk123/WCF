@@ -21,7 +21,7 @@ use wcf\system\WCF;
  * Shows the user profile page.
  * 
  * @author	Marcel Werk
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	page
@@ -150,7 +150,7 @@ class UserPage extends AbstractPage {
 		MetaTagHandler::getInstance()->addTag('og:url', 'og:url', LinkHandler::getInstance()->getLink('User', array('object' => $this->user->getDecoratedObject(), 'appendSession' => false)), true);
 		MetaTagHandler::getInstance()->addTag('og:type', 'og:type', 'profile', true);
 		MetaTagHandler::getInstance()->addTag('profile:username', 'profile:username', $this->user->username, true);
-		MetaTagHandler::getInstance()->addTag('og:title', 'og:title', WCF::getLanguage()->getDynamicVariable('wcf.user.profile', array('user' => $this->user)) . ' - ' . WCF::getLanguage()->get(PAGE_TITLE), true);
+		MetaTagHandler::getInstance()->addTag('og:title', 'og:title', $this->user->username . ' - ' . WCF::getLanguage()->get('wcf.user.members') . ' - ' . WCF::getLanguage()->get(PAGE_TITLE), true);
 		MetaTagHandler::getInstance()->addTag('og:image', 'og:image', $this->user->getAvatar()->getURL(), true);
 	}
 	

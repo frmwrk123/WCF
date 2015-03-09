@@ -4,7 +4,7 @@ if (!RedactorPlugins) var RedactorPlugins = {};
  * Provides custom BBCode buttons for Redactor.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  */
 RedactorPlugins.wbutton = function() {
@@ -87,6 +87,14 @@ RedactorPlugins.wbutton = function() {
 			
 			// handle image insert
 			this.button.addCallback(this.button.get('image'), $.proxy(this.wbutton.insertImage, this));
+			
+			// handle redo/undo buttons
+			var $undoButton = this.button.addAfter('html', 'undo', WCF.Language.get('wcf.bbcode.button.undo'));
+			var $redoButton = this.button.addAfter('undo', 'redo', WCF.Language.get('wcf.bbcode.button.redo'));
+			this.button.addCallback($undoButton, this.buffer.undo);
+			this.button.addCallback($redoButton, this.buffer.redo);
+			
+			$redoButton.parent().addClass('separator');
 		},
 		
 		/**
@@ -121,7 +129,10 @@ RedactorPlugins.wbutton = function() {
 			var $button = this.button.add($buttonName, data.label);
 			this.button.addCallback($button, this.wbutton._insertBBCode);
 			
-			this._bbcodes[$buttonName] = data.name;
+			this._bbcodes[$buttonName] = {
+				name: data.name,
+				voidElement: (data.voidElement === true)
+			};
 			
 			// FontAwesome class name
 			if (data.icon.match(/^fa\-[a-z\-]+$/)) {
@@ -139,10 +150,11 @@ RedactorPlugins.wbutton = function() {
 		 * @param	string		buttonName
 		 */
 		_insertBBCode: function(buttonName) {
-			var $bbcode = this._bbcodes[buttonName];
+			var $bbcode = this._bbcodes[buttonName].name;
 			var $eventData = {
 				buttonName: buttonName,
-				cancel: false
+				cancel: false,
+				redactor: this
 			};
 			
 			WCF.System.Event.fireEvent('com.woltlab.wcf.redactor', 'insertBBCode_' + $bbcode + '_' + this.$textarea.wcfIdentify(), $eventData);
@@ -162,13 +174,25 @@ RedactorPlugins.wbutton = function() {
 				}
 				else {
 					this.buffer.set();
-					this.insert.html('[' + $bbcode + ']' + $selectedHtml + this.selection.getMarkerAsHtml() + '[/' + $bbcode + ']', false);
+					
+					if (this.utils.browser('mozilla') && !$selectedHtml.length) {
+						var $container = getSelection().getRangeAt(0).startContainer;
+						if ($container.nodeType === Node.ELEMENT_NODE && $container.tagName === 'P' && $container.innerHTML === '<br>') {
+							// <br> is not removed in Firefox, instead content gets inserted afterwards creating a leading empty line
+							$container.removeChild($container.children[0]);
+						}
+					}
+					
+					if (this._bbcodes[buttonName].voidElement) {
+						this.insert.html($selectedHtml + this.selection.getMarkerAsHtml() + '[' + $bbcode + ']', false);
+					}
+					else {
+						this.insert.html('[' + $bbcode + ']' + $selectedHtml + this.selection.getMarkerAsHtml() + '[/' + $bbcode + ']', false);
+					}
+					
 					this.selection.restore();
 				}
 			}
-			
-			event.preventDefault();
-			return false;
 		},
 		
 		insertImage: function() {

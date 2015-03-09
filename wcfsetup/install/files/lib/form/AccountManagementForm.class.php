@@ -16,7 +16,7 @@ use wcf\util\UserUtil;
  * Shows the account management form.
  * 
  * @author	Marcel Werk
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	form
@@ -383,10 +383,10 @@ class AccountManagementForm extends AbstractForm {
 				WCF::getSession()->unregister('__githubToken');
 				WCF::getSession()->unregister('__githubUsername');
 			}
-			else if ($this->githubDisconnect && StringUtil::startsWith(WCF::getUser()->authData, 'github:')) {
-				$updateParameters['authData'] = '';
-				$success[] = 'wcf.user.3rdparty.github.disconnect.success';
-			}
+		}
+		if ($this->githubDisconnect && StringUtil::startsWith(WCF::getUser()->authData, 'github:')) {
+			$updateParameters['authData'] = '';
+			$success[] = 'wcf.user.3rdparty.github.disconnect.success';
 		}
 		if (TWITTER_PUBLIC_KEY !== '' && TWITTER_PRIVATE_KEY !== '') {
 			if ($this->twitterConnect && WCF::getSession()->getVar('__twitterData')) {
@@ -397,10 +397,10 @@ class AccountManagementForm extends AbstractForm {
 				WCF::getSession()->unregister('__twitterData');
 				WCF::getSession()->unregister('__twitterUsername');
 			}
-			else if ($this->twitterDisconnect && StringUtil::startsWith(WCF::getUser()->authData, 'twitter:')) {
-				$updateParameters['authData'] = '';
-				$success[] = 'wcf.user.3rdparty.twitter.disconnect.success';
-			}
+		}
+		if ($this->twitterDisconnect && StringUtil::startsWith(WCF::getUser()->authData, 'twitter:')) {
+			$updateParameters['authData'] = '';
+			$success[] = 'wcf.user.3rdparty.twitter.disconnect.success';
 		}
 		if (FACEBOOK_PUBLIC_KEY !== '' && FACEBOOK_PRIVATE_KEY !== '') {
 			if ($this->facebookConnect && WCF::getSession()->getVar('__facebookData')) {
@@ -411,10 +411,10 @@ class AccountManagementForm extends AbstractForm {
 				WCF::getSession()->unregister('__facebookData');
 				WCF::getSession()->unregister('__facebookUsername');
 			}
-			else if ($this->facebookDisconnect && StringUtil::startsWith(WCF::getUser()->authData, 'facebook:')) {
-				$updateParameters['authData'] = '';
-				$success[] = 'wcf.user.3rdparty.facebook.disconnect.success';
-			}
+		}
+		if ($this->facebookDisconnect && StringUtil::startsWith(WCF::getUser()->authData, 'facebook:')) {
+			$updateParameters['authData'] = '';
+			$success[] = 'wcf.user.3rdparty.facebook.disconnect.success';
 		}
 		if (GOOGLE_PUBLIC_KEY !== '' && GOOGLE_PRIVATE_KEY !== '') {
 			if ($this->googleConnect && WCF::getSession()->getVar('__googleData')) {
@@ -425,10 +425,10 @@ class AccountManagementForm extends AbstractForm {
 				WCF::getSession()->unregister('__googleData');
 				WCF::getSession()->unregister('__googleUsername');
 			}
-			else if ($this->googleDisconnect && StringUtil::startsWith(WCF::getUser()->authData, 'google:')) {
-				$updateParameters['authData'] = '';
-				$success[] = 'wcf.user.3rdparty.google.disconnect.success';
-			}
+		}
+		if ($this->googleDisconnect && StringUtil::startsWith(WCF::getUser()->authData, 'google:')) {
+			$updateParameters['authData'] = '';
+			$success[] = 'wcf.user.3rdparty.google.disconnect.success';
 		}
 		
 		$data = array();

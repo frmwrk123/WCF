@@ -6,6 +6,7 @@ use wcf\data\paid\subscription\PaidSubscriptionEditor;
 use wcf\data\paid\subscription\PaidSubscriptionList;
 use wcf\data\user\group\UserGroup;
 use wcf\form\AbstractForm;
+use wcf\system\exception\NamedUserException;
 use wcf\system\exception\UserInputException;
 use wcf\system\language\I18nHandler;
 use wcf\system\payment\method\PaymentMethodHandler;
@@ -16,7 +17,7 @@ use wcf\util\ArrayUtil;
  * Shows the paid subscription add form.
  * 
  * @author	Marcel Werk
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	acp.form
@@ -27,6 +28,11 @@ class PaidSubscriptionAddForm extends AbstractForm {
 	 * @see	\wcf\page\AbstractPage::$activeMenuItem
 	 */
 	public $activeMenuItem = 'wcf.acp.menu.link.paidSubscription';
+	
+	/**
+	 * @see	\wcf\page\AbstractPage::$neededModules
+	 */
+	public $neededModules = array('MODULE_PAID_SUBSCRIPTION');
 	
 	/**
 	 * @see	\wcf\page\AbstractPage::$neededPermissions
@@ -139,6 +145,10 @@ class PaidSubscriptionAddForm extends AbstractForm {
 		
 		// get available user groups
 		$this->availableUserGroups = UserGroup::getAccessibleGroups(array(), array(UserGroup::GUESTS, UserGroup::EVERYONE, UserGroup::USERS));
+		
+		if (!count(PaymentMethodHandler::getInstance()->getPaymentMethods())) {
+			throw new NamedUserException(WCF::getLanguage()->get('wcf.acp.paidSubscription.error.noPaymentMethods'));
+		}
 		
 		// get available currencies
 		foreach (PaymentMethodHandler::getInstance()->getPaymentMethods() as $paymentMethod) {

@@ -12,7 +12,7 @@ use wcf\util\XML;
  * Installs, updates and deletes languages, their categories and items.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.package.plugin
@@ -46,7 +46,7 @@ class LanguagePackageInstallationPlugin extends AbstractXMLPackageInstallationPl
 						$languageFiles[$match[1]] = $file['filename'];
 					}
 					else {
-						throw new SystemException("Can not determine language code of language file '".$file['filename']."'");
+						throw new SystemException("Cannot determine language code of language file '".$file['filename']."'");
 					}
 				}
 			}
@@ -62,7 +62,7 @@ class LanguagePackageInstallationPlugin extends AbstractXMLPackageInstallationPl
 				$languageCode = $match[1];
 			}
 			else {
-				throw new SystemException("Can not determine language code of language file '".$filename."'");
+				throw new SystemException("Cannot determine language code of language file '".$filename."'");
 			}
 			
 			$languageFiles[$languageCode] = $filename;

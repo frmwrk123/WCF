@@ -10,7 +10,7 @@ use wcf\util\FileUtil;
  * Represents a package update server.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	data.package.update.server
@@ -163,9 +163,10 @@ class PackageUpdateServer extends DatabaseObject {
 	/**
 	 * Returns the list endpoint for package servers.
 	 * 
+	 * @param	boolean		$forceHTTP
 	 * @return	string
 	 */
-	public function getListURL() {
+	public function getListURL($forceHTTP = false) {
 		if ($this->apiVersion == '2.0') {
 			return $this->serverURL;
 		}
@@ -173,7 +174,7 @@ class PackageUpdateServer extends DatabaseObject {
 		$serverURL = FileUtil::addTrailingSlash($this->serverURL) . 'list/' . WCF::getLanguage()->getFixedLanguageCode() . '.xml';
 		
 		$metaData = $this->getMetaData();
-		if (!RemoteFile::supportsSSL() || !$metaData['ssl']) {
+		if ($forceHTTP || !RemoteFile::supportsSSL() || !$metaData['ssl']) {
 			return preg_replace('~^https://~', 'http://', $serverURL);
 		}
 		
@@ -205,5 +206,23 @@ class PackageUpdateServer extends DatabaseObject {
 	 */
 	public function getMetaData() {
 		return $this->metaData;
+	}
+	
+	/**
+	 * Returns true if a request to this server would make use of a secure connection.
+	 * 
+	 * @return	boolean
+	 */
+	public function attemptSecureConnection() {
+		if ($this->apiVersion == '2.0') {
+			return false;
+		}
+		
+		$metaData = $this->getMetaData();
+		if (RemoteFile::supportsSSL() && $metaData['ssl']) {
+			return true;
+		}
+		
+		return false;
 	}
 }

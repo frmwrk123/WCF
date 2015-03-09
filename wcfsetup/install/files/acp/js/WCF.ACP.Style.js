@@ -2,7 +2,7 @@
  * ACP Style related classes.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  */
 WCF.ACP.Style = { };
@@ -131,7 +131,7 @@ WCF.ACP.Style.ImageUpload = WCF.Upload.extend({
 	_success: function(uploadID, data) {
 		if (data.returnValues.url) {
 			// show image
-			this._image.attr('src', data.returnValues.url);
+			this._image.attr('src', data.returnValues.url + '?timestamp=' + Date.now());
 			
 			// hide error
 			this._button.next('.innerError').remove();
@@ -231,12 +231,17 @@ WCF.ACP.Style.LogoUpload = WCF.Upload.extend({
 		var $src = this._pageLogo.val();
 		if ($src.length) {
 			if (!$src.match(/^https?:\/\//)) {
-				var $path = this._pageLogo.val();
+				var $path = this._imagePath.val();
 				if (!$path) {
 					$path = 'images/';
 				}
 				
-				$path = this._wcfPath + $path;
+				$path = this._wcfPath + $path.replace(/^\/?images\/?/, '');
+				if ($path.substr(-1) !== '/') {
+					$path += '/';
+				}
+				
+				$src = $path + $src;
 			}
 		}
 		else {
@@ -244,7 +249,7 @@ WCF.ACP.Style.LogoUpload = WCF.Upload.extend({
 			$src = $('#logo > a > img').prop('src');
 		}
 		
-		this._image.attr('src', $src);
+		this._image.attr('src', $src + '?timestamp=' + Date.now());
 	},
 	
 	/**
@@ -269,7 +274,7 @@ WCF.ACP.Style.LogoUpload = WCF.Upload.extend({
 	_success: function(uploadID, data) {
 		if (data.returnValues.url) {
 			// show image
-			this._image.attr('src', data.returnValues.url);
+			this._image.attr('src', data.returnValues.url + '?timestamp=' + Date.now());
 			this._pageLogo.val(data.returnValues.url);
 			
 			// hide error

@@ -10,7 +10,7 @@ use wcf\system\WCF;
  * Handles ads.
  * 
  * @author	Matthias Schmidt
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.ads
@@ -53,11 +53,11 @@ class AdHandler extends SingletonFactory {
 				}
 			}
 			
-			$output .= $ad->ad;
+			$output .= '<div>' . $ad->ad . '</div>';
 		}
 		
 		if (!empty($output)) {
-			return '<div class="wcfAdLocation' . ($this->objectTypes[$adLocation]->cssclassname ? (' ' . $this->objectTypes[$adLocation]->cssclassname) : '') . '"><div>' . $output . '</div></div>';
+			return '<div class="wcfAdLocation' . ($this->objectTypes[$adLocation]->cssclassname ? (' ' . $this->objectTypes[$adLocation]->cssclassname) : '') . '">' . $output . '</div>';
 		}
 		
 		return '';

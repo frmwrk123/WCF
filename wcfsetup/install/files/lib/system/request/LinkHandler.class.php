@@ -12,7 +12,7 @@ use wcf\util\StringUtil;
  * Handles relative links within the wcf.
  * 
  * @author	Marcel Werk
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.request
@@ -66,8 +66,8 @@ class LinkHandler extends SingletonFactory {
 		$abbreviation = 'wcf';
 		$anchor = '';
 		$isACP = $originIsACP = RequestHandler::getInstance()->isACPRequest();
-		$encodeTitle = $forceWCF = $isRaw = false;
-		$appendSession = true;
+		$forceWCF = $isRaw = false;
+		$appendSession = $encodeTitle = true;
 		
 		// enforce a certain level of sanitation and protection for links embedded in emails
 		if (isset($parameters['isEmail']) && (bool)$parameters['isEmail']) {
@@ -109,6 +109,7 @@ class LinkHandler extends SingletonFactory {
 			}
 			unset($parameters['forceWCF']);
 		}
+		
 		if (isset($parameters['encodeTitle'])) {
 			$encodeTitle = $parameters['encodeTitle'];
 			unset($parameters['encodeTitle']);
@@ -155,7 +156,7 @@ class LinkHandler extends SingletonFactory {
 			// trim to 80 characters
 			$parameters['title'] = rtrim(mb_substr($parameters['title'], 0, 80), '-');
 			
-			if (URL_TO_LOWERCASE) {
+			if (!URL_LEGACY_MODE) {
 				$parameters['title'] = mb_strtolower($parameters['title']);
 			}
 			
@@ -163,7 +164,7 @@ class LinkHandler extends SingletonFactory {
 			if ($encodeTitle) $parameters['title'] = rawurlencode($parameters['title']);
 		}
 		
-		$parameters['controller'] = (URL_TO_LOWERCASE) ? mb_strtolower($controller) : $controller;
+		$parameters['controller'] = $controller;
 		$routeURL = RouteHandler::getInstance()->buildRoute($parameters, $isACP);
 		if (!$isRaw && !empty($url)) {
 			$routeURL .= (strpos($routeURL, '?') === false) ? '?' : '&';

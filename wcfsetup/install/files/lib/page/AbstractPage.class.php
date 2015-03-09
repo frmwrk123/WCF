@@ -19,7 +19,7 @@ use wcf\util\StringUtil;
  *	- show
  * 
  * @author	Marcel Werk
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	page
@@ -186,9 +186,6 @@ abstract class AbstractPage implements IPage, ITrackablePage {
 			
 			// use $_SERVER['REQUEST_URI'] because it represents the URL used to access the site and not the internally rewritten one
 			$requestURI = preg_replace('~[?&]s=[a-f0-9]{40}~', '', $_SERVER['REQUEST_URI']);
-			if (strpos($requestURI, '%') !== false) {
-				$requestURI = urldecode($requestURI);
-			}
 			if (!StringUtil::isUTF8($requestURI)) {
 				$requestURI = StringUtil::convertEncoding('ISO-8859-1', 'UTF-8', $requestURI);
 			}

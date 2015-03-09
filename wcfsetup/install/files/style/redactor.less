@@ -69,6 +69,7 @@
 	}
 	
 	> .redactorAutosaveNotice {
+		background-color: @wcfContainerBackgroundColor;
 		border: 1px solid @wcfContainerBorderColor;
 		border-width: 1px 0 0 1px;
 		bottom: 0;
@@ -86,7 +87,7 @@
 			transition-delay: 0s;
 		}
 		
-		&.redactorAutosaveNoticeRestore > span.fa-check {
+		&.redactorAutosaveNoticeIcons > span.fa-check {
 			margin-right: @wcfGapSmall;
 		}
 		
@@ -150,7 +151,7 @@
 	.quoteBox {
 		clear: none;
 		
-		> div > header {
+		> header {
 			position: relative;
 			
 			> .redactorQuoteEdit {
@@ -163,6 +164,51 @@
 				position: absolute;
 			}
 		}
+	}
+	
+	.codeBox {
+		overflow: hidden;
+		position: relative;
+		
+		.redactorEditCodeBox {
+			background-color: rgba(255, 255, 255, .8);
+			bottom: 0;
+			left: 0;
+			opacity: 0;
+			position: absolute;
+			right: 0;
+			text-align: center;
+			top: 0;
+			z-index: 200;
+			
+			.transition(opacity, .3s, linear);
+			
+			> div {
+				cursor: pointer;
+				font-size: 1.4rem;
+				left: 50%;
+				padding: 1em 3em;
+				position: absolute;
+				top: 50%;
+				
+				transform: translate(-50%, -50%);
+				-ms-transform: translate(-50%, -50%);
+			}
+		}
+		
+		&:hover .redactorEditCodeBox {
+			opacity: 1;
+		}
+		
+		ol {
+			margin-bottom: 0;
+			margin-top: 0;
+		}
+	}
+	
+	&.msie .quoteBox {
+		/* resets 'hasLayout' causing IE to display resize handle and wonky editing behavior */
+		min-height: auto;
 	}
 }
 
@@ -181,12 +227,12 @@
 }
 
 .redactor-toolbar {
-	background: repeating-linear-gradient(0deg, @wcfContainerBackgroundColor, @wcfContainerAccentBackgroundColor 29px, @wcfContainerBorderColor 30px, @wcfContainerBorderColor 30px);
-	border-bottom: 1px solid @wcfContainerBorderColor;
-	margin-top: -1px;
+	background: repeating-linear-gradient(0deg, @wcfContainerBorderColor 0px, @wcfContainerBorderColor 3%, @wcfContainerBackgroundColor 3%, @wcfContainerAccentBackgroundColor 100%);
+	background-size: 100% 31px;
 	
 	> li {
 		display: inline-block;
+		margin-bottom: 1px;
 		vertical-align: middle;
 		
 		&:last-of-type,
@@ -233,7 +279,7 @@
 			&.dropact {
 				background-color: @wcfContainerHoverBackgroundColor;
 				
-				.textShadow(@wcfButtonHoverBackgroundColor);*/
+				.textShadow(@wcfButtonHoverBackgroundColor);
 				
 				> i {
 					text-shadow: none;
@@ -384,7 +430,7 @@
 				li {
 					display: inline-block;
 					outline: 0;
-					vertical-align: bottom;
+					vertical-align: baseline;
 					
 					&.active a,
 					&.active a:hover {
@@ -432,13 +478,23 @@
 }
 
 @media only screen and (max-width: 800px) {
-	.messageTabMenu > nav > ul > li:not(.active) > a {
-		> span.icon {
-			display: block;
+	.redactor-toolbar > li > a:hover {
+		background-color: transparent !important;
+	}
+	
+	.messageTabMenu {
+		> nav > ul > li:not(.active) > a {
+			> span.icon {
+				display: block;
+			}
+			
+			> span:not(.icon) {
+				display: none;
+			}
 		}
 		
-		> span:not(.icon) {
-			display: none;
+		> div > nav {
+			margin: (@wcfGapTiny - @wcfGapSmall) -@wcfGapSmall @wcfGapSmall -@wcfGapSmall;
 		}
 	}
 }

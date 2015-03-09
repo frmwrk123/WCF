@@ -7,13 +7,20 @@ use wcf\system\exception\SystemException;
  * Represents a tree of category nodes.
  * 
  * @author	Matthias Schmidt
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	data.category
  * @category	Community Framework
  */
 class CategoryNodeTree implements \IteratorAggregate {
+	/**
+	 * maximum depth considered when building the node tree.
+	 * 
+	 * @var integer
+	 */
+	protected $maxDepth = -1;
+	
 	/**
 	 * name of the category node class
 	 * @var	string
@@ -53,19 +60,34 @@ class CategoryNodeTree implements \IteratorAggregate {
 	}
 	
 	/**
+	 * Sets the maximum depth considered when building the node tree, defaults
+	 * to -1 which equals infinite.
+	 * 
+	 * @param	integer		$maxDepth
+	 */
+	public function setMaxDepth($maxDepth) {
+		$this->maxDepth = $maxDepth;
+	}
+	
+	/**
 	 * Builds the category node tree.
 	 */
 	protected function buildTree() {
 		$this->parentNode = $this->getNode($this->parentCategoryID);
-		$this->buildTreeLevel($this->parentNode);
+		$this->buildTreeLevel($this->parentNode, $this->maxDepth);
 	}
 	
 	/**
 	 * Builds a certain level of the tree.
 	 * 
 	 * @param	\wcf\data\category\CategoryNode	$parentNode
+	 * @param	integer				$depth
 	 */
-	protected function buildTreeLevel(CategoryNode $parentNode) {
+	protected function buildTreeLevel(CategoryNode $parentNode, $depth = 0) {
+		if ($this->maxDepth != -1 && $depth < 0) {
+			return;
+		}
+		
 		foreach ($this->getChildCategories($parentNode) as $childCategory) {
 			$childNode = $this->getNode($childCategory->categoryID);
 			
@@ -73,7 +95,7 @@ class CategoryNodeTree implements \IteratorAggregate {
 				$parentNode->addChild($childNode);
 				
 				// build next level
-				$this->buildTreeLevel($childNode);
+				$this->buildTreeLevel($childNode, $depth - 1);
 			}
 		}
 	}

@@ -481,8 +481,14 @@
 		overflow: hidden;
 		padding-bottom: @wcfGapMedium;
 		
-		img {
-			max-width: 100%;
+		> div.messageText {
+			img {
+				max-width: 100%;
+			}
+			
+			table img {
+				max-width: none;
+			}
 		}
 	}
 	
@@ -505,6 +511,16 @@
 	}
 }
 
+.messageTextPreview {
+	img {
+		max-width: 100%;
+	}
+	
+	table img {
+		max-width: none;
+	}
+}
+
 @messageFooterNoteGradientColor: fade(@wcfContainerBorderColor, 20%);
 @messageFooterNoteGradientColor2: fade(@messageFooterNoteGradientColor, 0%);
 .messageFooterNote {
@@ -524,7 +540,7 @@ html[dir='rtl'] {
 }
 
 .messageHeader + .messageBody > div:first-child:not(.redactor-box),
-.messageBody > div:not(.messageFooter):not(.messageTabMenu):not(:first-child) {
+.messageBody > div:not(.messageFooter):not(.messageTabMenu):not(.redactor-box):not(:first-child) {
 	border-top: 1px dotted @wcfContainerBorderColor;
 	padding: @wcfGapMedium 0;
 }
@@ -810,7 +826,6 @@ li:nth-child(2n+1) .message {
 		
 		> span {
 			float: left;
-			width: 40px;
 			
 			> input {
 				vertical-align: bottom;
@@ -1100,4 +1115,14 @@ li:nth-child(2n+1) .message {
 			display: none;
 		}
 	}
+}
+
+.messageFloatObjectLeft {
+	float: left;
+	margin: 0 @wcfGapMedium @wcfGapSmall 0;
+}
+
+.messageFloatObjectRight {
+	float: right;
+	margin: 0 0 @wcfGapSmall @wcfGapMedium;
 }

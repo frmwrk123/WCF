@@ -13,7 +13,7 @@ use wcf\util\StringStack;
  * Parses message before inserting them into the database.
  * 
  * @author	Tim Duesterhus, Marcel Werk
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.bbcode
@@ -180,7 +180,7 @@ class PreParser extends SingletonFactory {
 				(?:\[/\\2\])", Regex::DOT_ALL | Regex::IGNORE_WHITESPACE | Regex::CASE_INSENSITIVE);
 				
 				$callback = new Callback(function ($matches) {
-					return StringStack::pushToStringStack($matches[0], 'preParserCode');
+					return '['.StringStack::pushToStringStack(mb_substr($matches[0], 1, -1), 'preParserCode', "\0\0\0").']';
 				});
 			}
 			
@@ -219,7 +219,7 @@ class PreParser extends SingletonFactory {
 				(?:\[/\\1\])", Regex::DOT_ALL | Regex::IGNORE_WHITESPACE | Regex::CASE_INSENSITIVE);
 			
 			$callback = new Callback(function ($matches) {
-				return StringStack::pushToStringStack($matches[0], 'urlBBCodes');
+				return '['.StringStack::pushToStringStack(mb_substr($matches[0], 1, -1), 'preParserCode', "\0\0\0").']';
 			});
 		}
 		

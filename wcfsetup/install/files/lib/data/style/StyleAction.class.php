@@ -2,6 +2,7 @@
 namespace wcf\data\style;
 use wcf\data\AbstractDatabaseObjectAction;
 use wcf\data\IToggleAction;
+use wcf\system\cache\builder\StyleCacheBuilder;
 use wcf\system\exception\IllegalLinkException;
 use wcf\system\exception\PermissionDeniedException;
 use wcf\system\exception\SystemException;
@@ -18,7 +19,7 @@ use wcf\util\FileUtil;
  * Executes style-related actions.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	data.style
@@ -509,6 +510,8 @@ class StyleAction extends AbstractDatabaseObjectAction implements IToggleAction 
 				));
 			}
 		}
+		
+		StyleCacheBuilder::getInstance()->reset();
 		
 		return array(
 			'redirectURL' => LinkHandler::getInstance()->getLink('StyleEdit', array('id' => $newStyle->styleID))

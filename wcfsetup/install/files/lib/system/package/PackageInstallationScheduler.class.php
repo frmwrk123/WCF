@@ -16,7 +16,7 @@ use wcf\util\HTTPRequest;
  * Contains business logic related to preparation of package installations.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.package
@@ -224,7 +224,10 @@ class PackageInstallationScheduler {
 			if ($packageUpdateVersion['filename']) {
 				$request = new HTTPRequest(
 					$packageUpdateVersion['filename'],
-					(!empty($authData) ? array('auth' => $authData) : array())
+					(!empty($authData) ? array('auth' => $authData) : array()),
+					array(
+						'apiVersion' => PackageUpdate::API_VERSION
+					)
 				);
 			}
 			else {
@@ -370,7 +373,7 @@ class PackageInstallationScheduler {
 							'action' => $packageInstallations[$key]['action'],
 							'conflict' => 'newPackageExcludesExistingPackage',
 							'existingPackage' => $row['excludedPackage'],
-							'existingPackageName' => $row['packageName'],
+							'existingPackageName' => WCF::getLanguage()->get($row['packageName']),
 							'existingPackageVersion' => $row['packageVersion']
 						);
 					}
@@ -415,7 +418,7 @@ class PackageInstallationScheduler {
 							'action' => $packageInstallation['action'],
 							'conflict' => 'existingPackageExcludesNewPackage',
 							'existingPackage' => $row['package'],
-							'existingPackageName' => $row['packageName'],
+							'existingPackageName' => WCF::getLanguage()->get($row['packageName']),
 							'existingPackageVersion' => $row['packageVersion']
 						);
 					}

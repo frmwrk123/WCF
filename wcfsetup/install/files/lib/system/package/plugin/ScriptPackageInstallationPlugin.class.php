@@ -9,7 +9,7 @@ use wcf\util\FileUtil;
  * Executes individual PHP scripts during installation.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.package.plugin
@@ -34,7 +34,7 @@ class ScriptPackageInstallationPlugin extends AbstractPackageInstallationPlugin 
 		if (empty($path)) {
 			$dirConstant = strtoupper($abbreviation) . '_DIR';
 			if (!defined($dirConstant)) {
-				throw new SystemException("Can not execute script-PIP, abbreviation '".$abbreviation."' is unknown");
+				throw new SystemException("Cannot execute script-PIP, abbreviation '".$abbreviation."' is unknown");
 			}
 			
 			$path = constant($dirConstant);

@@ -11,7 +11,7 @@ use wcf\system\WCF;
  * Shows a list of purchased plugin store items.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	acp.page
@@ -115,6 +115,10 @@ class PluginStorePurchasedItemsPage extends AbstractPage {
 				else if (Package::compareVersion($product['lastVersion'], $package->packageVersion, '=')) {
 					$this->productData[$wcfMajorRelease][$packageUpdateID]['status'] = 'upToDate';
 				}
+			}
+			
+			if (isset($this->updateServers[$wcfMajorRelease]) && $this->updateServers[$wcfMajorRelease]->lastUpdateTime == 0) {
+				$this->productData[$wcfMajorRelease][$packageUpdateID]['status'] = 'requireUpdate';
 			}
 		}
 	}

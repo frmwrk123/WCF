@@ -6,7 +6,7 @@ use wcf\system\exception\SystemException;
  * Image adapter for ImageMagick imaging library.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.image.adapter
@@ -187,24 +187,38 @@ class ImagickImageAdapter implements IImageAdapter {
 	/**
 	 * @see	\wcf\system\image\adapter\IImageAdapter::drawText()
 	 */
-	public function drawText($string, $x, $y, $opacity) {
+	public function drawText($text, $x, $y, $font, $size, $opacity = 1) {
 		$draw = new \ImagickDraw();
 		$draw->setStrokeOpacity($opacity);
 		$draw->setFillColor($this->color);
 		$draw->setTextAntialias(true);
+		$draw->setFont($font);
+		$draw->setFontSize($size);
 		
 		// draw text
-		$draw->annotation($x, $y, $string);
-		$this->imagick->drawImage($draw);
+		$draw->annotation($x, $y, $text);
+		
+		if ($this->imagick->getImageFormat() == 'GIF') {
+			$this->imagick = $this->imagick->coalesceImages();
+				
+			do {
+				$this->imagick->drawImage($draw);
+			}
+			while ($this->imagick->nextImage());
+		}
+		else {
+			$this->imagick->drawImage($draw);
+		}
 	}
 	
 	/**
 	 * @see	\wcf\system\image\adapter\IImageAdapter::drawTextRelative()
 	 */
-	public function drawTextRelative($text, $position, $margin, $opacity) {
+	public function drawTextRelative($text, $position, $margin, $offsetX, $offsetY, $font, $size, $opacity = 1) {
 		$draw = new \ImagickDraw();
-		$draw->setStrokeOpacity($opacity);
-		$metrics = $this->imagick->queryFontMetrics($draw, $string);
+		$draw->setFont($font);
+		$draw->setFontSize($size);
+		$metrics = $this->imagick->queryFontMetrics($draw, $text);
 		
 		// calculate x coordinate
 		$x = 0;
@@ -251,7 +265,7 @@ class ImagickImageAdapter implements IImageAdapter {
 		}
 		
 		// draw text
-		$this->drawText($string, $x, $y);
+		$this->drawText($text, $x + $offsetX, $y + $offsetY, $font, $size, $opacity);
 	}
 	
 	/**
@@ -350,8 +364,19 @@ class ImagickImageAdapter implements IImageAdapter {
 		}
 		
 		$overlayImage->evaluateImage(\Imagick::EVALUATE_MULTIPLY, $opacity, \Imagick::CHANNEL_OPACITY);
-		$this->imagick->compositeImage($overlayImage, \Imagick::COMPOSITE_OVER, $x, $y);
-		$this->imagick = $this->imagick->flattenImages();
+		
+		if ($this->imagick->getImageFormat() == 'GIF') {
+			$this->imagick = $this->imagick->coalesceImages();
+		
+			do {
+				$this->imagick->compositeImage($overlayImage, \Imagick::COMPOSITE_OVER, $x, $y);
+			}
+			while ($this->imagick->nextImage());
+		}
+		else {
+			$this->imagick->compositeImage($overlayImage, \Imagick::COMPOSITE_OVER, $x, $y);
+			$this->imagick = $this->imagick->flattenImages();
+		}
 	}
 	
 	/**

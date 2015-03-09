@@ -4,7 +4,7 @@
  * Enhanced image viewer for WCF.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  */
 WCF.ImageViewer = Class.extend({
@@ -83,14 +83,19 @@ WCF.ImageViewer = Class.extend({
 		
 		$image.removeClass('jsResizeImage');
 		
+		// check if image falls within the signature, in that case ignore it
+		if ($image.closest('.messageSignature').length) {
+			return;
+		}
+		
 		// setting img { max-width: 100% } causes the image to fit within boundaries, but does not reveal the original dimenions
 		var $imageObject = new Image();
 		$imageObject.src = $image.attr('src');
 		
-		var $maxWidth = $image.closest('div.messageText').width();
+		var $maxWidth = $image.closest('div.messageText, div.messageTextPreview').width();
 		if ($maxWidth < $imageObject.width) {
 			if (!$image.parents('a').length) {
-				$image.wrap('<a href="' + $image.attr('src') + '" class="jsImageViewerEnabled" />');
+				$image.wrap('<a href="' + $image.attr('src') + '" class="jsImageViewerEnabled embeddedImageLink" />');
 				$image.parent().click($.proxy(this._click, this));
 			}
 		}
@@ -776,7 +781,7 @@ $.widget('ui.wcfImageViewer', {
 		this._didInit = true;
 		
 		this._container = $('<div class="wcfImageViewer' + (this.options.staticViewer ? ' wcfImageViewerStatic' : '') + '" />').appendTo(document.body);
-		var $imageContainer = $('<div><img class="active" /><img /></div>').appendTo(this._container);
+		var $imageContainer = $('<div><img /><img /></div>').appendTo(this._container);
 		var $imageList = $('<footer><span class="wcfImageViewerButtonPrevious icon icon-double-angle-left" /><div><ul /></div><span class="wcfImageViewerButtonNext icon icon-double-angle-right" /></footer>').appendTo(this._container);
 		var $slideshowContainer = $('<ul />').appendTo($imageContainer);
 		var $slideshowButtonPrevious = $('<li class="wcfImageViewerSlideshowButtonPrevious"><span class="icon icon48 icon-angle-left" /></li>').appendTo($slideshowContainer);

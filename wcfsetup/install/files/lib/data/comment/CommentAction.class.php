@@ -26,7 +26,7 @@ use wcf\util\UserUtil;
  * Executes comment-related actions.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	data.comment
@@ -333,7 +333,7 @@ class CommentAction extends AbstractDatabaseObjectAction {
 		
 		// update response data
 		$responseIDs = $this->comment->getResponseIDs();
-		if (count($responseIDs) < 3) {
+		if (count($responseIDs) < 5) {
 			$responseIDs[] = $this->createdResponse->responseID;
 		}
 		$responses = $this->comment->responses + 1;
@@ -678,6 +678,8 @@ class CommentAction extends AbstractDatabaseObjectAction {
 		if (empty($this->parameters['data']['message'])) {
 			throw new UserInputException('message');
 		}
+		
+		CommentHandler::enforceCensorship($this->parameters['data']['message']);
 	}
 	
 	/**

@@ -1,28 +1,78 @@
 {if $__wcf->user->userID}
 	<!-- user menu -->
-	<li id="userMenu" class="dropdown">
-		<a class="dropdownToggle framed" data-toggle="userMenu" href="{link controller='User' object=$__wcf->user}{/link}">{@$__wcf->getUserProfileHandler()->getAvatar()->getImageTag(24)} <span>{lang}wcf.user.userNote{/lang}</span></a>
-		<ul class="dropdownMenu">
-			<li><a href="{link controller='User' object=$__wcf->user}{/link}" class="box32">
-				<div class="framed">{@$__wcf->getUserProfileHandler()->getAvatar()->getImageTag(32)}</div>
+	<li id="userMenu">
+		<a class="framed" href="{link controller='User' object=$__wcf->user}{/link}">{@$__wcf->getUserProfileHandler()->getAvatar()->getImageTag(24)} <span>{lang}wcf.user.userNote{/lang}</span></a>
+		<div class="interactiveDropdown interactiveDropdownStatic interactiveDropdownUserMenu">
+			<div class="interactiveDropdownHeader">
+				<span class="interactiveDropdownTitle">{lang}wcf.user.controlPanel{/lang}</span>
 				
-				<div class="containerHeadline">
-					<h3>{$__wcf->user->username}</h3>
-					<small>{lang}wcf.user.myProfile{/lang}</small>
-				</div>
-			</a></li>
-			{if $__wcf->getUserProfileHandler()->canEditOwnProfile()}<li><a href="{link controller='User' object=$__wcf->user}editOnInit=true#about{/link}">{lang}wcf.user.editProfile{/lang}</a></li>{/if}
-			<li><a href="{link controller='Settings'}{/link}">{lang}wcf.user.menu.settings{/lang}</a></li>
-			
-			{event name='userMenuItems'}
-			
-			{if $__wcf->session->getPermission('admin.general.canUseAcp')}
-				<li class="dropdownDivider"></li>
-				<li><a href="{link isACP=true}{/link}">{lang}wcf.global.acp.short{/lang}</a></li>
-			{/if}
-			<li class="dropdownDivider"></li>
-			<li><a href="{link controller='Logout'}t={@SECURITY_TOKEN}{/link}" onclick="WCF.System.Confirmation.show('{lang}wcf.user.logout.sure{/lang}', $.proxy(function (action) { if (action == 'confirm') window.location.href = $(this).attr('href'); }, this)); return false;">{lang}wcf.user.logout{/lang}</a></li>
-		</ul>
+				{hascontent}
+					<ul class="interactiveDropdownLinks">
+						{content}
+							{event name='userMenuLinks'}
+						{/content}
+					</ul>
+				{/hascontent}
+			</div>
+			<div class="interactiveDropdownItemsContainer">
+				<ul class="interactiveDropdownItems interactiveDropdownItemsUserMenu">
+					<li>
+						<div class="box64">
+							<a href="{link controller='User' object=$__wcf->user}{/link}" class="framed">{@$__wcf->getUserProfileHandler()->getAvatar()->getImageTag(64)}</a>
+							
+							<div class="containerHeadline">
+								<h3><a href="{link controller='User' object=$__wcf->user}{/link}">{$__wcf->user->username}</a></h3>
+								{if MODULE_USER_RANK}
+									<p>
+										{if $__wcf->getUserProfileHandler()->getUserTitle()}
+											<span class="badge userTitleBadge{if $__wcf->getUserProfileHandler()->getRank() && $__wcf->getUserProfileHandler()->getRank()->cssClassName} {@$__wcf->getUserProfileHandler()->getRank()->cssClassName}{/if}">{$__wcf->getUserProfileHandler()->getUserTitle()}</span>
+										{/if}
+										{if $__wcf->getUserProfileHandler()->getRank() && $__wcf->getUserProfileHandler()->getRank()->rankImage}
+											<span class="userRankImage">{@$__wcf->getUserProfileHandler()->getRank()->getImage()}</span>
+										{/if}
+									</p>
+								{/if}
+								
+								<ul class="interactiveDropdownUserMenuLinkList">
+									<li><a href="{link controller='User' object=$__wcf->user}{/link}">{lang}wcf.user.myProfile{/lang}</a></li>
+									{if $__wcf->getUserProfileHandler()->canEditOwnProfile()}<li><a href="{link controller='User' object=$__wcf->user}editOnInit=true#about{/link}">{lang}wcf.user.editProfile{/lang}</a></li>{/if}
+									{if $__wcf->session->getPermission('admin.general.canUseAcp')}<li><a href="{link isACP=true}{/link}">{lang}wcf.global.acp.short{/lang}</a></li>{/if}
+								</ul>
+							</div>
+						</div>
+					</li>
+					
+					{event name='userMenuItemsBefore'}
+					
+					{foreach from=$__wcf->getUserMenu()->getMenuItems('') item=menuCategory}
+						<li class="dropdownDivider"></li>
+						<li class="interactiveDropdownUserMenuItem">
+							<div class="box32">
+								<div><span class="icon icon32 {@$menuCategory->getIconClassName()}"></span></div>
+								
+								<div class="containerHeadline">
+									<h3>{lang}{$menuCategory->menuItem}{/lang}</h3>
+									
+									<ul class="interactiveDropdownUserMenuLinkList">
+										{foreach from=$__wcf->getUserMenu()->getMenuItems($menuCategory->menuItem) item=menuItem}
+											<li><a href="{$menuItem->getProcessor()->getLink()}">{@$menuItem}</a></li>
+										{/foreach}
+									</ul>
+								</div>
+							</div>
+						</li>
+					{/foreach}
+					
+					{event name='userMenuItemsAfter'}
+				</ul>
+			</div>
+			<a class="interactiveDropdownShowAll" href="{link controller='Logout'}t={@SECURITY_TOKEN}{/link}" onclick="WCF.Dropdown.Interactive.Handler.close('userMenu'); WCF.System.Confirmation.show('{lang}wcf.user.logout.sure{/lang}', $.proxy(function (action) { if (action == 'confirm') window.location.href = $(this).attr('href'); }, this)); return false;">{lang}wcf.user.logout{/lang}</a>
+		</div>
+		<script data-relocate="true">
+			$(function() {
+				new WCF.User.Panel.UserMenu();
+			});
+		</script>
 	</li>
 	
 	<li><a href="{link controller='Settings'}{/link}" class="noJsOnly" style="display: none"><span class="icon icon16 icon-cogs"></span> <span>{lang}wcf.user.menu.settings{/lang}</span></a></li>

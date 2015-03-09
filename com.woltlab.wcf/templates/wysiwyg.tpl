@@ -3,6 +3,7 @@ var __REDACTOR_ICON_PATH = '{@$__wcf->getPath()}icon/';
 var __REDACTOR_BUTTONS = [ {implode from=$__wcf->getBBCodeHandler()->getButtonBBCodes() item=__bbcode}{ icon: '{$__bbcode->wysiwygIcon}', label: '{$__bbcode->buttonLabel|language}', name: '{$__bbcode->bbcodeTag}' }{/implode} ];
 var __REDACTOR_SMILIES = { {implode from=$__wcf->getSmileyCache()->getCategorySmilies() item=smiley}'{@$smiley->smileyCode|encodeJS}': '{@$smiley->getURL()|encodeJS}'{/implode} };
 var __REDACTOR_SOURCE_BBCODES = [ {implode from=$__wcf->getBBCodeHandler()->getSourceBBCodes() item=__bbcode}'{@$__bbcode->bbcodeTag}'{/implode} ];
+var __REDACTOR_CODE_HIGHLIGHTERS = { {implode from=$__wcf->getBBCodeHandler()->getHighlighters() item=__highlighter}'{@$__highlighter}': '{lang}wcf.bbcode.code.{@$__highlighter}.title{/lang}'{/implode} };
 </script>
 <script data-relocate="true">
 $(function() {
@@ -13,10 +14,23 @@ $(function() {
 		'wcf.bbcode.button.fontFamily': '{lang}wcf.bbcode.button.fontFamily{/lang}',
 		'wcf.bbcode.button.fontSize': '{lang}wcf.bbcode.button.fontSize{/lang}',
 		'wcf.bbcode.button.image': '{lang}wcf.bbcode.button.image{/lang}',
+		'wcf.bbcode.button.redo': '{lang}wcf.bbcode.button.redo{/lang}',
 		'wcf.bbcode.button.subscript': '{lang}wcf.bbcode.button.subscript{/lang}',
 		'wcf.bbcode.button.superscript': '{lang}wcf.bbcode.button.superscript{/lang}',
 		'wcf.bbcode.button.toggleBBCode': '{lang}wcf.bbcode.button.toggleBBCode{/lang}',
 		'wcf.bbcode.button.toggleHTML': '{lang}wcf.bbcode.button.toggleHTML{/lang}',
+		'wcf.bbcode.button.undo': '{lang}wcf.bbcode.button.undo{/lang}',
+		'wcf.bbcode.code': '{lang}wcf.bbcode.code{/lang}',
+		'wcf.bbcode.code.edit': '{lang}wcf.bbcode.code.edit{/lang}',
+		'wcf.bbcode.code.filename': '{lang}wcf.bbcode.code.filename{/lang}',
+		'wcf.bbcode.code.filename.description': '{lang}wcf.bbcode.code.filename.description{/lang}',
+		'wcf.bbcode.code.highlighter': '{lang}wcf.bbcode.code.highlighter{/lang}',
+		'wcf.bbcode.code.highlighter.description': '{lang}wcf.bbcode.code.highlighter.description{/lang}',
+		'wcf.bbcode.code.highlighter.none': '{lang}wcf.bbcode.code.highlighter.none{/lang}',
+		'wcf.bbcode.code.insert': '{lang}wcf.bbcode.code.insert{/lang}',
+		'wcf.bbcode.code.lineNumber': '{lang}wcf.bbcode.code.lineNumber{/lang}',
+		'wcf.bbcode.code.lineNumber.description': '{lang}wcf.bbcode.code.lineNumber.description{/lang}',
+		'wcf.bbcode.code.settings': '{lang}wcf.bbcode.code.settings{/lang}',
 		'wcf.bbcode.quote.edit': '{lang}wcf.bbcode.quote.edit{/lang}',
 		'wcf.bbcode.quote.edit.author': '{lang}wcf.bbcode.quote.edit.author{/lang}',
 		'wcf.bbcode.quote.edit.link': '{lang}wcf.bbcode.quote.edit.link{/lang}',
@@ -24,6 +38,9 @@ $(function() {
 		'wcf.bbcode.quote.title.clickToSet': '{lang}wcf.bbcode.quote.title.clickToSet{/lang}',
 		'wcf.bbcode.quote.title.javascript': '{lang}wcf.bbcode.quote.title.javascript{/lang}',
 		'wcf.global.noSelection': '{lang}wcf.global.noSelection{/lang}',
+		'wcf.message.autosave.prompt': '{lang}wcf.message.autosave.prompt{/lang}',
+		'wcf.message.autosave.prompt.confirm': '{lang}wcf.message.autosave.prompt.confirm{/lang}',
+		'wcf.message.autosave.prompt.discard': '{lang}wcf.message.autosave.prompt.discard{/lang}',
 		'wcf.message.autosave.restored': '{lang}wcf.message.autosave.restored{/lang}',
 		'wcf.message.autosave.restored.confirm': '{lang}wcf.message.autosave.restored.confirm{/lang}',
 		'wcf.message.autosave.restored.revert': '{lang}wcf.message.autosave.restored.revert{/lang}',
@@ -42,10 +59,11 @@ $(function() {
 		{include file='wysiwygToolbar'}
 		
 		var $autosave = $textarea.data('autosave');
+		var $autosaveLastEditTime = ($autosave && $textarea.data('autosaveLastEditTime')) ? (parseInt($textarea.data('autosaveLastEditTime')) || 0) : 0;
+		var $autosavePrompt = ($autosave && $textarea.data('autosavePrompt')) ? true : false;
 		var $config = {
 			autosave: false,
 			buttons: $buttons,
-			buttonSource: true,
 			convertImageLinks: false,
 			convertUrlLinks: false,
 			convertVideoLinks: false,
@@ -56,13 +74,16 @@ $(function() {
 			plugins: [ 'wutil', 'wmonkeypatch', 'table', 'wbutton', 'wbbcode', 'wfontcolor', 'wfontfamily', 'wfontsize', 'wupload' ],
 			removeEmpty: false,
 			replaceDivs: false,
+			source: true,
 			tabifier: false,
 			toolbarFixed: false,
 			woltlab: {
 				autosave: {
 					active: ($autosave) ? true : false,
 					key: ($autosave) ? '{@$__wcf->getAutosavePrefix()}_' + $autosave : '',
+					lastEditTime: $autosaveLastEditTime,
 					prefix: '{@$__wcf->getAutosavePrefix()}',
+					prompt: $autosavePrompt,
 					saveOnInit: {if !$errorField|empty}true{else}false{/if}
 				},
 				originalValue: $textarea.val()
@@ -92,7 +113,7 @@ $(function() {
 		'{@$__wcf->getPath()}js/3rdParty/redactor/redactor{if !ENABLE_DEBUG_MODE}.min{/if}.js?v={@LAST_UPDATE_TIME}',
 		{if $__wcf->getLanguage()->getFixedLanguageCode() != 'en'}'{@$__wcf->getPath()}js/3rdParty/redactor/languages/{@$__wcf->getLanguage()->getFixedLanguageCode()}.js?v={@LAST_UPDATE_TIME}',{/if}
 		{if !ENABLE_DEBUG_MODE}
-			'{@$__wcf->getPath()}js/3rdParty/redactor/plugins/wcombined.min.js?v={@LAST_UPDATE_TIME}',
+			'{@$__wcf->getPath()}js/3rdParty/redactor/plugins/wcombined.min.js?v={@LAST_UPDATE_TIME}'
 		{else}
 			{* official *}
 			'{@$__wcf->getPath()}js/3rdParty/redactor/plugins/table.js?v={@LAST_UPDATE_TIME}',

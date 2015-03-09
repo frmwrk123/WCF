@@ -10,7 +10,7 @@ use wcf\system\WCF;
  * Represents a prepared statements based upon pdo statements.
  * 
  * @author	Marcel Werk
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.database.statement
@@ -119,6 +119,42 @@ class PreparedStatement {
 		if ($type === null) $type = \PDO::FETCH_ASSOC;
 		
 		return $this->fetch($type);
+	}
+	
+	/**
+	 * Fetches the next row from a result set in an array.
+	 * Closes the 'cursor' afterwards to free up the connection
+	 * for new queries.
+	 * Note: It is not possible to fetch further rows after calling
+	 * this method!
+	 * 
+	 * @param	integer		$type		fetch type
+	 * @return	mixed
+	 * @see		\wcf\system\database\statement\PreparedStatement::fetchArray()
+	 */
+	public function fetchSingleRow($type = null) {
+		$row = $this->fetchArray($type);
+		$this->closeCursor();
+		
+		return $row;
+	}
+	
+	/**
+	 * Returns the specified column of the next row of a result set.
+	 * Closes the 'cursor' afterwards to free up the connection
+	 * for new queries.
+	 * Note: It is not possible to fetch further rows after calling
+	 * this method!
+	 * 
+	 * @param	integer		$columnNumber
+	 * @return	mixed
+	 * @see		\PDOStatement::fetchColumn()
+	 */
+	public function fetchSingleColumn($columnNumber = 0) {
+		$column = $this->fetchColumn($columnNumber);
+		$this->closeCursor();
+		
+		return $column;
 	}
 	
 	/**

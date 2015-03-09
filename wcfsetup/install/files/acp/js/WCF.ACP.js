@@ -2,7 +2,7 @@
  * Class and function collection for WCF ACP
  * 
  * @author	Alexander Ebert, Matthias Schmidt
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  */
 
@@ -406,11 +406,21 @@ WCF.ACP.Package.Installation = Class.extend({
 	 * Initializes the WCF.Action.Proxy object.
 	 */
 	_initProxy: function() {
+		var $actionName = '';
+		var $parts = this._actionName.split(/([A-Z][a-z0-9]+)/);
+		for (var $i = 0, $length = $parts.length; $i < $length; $i++) {
+			var $part = $parts[$i];
+			if ($part.length) {
+				if ($actionName.length) $actionName += '-';
+				$actionName += $part.toLowerCase();
+			}
+		}
+		
 		this._proxy = new WCF.Action.Proxy({
 			failure: $.proxy(this._failure, this),
 			showLoadingOverlay: false,
 			success: $.proxy(this._success, this),
-			url: 'index.php/' + this._actionName + '/?t=' + SECURITY_TOKEN + SID_ARG_2ND
+			url: 'index.php?' + $actionName + '/&t=' + SECURITY_TOKEN + SID_ARG_2ND
 		});
 	},
 	
@@ -1338,7 +1348,7 @@ WCF.ACP.Package.Server.Installation = Class.extend({
 		});
 		this._proxy.sendRequest();
 	},
-})
+});
 
 /**
  * Namespace for package update related classes.
@@ -1403,6 +1413,9 @@ WCF.ACP.Package.Update.Manager = Class.extend({
 			// disable submit button
 			if (!$('input[type=checkbox]:checked').length) {
 				this._submitButton.disable();
+			}
+			else {
+				this._submitButton.enable();
 			}
 		}
 	},
@@ -1629,7 +1642,7 @@ WCF.ACP.PluginStore.PurchasedItems.Search = Class.extend({
 		});
 		
 		var $button = $('<li><a class="button"><span class="icon icon16 fa-shopping-cart" /> <span>' + WCF.Language.get('wcf.acp.pluginStore.purchasedItems.button.search') + '</span></a></li>');
-		$button.prependTo($('.contentNavigation:eq(0) > nav > ul')).click($.proxy(this._click, this));
+		$button.prependTo($('.contentNavigation:eq(0) > nav:not(.pageNavigation) > ul')).click($.proxy(this._click, this));
 	},
 	
 	/**
@@ -1674,9 +1687,16 @@ WCF.ACP.PluginStore.PurchasedItems.Search = Class.extend({
 		}
 		else if (data.returnValues.noResults) {
 			// there are no purchased products yet
-			this._dialog.wcfDialog('option', 'title', WCF.Language.get('wcf.acp.pluginStore.purchasedItems'));
-			this._dialog.html(data.returnValues.noResults);
-			this._dialog.wcfDialog('open');
+			if (this._dialog === null) {
+				this._dialog = $('<div />').hide().appendTo(document.body);
+				this._dialog.html(data.returnValues.noResults).wcfDialog({
+					title: WCF.Language.get('wcf.acp.pluginStore.purchasedItems')
+				});
+			} else {
+				this._dialog.wcfDialog('option', 'title', WCF.Language.get('wcf.acp.pluginStore.purchasedItems'));
+				this._dialog.html(data.returnValues.noResults);
+				this._dialog.wcfDialog('open');
+			}
 		}
 		else if (data.returnValues.noSSL) {
 			// PHP was compiled w/o OpenSSL support
@@ -1785,7 +1805,7 @@ WCF.ACP.Worker = Class.extend({
 			},
 			showLoadingOverlay: false,
 			success: $.proxy(this._success, this),
-			url: 'index.php/WorkerProxy/?t=' + SECURITY_TOKEN + SID_ARG_2ND
+			url: 'index.php?worker-proxy/&t=' + SECURITY_TOKEN + SID_ARG_2ND
 		});
 		this._title = title;
 	},
@@ -2434,7 +2454,7 @@ WCF.ACP.Import.Manager = Class.extend({
 		this._proxy = new WCF.Action.Proxy({
 			showLoadingOverlay: false,
 			success: $.proxy(this._success, this),
-			url: 'index.php/WorkerProxy/?t=' + SECURITY_TOKEN + SID_ARG_2ND
+			url: 'index.php?worker-proxy/&t=' + SECURITY_TOKEN + SID_ARG_2ND
 		});
 		this._redirectURL = redirectURL;
 		
@@ -2461,7 +2481,7 @@ WCF.ACP.Import.Manager = Class.extend({
 					success: $.proxy(function() {
 						window.location = this._redirectURL;
 					}, this),
-					url: 'index.php/CacheClear/?t=' + SECURITY_TOKEN + SID_ARG_2ND
+					url: 'index.php?cache-clear/&t=' + SECURITY_TOKEN + SID_ARG_2ND
 				});
 			}, this)).appendTo($form);
 			

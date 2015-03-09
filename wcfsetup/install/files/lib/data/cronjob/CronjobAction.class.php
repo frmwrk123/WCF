@@ -1,6 +1,7 @@
 <?php
 namespace wcf\data\cronjob;
 use wcf\data\cronjob\log\CronjobLogEditor;
+use wcf\data\user\User;
 use wcf\data\AbstractDatabaseObjectAction;
 use wcf\data\IToggleAction;
 use wcf\system\cronjob\CronjobScheduler;
@@ -12,7 +13,7 @@ use wcf\util\DateUtil;
  * Executes cronjob-related actions.
  * 
  * @author	Tim Duesterhus, Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	data.cronjob
@@ -209,6 +210,10 @@ class CronjobAction extends AbstractDatabaseObjectAction implements IToggleActio
 	 * Executes open cronjobs.
 	 */
 	public function executeCronjobs() {
+		// switch session owner to 'system' during execution of cronjobs
+		WCF::getSession()->changeUser(new User(null, array('userID' => 0, 'username' => 'System')), true);
+		WCF::getSession()->disableUpdate();
+		
 		CronjobScheduler::getInstance()->executeCronjobs();
 	}
 }

@@ -15,7 +15,7 @@ use wcf\util\HeaderUtil;
  * Handles http requests.
  * 
  * @author	Marcel Werk
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.request
@@ -33,6 +33,12 @@ class RequestHandler extends SingletonFactory {
 	 * @var	array<array>
 	 */
 	protected $controllers = null;
+	
+	/**
+	 * list of controller aliases
+	 * @var	array<string>
+	 */
+	protected $controllerAliases = array();
 	
 	/**
 	 * true, if current domain mismatch any known domain
@@ -78,6 +84,14 @@ class RequestHandler extends SingletonFactory {
 			$this->controllers = ControllerCacheBuilder::getInstance()->getData(array(
 				'environment' => ($this->isACPRequest ? 'admin' : 'user')
 			));
+			
+			if (!URL_LEGACY_MODE && URL_CONTROLLER_REPLACEMENT) {
+				$controllerAliases = explode("\n", URL_CONTROLLER_REPLACEMENT);
+				for ($i = 0, $length = count($controllerAliases); $i < $length; $i++) {
+					$tmp = explode('=', $controllerAliases[$i]);
+					$this->controllerAliases[$tmp[0]] = $tmp[1];
+				}
+			}
 		}
 	}
 	
@@ -162,13 +176,48 @@ class RequestHandler extends SingletonFactory {
 						exit;
 					}
 				}
+				
+				// handle controller aliasing
+				if (!URL_LEGACY_MODE && isset($routeData['controller'])) {
+					$ciController = mb_strtolower($routeData['controller']);
+					
+					// aliased controller, redirect to new URL
+					$alias = $this->getAliasByController($ciController);
+					if ($alias !== null) {
+						$this->redirect($routeData, $application);
+					}
+					
+					$controller = $this->getControllerByAlias($ciController);
+					if ($controller !== null) {
+						// check if controller was provided explicitly as it should
+						$alias = $this->getAliasByController($controller);
+						if ($alias != $routeData['controller']) {
+							$routeData['controller'] = $controller;
+							$this->redirect($routeData, $application);
+						}
+						
+						$routeData['controller'] = $controller;
+					}
+				}
+			}
+			else if (empty($routeData['controller'])) {
+				$routeData['controller'] = 'Index';
 			}
 			
 			$controller = $routeData['controller'];
 			
 			// validate class name
-			if (!preg_match('~^[a-z0-9_]+$~i', $controller)) {
+			if (!preg_match('~^[a-z0-9-]+$~i', $controller)) {
 				throw new SystemException("Illegal class name '".$controller."'");
+			}
+			
+			// work-around for WCFSetup
+			if (!PACKAGE_ID) {
+				$parts = explode('-', $controller);
+				$parts = array_map(function($part) {
+					return ucfirst($part);
+				}, $parts);
+				$controller = implode('', $parts);
 			}
 			
 			// find class
@@ -183,11 +232,45 @@ class RequestHandler extends SingletonFactory {
 				throw new SystemException("unable to find class '".$classData['className']."'");
 			}
 			
+			// check if controller was provided exactly as it should
+			if (!URL_LEGACY_MODE && !$this->isACPRequest()) {
+				if (preg_match('~([A-Za-z0-9]+)(?:Action|Form|Page)$~', $classData['className'], $matches)) {
+					$realController = self::getTokenizedController($matches[1]);
+					
+					if ($controller != $realController) {
+						$this->redirect($routeData, $application, $matches[1]);
+					}
+				}
+			}
+			
 			$this->activeRequest = new Request($classData['className'], $classData['controller'], $classData['pageType']);
 		}
 		catch (SystemException $e) {
 			throw new IllegalLinkException();
 		}
+	}
+	
+	/**
+	 * Redirects to the actual URL, e.g. controller has been aliased or mistyped (boardlist instead of board-list).
+	 * 
+	 * @param	array<string>		$routeData
+	 * @param	string			$application
+	 * @param	string			$controller
+	 */
+	protected function redirect(array $routeData, $application, $controller = null) {
+		$routeData['application'] = $application;
+		if ($controller !== null) $routeData['controller'] = $controller;
+		
+		// append the remaining query parameters
+		foreach ($_GET as $key => $value) {
+			if (!empty($value)) {
+				$linkData[$key] = $value;
+			}
+		}
+		
+		$redirectURL = LinkHandler::getInstance()->getLink($routeData['controller'], $routeData);
+		HeaderUtil::redirect($redirectURL, true);
+		exit;
 	}
 	
 	/**
@@ -216,6 +299,7 @@ class RequestHandler extends SingletonFactory {
 		// check if currently invoked application matches the landing page
 		if ($landingPageApplication == $application) {
 			$routeData['controller'] = $landingPage->getController();
+			if (!URL_LEGACY_MODE) $routeData['controller'] = self::getTokenizedController($routeData['controller']);
 			return;
 		}
 		
@@ -229,7 +313,7 @@ class RequestHandler extends SingletonFactory {
 				exit;
 			}
 			else {
-				$routeData['controller'] = preg_replace('~(Action|Form|Page)$~', '', array_pop($controller));
+				$routeData['controller'] = self::getTokenizedController(preg_replace('~(Action|Form|Page)$~', '', array_pop($controller)));
 				return;
 			}
 		}
@@ -249,7 +333,6 @@ class RequestHandler extends SingletonFactory {
 	 */
 	protected function getClassData($controller, $pageType, $application) {
 		$className = false;
-		
 		if ($this->controllers !== null) {
 			$className = $this->lookupController($controller, $pageType, $application);
 			if ($className === false && $application != 'wcf') {
@@ -293,6 +376,8 @@ class RequestHandler extends SingletonFactory {
 	protected function lookupController($controller, $pageType, $application) {
 		if (isset($this->controllers[$application]) && isset($this->controllers[$application][$pageType])) {
 			$ciController = mb_strtolower($controller);
+			if (!URL_LEGACY_MODE || $this->isACPRequest) $ciController = str_replace('-', '', $ciController);
+			
 			if (isset($this->controllers[$application][$pageType][$ciController])) {
 				return $this->controllers[$application][$pageType][$ciController];
 			}
@@ -326,5 +411,47 @@ class RequestHandler extends SingletonFactory {
 	 */
 	public function inRescueMode() {
 		return $this->inRescueMode;
+	}
+	
+	/**
+	 * Returns the alias by controller or null if there is no match.
+	 * 
+	 * @param	string		$controller
+	 * @return	string
+	 */
+	public function getAliasByController($controller) {
+		if (isset($this->controllerAliases[$controller])) {
+			return $this->controllerAliases[$controller];
+		}
+		
+		return null;
+	}
+	
+	/**
+	 * Returns the controller by alias or null if there is no match.
+	 * 
+	 * @param	string		$alias
+	 * @return	string
+	 */
+	public function getControllerByAlias($alias) {
+		$controller = array_search($alias, $this->controllerAliases);
+		if ($controller !== false) {
+			return $controller;
+		}
+		
+		return null;
+	}
+	
+	/**
+	 * Returns the tokenized controller name, e.g. BoardList -> board-list.
+	 * 
+	 * @param	string		controller
+	 * @return	string
+	 */
+	public static function getTokenizedController($controller) {
+		$parts = preg_split('~([A-Z][a-z0-9]+)~', $controller, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+		$parts = array_map('strtolower', $parts);
+		
+		return implode('-', $parts);
 	}
 }

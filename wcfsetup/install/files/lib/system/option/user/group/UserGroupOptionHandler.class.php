@@ -12,7 +12,7 @@ use wcf\system\WCF;
  * Handles user group options.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.option.user.group
@@ -128,6 +128,25 @@ class UserGroupOptionHandler extends OptionHandler {
 			
 			if ($typeObj->compare($this->optionValues[$option->optionName], WCF::getSession()->getPermission($option->optionName)) == 1) {
 				throw new UserInputException($option->optionName, 'exceedsOwnPermission');
+			}
+		}
+		else if ($option->optionName == 'admin.user.accessibleGroups' && $this->group !== null && $this->group->isAdminGroup()) {
+			$hasOtherAdminGroup = false;
+			foreach (UserGroup::getGroupsByType() as $userGroup) {
+				if ($userGroup->groupID != $this->group->groupID && $userGroup->isAdminGroup()) {
+					$hasOtherAdminGroup = true;
+					break;
+				}
+			}
+			
+			// prevent users from dropping their own admin state
+			if (!$hasOtherAdminGroup) {
+				// get type object
+				$typeObj = $this->getTypeObject($option->optionType);
+				
+				if ($typeObj->compare($this->optionValues[$option->optionName], WCF::getSession()->getPermission($option->optionName)) == -1) {
+					throw new UserInputException($option->optionName, 'cannotDropPrivileges');
+				}
 			}
 		}
 	}

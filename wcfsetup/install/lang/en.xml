@@ -115,7 +115,7 @@ Examples for medium ID detection:
 		<item name="wcf.acp.bbcode.mediaProvider.title"><![CDATA[Media Providers]]></item>
 		<item name="wcf.acp.bbcode.showButton"><![CDATA[Show button in WYSIWYG editor]]></item>
 		<item name="wcf.acp.bbcode.wysiwygIcon"><![CDATA[Button Image]]></item>
-		<item name="wcf.acp.bbcode.wysiwygIcon.description"><![CDATA[The image must be placed inside the directory wcf/icon/.]]></item>
+		<item name="wcf.acp.bbcode.wysiwygIcon.description"><![CDATA[The image must be placed inside the directory wcf/icon/ or use a <a href="{@$__wcf->getPath('wcf')}acp/dereferrer.php?url=http%3A%2F%2Ffontawesome.io%2Ficons%2F">FontAwesome</a>-icon, e.g. “fa-caret-square-o-up”.]]></item>
 	</category>
 	
 	<category name="wcf.acp.cache">
@@ -315,6 +315,7 @@ Examples for medium ID detection:
 		<item name="wcf.acp.group.option.category.user"><![CDATA[General Permissions]]></item>
 		<item name="wcf.acp.group.option.category.user.message"><![CDATA[Messages]]></item>
 		<item name="wcf.acp.group.option.category.user.message.comment"><![CDATA[Comments]]></item>
+		<item name="wcf.acp.group.option.error.cannotDropPrivileges"><![CDATA[There must be at least one user group with full access, therefore it is not possible to drop these privileges.]]></item>
 		<item name="wcf.acp.group.option.error.exceedsOwnPermission"><![CDATA[You cannot grant user group permissions exceeding your own permissions.]]></item>
 		<item name="wcf.acp.group.option.error.tooHigh"><![CDATA[The given value is too high.{if $option->maxvalue !== null} The maximum value is {#$option->maxvalue}.{/if}]]></item>
 		<item name="wcf.acp.group.option.error.tooLow"><![CDATA[The given value is too low.{if $option->minvalue !== null} The minimum value is {#$option->minvalue}.{/if}]]></item>
@@ -655,6 +656,7 @@ Examples for medium ID detection:
 		<item name="wcf.acp.notice.cssClassName.error"><![CDATA[Error Message]]></item>
 		<item name="wcf.acp.notice.cssClassName.error.notValid"><![CDATA[The entered CSS class name is invalid.]]></item>
 		<item name="wcf.acp.notice.cssClassName.info"><![CDATA[Information]]></item>
+		<item name="wcf.acp.notice.cssClassName.success"><![CDATA[Success Message]]></item>
 		<item name="wcf.acp.notice.cssClassName.warning"><![CDATA[Warning]]></item>
 		<item name="wcf.acp.notice.conditions"><![CDATA[Conditions]]></item>
 		<item name="wcf.acp.notice.conditions.description"><![CDATA[If you choose no conditions, the notice will be shown for every user.]]></item>
@@ -734,6 +736,11 @@ Examples for medium ID detection:
 		<item name="wcf.acp.option.cookie_path"><![CDATA[Cookie Path]]></item>
 		<item name="wcf.acp.option.cookie_path.description"><![CDATA[Value should be absolute to Document Root, e.g. “/forum” for “http://www.woltlab.com/forum”.]]></item>
 		<item name="wcf.acp.option.cookie_prefix"><![CDATA[Cookie Prefix]]></item>
+		<item name="wcf.acp.option.error.controllerReplacementCollision"><![CDATA[The alias “{$urlControllerReplacementError}” equals an existing controller and cannot be used.]]></item>
+		<item name="wcf.acp.option.error.controllerReplacementDuplicateAlias"><![CDATA[The alias “{$urlControllerReplacementError}” is already in use.]]></item>
+		<item name="wcf.acp.option.error.controllerReplacementDuplicateController"><![CDATA[The controller “{$urlControllerReplacementError}” has already been aliased.]]></item>
+		<item name="wcf.acp.option.error.controllerReplacementInvalidFormat"><![CDATA[You must provide aliases using “real-name=custom-name”, the line “{$urlControllerReplacementError}” violates it.]]></item>
+		<item name="wcf.acp.option.error.controllerReplacementUnknown"><![CDATA[The controller “{$urlControllerReplacementError}” is unknown.]]></item>
 		<item name="wcf.acp.option.error.tooHigh"><![CDATA[Exceeds the maximum value{if $option->maxvalue !== null} of {#$option->maxvalue}{/if}.]]></item>
 		<item name="wcf.acp.option.error.tooLow"><![CDATA[Below the minimum value{if $option->minvalue !== null} of {#$option->minvalue}{/if}.]]></item>
 		<item name="wcf.acp.option.export"><![CDATA[Download Options]]></item>
@@ -852,7 +859,7 @@ Examples for medium ID detection:
 		<item name="wcf.acp.option.share_buttons_show_count"><![CDATA[Show number of shares]]></item>
 		<item name="wcf.acp.option.category.message.general.edit"><![CDATA[Edits]]></item>
 		<item name="wcf.acp.option.module_edit_history"><![CDATA[Enable Edit History]]></item>
-		<item name="wcf.acp.option.module_edit_history.description"><![CDATA[Stores old versions of user created items.]]]></item>
+		<item name="wcf.acp.option.module_edit_history.description"><![CDATA[Stores old versions of user created items.]]></item>
 		<item name="wcf.acp.option.edit_history_expiration"><![CDATA[Storage time]]></item>
 		<item name="wcf.acp.option.edit_history_expiration.description"><![CDATA[Items in the edit history will be discarded if they are older than the given period. [time in days, 0 to disable]]]></item>
 		<item name="wcf.acp.option.github_public_key"><![CDATA[GitHub Client ID]]></item>
@@ -979,6 +986,12 @@ Examples for medium ID detection:
 Examples:<br />
 WBB=WoltLab Burning Board<br />
 GmbH=Gesellschaft mit beschränkter Haftung]]></item>
+		<item name="wcf.acp.option.url_controller_replacement"><![CDATA[Controller Aliasing]]></item>
+		<item name="wcf.acp.option.url_controller_replacement.description"><![CDATA[You can rename controllers by assigning an alias to them, please provide only one alias per line. Aliases must be defined as “real-name=custom-name” and contain only lower-case a-z, the numbers 0-9 and the dash for compatibility reasons. Examples:
+<ul class="nativeList">
+	<li>“board-list=forums”, the link “http://example.com/index.php?board-list/” will turn into “http://example.com/index.php?forums/”</li>
+	<li>“members-list=profiles”, the link “http://example.com/index.php?members-list/” will turn into “http://example.com/index.php?profiles/”</li>
+</ul>]]></item>
 		<item name="wcf.acp.option.users_online_enable_legend"><![CDATA[Display legend for “Users Online” list]]></item>
 		<item name="wcf.acp.option.category.general.system.googleMaps"><![CDATA[Google Maps]]></item>
 		<item name="wcf.acp.option.google_maps_zoom"><![CDATA[Map Zoom]]></item>
@@ -1002,15 +1015,13 @@ GmbH=Gesellschaft mit beschränkter Haftung]]></item>
 		<item name="wcf.acp.option.module_cookie_policy_page"><![CDATA[Enable explanation on “Cookie Usage”]]></item>
 		<item name="wcf.acp.option.module_cookie_policy_page.description"><![CDATA[Displays a notice on cookie usage according to EU Directive 2009/136/EG upon first visit.]]></item>
 		<item name="wcf.acp.option.url_omit_index_php"><![CDATA[Enable URL-Rewrite]]></item>
-		<item name="wcf.acp.option.url_omit_index_php.description"><![CDATA[Rewrites URLs into a better readable representation, turning links like “http://example.com/?Thread/1-Hello-I-am-John-Doe/” into “http://example.com/thread/1-hello-i-am-john-doe/” and similar. Heads up! This option requires a rewrite module installed on your webserver and an appropriate configuration; It will not work without any prior configuration applied by you!]]></item>
+		<item name="wcf.acp.option.url_omit_index_php.description"><![CDATA[Rewrites URLs into a better readable representation, turning links like “http://example.com/index.php?thread/1-hello-i-am-john-doe/” into “http://example.com/thread/1-hello-i-am-john-doe/” and similar. Heads up! This option requires a rewrite module installed on your webserver and an appropriate configuration; It will not work without any prior configuration applied by you!<br>Please read the following article for instructions: <a href="{@$__wcf->getPath()}acp/dereferrer.php?url=https%3A%2F%2Fblog.woltlab.com%2Fentry%2F67-setting-up-user-friendly-urls%2F" class="externalURL">Setting up user friendly URLs</a>]]></item>
 		<item name="wcf.acp.option.url_legacy_mode"><![CDATA[Enable link compatibility mode]]></item>
 		<item name="wcf.acp.option.url_legacy_mode.description"><![CDATA[Enabling this option forces the system to use WoltLab Community Framework 2.0-compilant URLs and should only be used to ensure compatibility with legacy URLs:
 <ul class="nativeList">
 	<li>WCF 2.0: “index.php/Thread/123-Title/”</li>
-	<li>WCF 2.1+: “?Thread/123-Title/”</li>
+	<li>WCF 2.1+: “index.php?thread/123-title/”</li>
 </ul>]]></item>
-		<item name="wcf.acp.option.url_to_lowercase"><![CDATA[Force lower-case links]]></item>
-		<item name="wcf.acp.option.url_to_lowercase.description"><![CDATA[Links will no longer contain uppercase letters turning links like “Thread/1-Hello-I-am-John-Doe/” into “thread/1-hello-i-am-john-doe/”.]]></item>
 		<item name="wcf.acp.option.module_wcf_ad"><![CDATA[Ads]]></item>
 		<item name="wcf.acp.option.module_wcf_ad.description"><![CDATA[Enables the <a href="{link controller='AdList'}{/link}">advertisement management</a>.]]></item>
 		<item name="wcf.acp.option.captcha_type"><![CDATA[Captcha Type]]></item>
@@ -1028,7 +1039,7 @@ GmbH=Gesellschaft mit beschränkter Haftung]]></item>
 		<item name="wcf.acp.option.user_authentication_failure_ip_block"><![CDATA[Block from Login (IP)]]></item>
 		<item name="wcf.acp.option.user_authentication_failure_ip_block.description"><![CDATA[Once there have been more than the configured amount of failed attempts from the same IP address, the IP addresses will be temporarily blocked from logging in.]]></item>
 		<item name="wcf.acp.option.user_authentication_failure_user_captcha"><![CDATA[Captcha After Failed Attempts (User)]]></item>
-		<item name="wcf.acp.option.user_authentication_failure_user_captcha.description"><![CDATA[Once there have been more than the configured amount of failled attempts for the same user account, a captcha will be enforced regardless of the IP address.]]></item>
+		<item name="wcf.acp.option.user_authentication_failure_user_captcha.description"><![CDATA[Once there have been more than the configured amount of failed attempts for the same user account, a captcha will be enforced regardless of the IP address.]]></item>
 		<item name="wcf.acp.option.user_authentication_failure_expiration"><![CDATA[Prune Log Entries]]></item>
 		<item name="wcf.acp.option.user_authentication_failure_expiration.description"><![CDATA[Logs of failed login attempts will be automatically pruned after the configured amount of days, raising the limit will provide a longer history in expense for increased database storage usage.]]></item>
 		<item name="wcf.acp.option.gravatar_default_type"><![CDATA[Default Gravatar Type]]></item>
@@ -1197,6 +1208,7 @@ GmbH=Gesellschaft mit beschränkter Haftung]]></item>
 		<item name="wcf.acp.paidSubscription.subscriptionLengthUnit.D"><![CDATA[Day(s)]]></item>
 		<item name="wcf.acp.paidSubscription.subscriptionLengthUnit.M"><![CDATA[Month(s)]]></item>
 		<item name="wcf.acp.paidSubscription.subscriptionLengthUnit.Y"><![CDATA[Year(s)]]></item>
+		<item name="wcf.acp.paidSubscription.subscriptionLength.error.invalid"><![CDATA[You have entered an invalid length. You may set a maximum of 90 for “Day(s)”, 24 for “Month(s)” or 5 for “Year(s)”.]]></item>
 		<item name="wcf.acp.paidSubscription.showOrder"><![CDATA[Show Order]]></item>
 		<item name="wcf.acp.paidSubscription.showOrder.description"><![CDATA[Sets the show order for paid subscriptions.]]></item>
 		<item name="wcf.acp.paidSubscription.isDisabled"><![CDATA[Disable subscription]]></item>
@@ -1218,6 +1230,7 @@ GmbH=Gesellschaft mit beschränkter Haftung]]></item>
 		<item name="wcf.acp.paidSubscription.excludedSubscriptions.description"><![CDATA[Prevents purchasing of other subscriptions for buyers of this subscription.]]></item>
 		<item name="wcf.acp.paidSubscription.user.delete.confirmMessage"><![CDATA[Do you really want to terminate the subscription “{$subscriptionUser->title|language}” for the user “{$subscriptionUser->username}”?]]></item>
 		<item name="wcf.acp.paidSubscription.user.add"><![CDATA[Manually Add Subscription]]></item>
+		<item name="wcf.acp.paidSubscription.error.noPaymentMethods"><![CDATA[Adding subscriptions requires at least one active payment provider for the option “Supported Payment Methods”.]]></item>
 	</category>
 	
 	<category name="wcf.acp.pageMenu">
@@ -1265,9 +1278,11 @@ GmbH=Gesellschaft mit beschränkter Haftung]]></item>
 		<item name="wcf.acp.pluginStore.purchasedItems.status.update"><![CDATA[Newer Version Available]]></item>
 		<item name="wcf.acp.pluginStore.purchasedItems.status.unavailable"><![CDATA[Update-Server not installed]]></item>
 		<item name="wcf.acp.pluginStore.purchasedItems.status.upToDate"><![CDATA[You already have the most recent version installed]]></item>
+		<item name="wcf.acp.pluginStore.purchasedItems.status.requireUpdate"><![CDATA[Update-Server must be updated]]></item>
 		<item name="wcf.acp.pluginStore.purchasedItems.status.install.confirmMessage"><![CDATA[Do you really want to install the product “{$product[packageName]}”?]]></item>
 		<item name="wcf.acp.pluginStore.purchasedItems.updateServer.disabled"><![CDATA[The Update-Server for “{$wcfMajorRelease}” (“http://store.woltlab.com/{$wcfMajorRelease}/”) is disabled and cannot be used for new installs or updates.]]></item>
 		<item name="wcf.acp.pluginStore.purchasedItems.updateServer.missing"><![CDATA[The Update-Server for “{$wcfMajorRelease}” does not exist in your installation. If you wish to install the packages below, you must <a href="{link controller='PackageUpdateServerAdd'}{/link}">add it</a>.<br />The server address is: “http://store.woltlab.com/{$wcfMajorRelease}/”]]></item>
+		<item name="wcf.acp.pluginStore.purchasedItems.updateServer.requireUpdate"><![CDATA[The Update-Server for “{$wcfMajorRelease}” has not been queried yet, please search for updates to fetch the package list.]]></item>
 		<item name="wcf.acp.pluginStore.purchasedItems.wcfMajorRelease"><![CDATA[Update-Server for “{$wcfMajorRelease}”]]></item>
 	</category>
 	
@@ -1510,6 +1525,7 @@ GmbH=Gesellschaft mit beschränkter Haftung]]></item>
 		<item name="wcf.acp.template.group.name.error.notUnique"><![CDATA[This name is already taken by a different template group.]]></item>
 		<item name="wcf.acp.template.group.folderName.error.notValid"><![CDATA[The specified directory is invalid.]]></item>
 		<item name="wcf.acp.template.group.folderName.error.notUnique"><![CDATA[The specified directory is already in use by an other template group.]]></item>
+		<item name="wcf.acp.template.group.parentTemplateGroupID.error.notValid"><![CDATA[The specified Parent Template Group is invalid.]]></item>
 		<item name="wcf.acp.template.group.delete.sure"><![CDATA[Do you really want to remove the template group “{$templateGroup->templateGroupName}”?]]></item>
 		<item name="wcf.acp.template.source"><![CDATA[Template Source Code]]></item>
 		<item name="wcf.acp.template.name.error.notUnique"><![CDATA[This name is already taken by a different template]]></item>
@@ -1752,27 +1768,40 @@ Allowed extensions: {', '|implode:$attachmentHandler->getFormattedAllowedExtensi
 		<item name="wcf.bbcode.button.image"><![CDATA[Image]]></item>
 		<item name="wcf.bbcode.button.inlineCode"><![CDATA[Inline-Code]]></item>
 		<item name="wcf.bbcode.button.quote"><![CDATA[Quote]]></item>
+		<item name="wcf.bbcode.button.redo"><![CDATA[Redo]]></item>
 		<item name="wcf.bbcode.button.showAll"><![CDATA[Show All]]></item>
 		<item name="wcf.bbcode.button.spoiler"><![CDATA[Spoiler]]></item>
 		<item name="wcf.bbcode.button.subscript"><![CDATA[Subscript]]></item>
 		<item name="wcf.bbcode.button.superscript"><![CDATA[Superscript]]></item>
 		<item name="wcf.bbcode.button.toggleBBCode"><![CDATA[BBCode]]></item>
 		<item name="wcf.bbcode.button.toggleHTML"><![CDATA[WYSIWYG]]></item>
-		<item name="wcf.bbcode.code.text"><![CDATA[{@$highlighterTitle} ({#$lines} line{if $lines != 1}s{/if})]]></item>
+		<item name="wcf.bbcode.button.undo"><![CDATA[Undo]]></item>
+		<item name="wcf.bbcode.code"><![CDATA[Source Code]]></item>
 		<item name="wcf.bbcode.code.bash.title"><![CDATA[Shell-Script]]></item>
 		<item name="wcf.bbcode.code.brainfuck.title"><![CDATA[Brainfuck Source Code]]></item>
 		<item name="wcf.bbcode.code.c.title"><![CDATA[C Source Code]]></item>
 		<item name="wcf.bbcode.code.css.title"><![CDATA[CSS Source Code]]></item>
 		<item name="wcf.bbcode.code.diff.title"><![CDATA[Difference-File]]></item>
+		<item name="wcf.bbcode.code.edit"><![CDATA[Edit Source Code]]></item>
+		<item name="wcf.bbcode.code.filename"><![CDATA[Filename]]></item>
+		<item name="wcf.bbcode.code.filename.description"><![CDATA[Optional: Specify the displayed filename.]]></item>
+		<item name="wcf.bbcode.code.highlighter"><![CDATA[Syntax Highlighting]]></item>
+		<item name="wcf.bbcode.code.highlighter.description"><![CDATA[Highlighting is not shown within the editor.]]></item>
+		<item name="wcf.bbcode.code.highlighter.none"><![CDATA[(No Highlighting)]]></item>
 		<item name="wcf.bbcode.code.html.title"><![CDATA[HTML Source Code]]></item>
+		<item name="wcf.bbcode.code.insert"><![CDATA[Insert Source Code]]></item>
 		<item name="wcf.bbcode.code.java.title"><![CDATA[Java Source Code]]></item>
 		<item name="wcf.bbcode.code.js.title"><![CDATA[JavaScript Source Code]]></item>
+		<item name="wcf.bbcode.code.lineNumber"><![CDATA[Start Line Number]]></item>
+		<item name="wcf.bbcode.code.lineNumber.description"><![CDATA[Optional: Specify the start for line enumeration.]]></item>
 		<item name="wcf.bbcode.code.perl.title"><![CDATA[Perl Source Code]]></item>
 		<item name="wcf.bbcode.code.php.title"><![CDATA[PHP Source Code]]></item>
 		<item name="wcf.bbcode.code.plain.title"><![CDATA[Source Code]]></item>
 		<item name="wcf.bbcode.code.python.title"><![CDATA[Python Source Code]]></item>
+		<item name="wcf.bbcode.code.settings"><![CDATA[Settings]]></item>
 		<item name="wcf.bbcode.code.sql.title"><![CDATA[SQL-Query]]></item>
 		<item name="wcf.bbcode.code.tex.title"><![CDATA[TeX Source Code]]></item>
+		<item name="wcf.bbcode.code.text"><![CDATA[{@$highlighterTitle} ({#$lines} line{if $lines != 1}s{/if})]]></item>
 		<item name="wcf.bbcode.code.tpl.title"><![CDATA[Smarty-Template]]></item>
 		<item name="wcf.bbcode.code.xml.title"><![CDATA[XML Source Code]]></item>
 		<item name="wcf.bbcode.quote.edit"><![CDATA[Edit Quote]]></item>
@@ -1797,7 +1826,7 @@ Allowed extensions: {', '|implode:$attachmentHandler->getFormattedAllowedExtensi
 	<category name="wcf.captcha.question">
 		<item name="wcf.captcha.question.answer.error.false"><![CDATA[You have entered an incorrect answer.]]></item>
 		<item name="wcf.captcha.question.captcha"><![CDATA[Question]]></item>
-		<item name="wcf.captcha.question.captcha.description"><![CDATA[Please answer the question below or solve the problem below.]]></item>
+		<item name="wcf.captcha.question.captcha.description"><![CDATA[Please answer the question respectively solve the problem below.]]></item>
 	</category>
 	
 	<category name="wcf.captcha.recaptchaV2">
@@ -2037,7 +2066,8 @@ Errors are:
 		<item name="wcf.date.timezone.europe.helsinki"><![CDATA[(UTC+02:00) Helsinki, Kiev, Riga, Sofia, Tallinn, Vilnius]]></item>
 		<item name="wcf.date.timezone.asia.jerusalem"><![CDATA[(UTC+02:00) Jerusalem]]></item>
 		<item name="wcf.date.timezone.africa.cairo"><![CDATA[(UTC+02:00) Cairo]]></item>
-		<item name="wcf.date.timezone.europe.minsk"><![CDATA[(UTC+03:00) Kaliningrad, Minsk]]></item>
+		<item name="wcf.date.timezone.europe.kaliningrad"><![CDATA[(UTC+02:00) Kaliningrad]]></item>
+		<item name="wcf.date.timezone.europe.minsk"><![CDATA[(UTC+03:00) Minsk]]></item>
 		<item name="wcf.date.timezone.asia.baghdad"><![CDATA[(UTC+03:00) Baghdad]]></item>
 		<item name="wcf.date.timezone.asia.kuwait"><![CDATA[(UTC+03:00) Kuwait, Riyadh]]></item>
 		<item name="wcf.date.timezone.africa.nairobi"><![CDATA[(UTC+03:00) Nairobi]]></item>
@@ -2045,29 +2075,29 @@ Errors are:
 		<item name="wcf.date.timezone.asia.muscat"><![CDATA[(UTC+04:00) Abu Dhabi, Muscat]]></item>
 		<item name="wcf.date.timezone.asia.baku"><![CDATA[(UTC+04:00) Baku]]></item>
 		<item name="wcf.date.timezone.asia.yerevan"><![CDATA[(UTC+04:00) Yerevan]]></item>
-		<item name="wcf.date.timezone.europe.moscow"><![CDATA[(UTC+04:00) Moscow, Saint Petersburg, Volgograd]]></item>
+		<item name="wcf.date.timezone.europe.moscow"><![CDATA[(UTC+03:00) Moscow, Saint Petersburg, Volgograd]]></item>
 		<item name="wcf.date.timezone.indian.mauritius"><![CDATA[(UTC+04:00) Port Louis]]></item>
 		<item name="wcf.date.timezone.asia.tbilisi"><![CDATA[(UTC+04:00) Tbilisi]]></item>
 		<item name="wcf.date.timezone.asia.kabul"><![CDATA[(UTC+04:30) Kabul]]></item>
 		<item name="wcf.date.timezone.asia.karachi"><![CDATA[(UTC+05:00) Islamabad, Karachi]]></item>
-		<item name="wcf.date.timezone.asia.yekaterinburg"><![CDATA[(UTC+06:00) Yekaterinburg]]></item>
+		<item name="wcf.date.timezone.asia.yekaterinburg"><![CDATA[(UTC+05:00) Yekaterinburg]]></item>
 		<item name="wcf.date.timezone.asia.tashkent"><![CDATA[(UTC+05:00) Tashkent]]></item>
 		<item name="wcf.date.timezone.asia.kolkata"><![CDATA[(UTC+05:30) Chennai, Kolkata, Mumbai, New Delhi]]></item>
 		<item name="wcf.date.timezone.asia.colombo"><![CDATA[(UTC+05:30) Sri Jayawardenapura]]></item>
 		<item name="wcf.date.timezone.asia.katmandu"><![CDATA[(UTC+05:45) Kathmandu]]></item>
 		<item name="wcf.date.timezone.asia.almaty"><![CDATA[(UTC+06:00) Astana]]></item>
 		<item name="wcf.date.timezone.asia.dhaka"><![CDATA[(UTC+06:00) Dhaka]]></item>
-		<item name="wcf.date.timezone.asia.novosibirsk"><![CDATA[(UTC+07:00) Novosibirsk]]></item>
+		<item name="wcf.date.timezone.asia.novosibirsk"><![CDATA[(UTC+06:00) Novosibirsk]]></item>
 		<item name="wcf.date.timezone.asia.rangoon"><![CDATA[(UTC+06:30) Yangon (Rangoon)]]></item>
 		<item name="wcf.date.timezone.asia.bangkok"><![CDATA[(UTC+07:00) Bangkok, Hanoi, Jakarta]]></item>
-		<item name="wcf.date.timezone.asia.krasnoyarsk"><![CDATA[(UTC+08:00) Krasnoyarsk]]></item>
-		<item name="wcf.date.timezone.asia.irkutsk"><![CDATA[(UTC+09:00) Irkutsk]]></item>
+		<item name="wcf.date.timezone.asia.krasnoyarsk"><![CDATA[(UTC+07:00) Krasnoyarsk]]></item>
+		<item name="wcf.date.timezone.asia.irkutsk"><![CDATA[(UTC+08:00) Irkutsk]]></item>
 		<item name="wcf.date.timezone.asia.kuala_lumpur"><![CDATA[(UTC+08:00) Kuala Lumpur, Singapore]]></item>
 		<item name="wcf.date.timezone.asia.chongqing"><![CDATA[(UTC+08:00) Beijing, Chongqing, Hong Kong, Ürümqi]]></item>
 		<item name="wcf.date.timezone.australia.perth"><![CDATA[(UTC+08:00) Perth]]></item>
 		<item name="wcf.date.timezone.asia.taipei"><![CDATA[(UTC+08:00) Taipei]]></item>
 		<item name="wcf.date.timezone.asia.ulaanbaatar"><![CDATA[(UTC+08:00) Ulan Bator]]></item>
-		<item name="wcf.date.timezone.asia.yakutsk"><![CDATA[(UTC+10:00) Yakutsk]]></item>
+		<item name="wcf.date.timezone.asia.yakutsk"><![CDATA[(UTC+09:00) Yakutsk]]></item>
 		<item name="wcf.date.timezone.asia.tokyo"><![CDATA[(UTC+09:00) Osaka, Sapporo, Tokyo]]></item>
 		<item name="wcf.date.timezone.asia.seoul"><![CDATA[(UTC+09:00) Seoul]]></item>
 		<item name="wcf.date.timezone.australia.adelaide"><![CDATA[(UTC+09:30) Adelaide]]></item>
@@ -2076,8 +2106,7 @@ Errors are:
 		<item name="wcf.date.timezone.australia.sydney"><![CDATA[(UTC+10:00) Canberra, Melbourne, Sydney]]></item>
 		<item name="wcf.date.timezone.pacific.guam"><![CDATA[(UTC+10:00) Guam, Port Moresby]]></item>
 		<item name="wcf.date.timezone.australia.hobart"><![CDATA[(UTC+10:00) Hobart]]></item>
-		<item name="wcf.date.timezone.asia.vladivostok"><![CDATA[(UTC+11:00) Vladivostok]]></item>
-		<item name="wcf.date.timezone.asia.magadan"><![CDATA[(UTC+12:00) Magadan]]></item>
+		<item name="wcf.date.timezone.asia.vladivostok"><![CDATA[(UTC+10:00) Magadan, Vladivostok]]></item>
 		<item name="wcf.date.timezone.pacific.noumea"><![CDATA[(UTC+11:00) Solomon Islands, New Caledonia]]></item>
 		<item name="wcf.date.timezone.pacific.auckland"><![CDATA[(UTC+12:00) Auckland, Wellington]]></item>
 		<item name="wcf.date.timezone.pacific.fiji"><![CDATA[(UTC+12:00) Fiji]]></item>
@@ -2261,6 +2290,9 @@ Errors are:
 	</category>
 	
 	<category name="wcf.message">
+		<item name="wcf.message.autosave.prompt"><![CDATA[Restore saved draft?]]></item>
+		<item name="wcf.message.autosave.prompt.confirm"><![CDATA[Restore draft]]></item>
+		<item name="wcf.message.autosave.prompt.discard"><![CDATA[Discard draft]]></item>
 		<item name="wcf.message.autosave.restored"><![CDATA[Draft restored]]></item>
 		<item name="wcf.message.autosave.restored.confirm"><![CDATA[Keep]]></item>
 		<item name="wcf.message.autosave.restored.revert"><![CDATA[Discard and Clear Editor]]></item>
@@ -2494,13 +2526,13 @@ Errors are:
 <li>Third-Party Services: Displayed ads or sharing content through social networks or comparable actions might cause a cookie created by them.</li>
 </ul>
 
-<h2>How to disable or delete cookies</h2>	
+<h2>How to disable or delete cookies</h2>
 <p>Your internet browser offers specialized options to manage and remove cookies. They offer settings to reject many or all cookies. Please refer to the instructions for your internet browser from the list below.</p>
 <ul>
 <li><a href="https://support.google.com/chrome/answer/95647?hl=en" class="externalURL" rel="nofollow">Google Chrome</a></li>
 <li><a href="https://support.mozilla.org/en-US/kb/cookies-information-websites-store-on-your-computer" class="externalURL" rel="nofollow">Mozilla Firefox</a></li>
 <li><a href="http://help.opera.com/Windows/12.00/en/cookies.html" class="externalURL" rel="nofollow">Opera</a></li>
-<li><a href="http://support.apple.com/kb/ph11920" class="externalURL" rel="nofollow">Safari</a></li>
+<li><a href="https://support.apple.com/kb/ph17191?locale=en_US" class="externalURL" rel="nofollow">Safari</a></li>
 <li><a href="http://windows.microsoft.com/en-US/internet-explorer/delete-manage-cookies" class="externalURL" rel="nofollow">Windows Internet Explorer</a></li>
 </ul>]]></item>
 		<item name="wcf.page.category.com.woltlab.wcf.moderation"><![CDATA[Moderation]]></item>
@@ -2638,6 +2670,7 @@ Errors are:
 		<item name="wcf.user.confirmPassword"><![CDATA[Confirm Password]]></item>
 		<item name="wcf.user.confirmEmail.error.notEqual"><![CDATA[The entered email addresses do not match.]]></item>
 		<item name="wcf.user.confirmPassword.error.notEqual"><![CDATA[The entered passwords do not match.]]></item>
+		<item name="wcf.user.controlPanel"><![CDATA[Control Panel]]></item>
 		<item name="wcf.user.email"><![CDATA[Email]]></item>
 		<item name="wcf.user.email.error.notUnique"><![CDATA[Email is already in use.]]></item>
 		<item name="wcf.user.email.error.notValid"><![CDATA[Email is invalid.]]></item>
@@ -2944,18 +2977,18 @@ You can safely ignore this email if you did not register with the website: {@PAG
 {/if}]]></item>
 		<item name="wcf.user.usersOnline.invisible"><![CDATA[ (invisible)]]></item>
 		<item name="wcf.user.usersOnline.marking.legend"><![CDATA[Legend]]></item>
-		<item name="wcf.user.usersOnline.location.UserPage"><![CDATA[Viewing user profile <a href="{link controller='User' object=$user}{/link}" class="userLink" data-user-id="{@$user->userID}">{$user->username}</a>.]]></item>
-		<item name="wcf.user.usersOnline.location.UsersOnlineListPage"><![CDATA[Viewing users online.]]></item>
-		<item name="wcf.user.usersOnline.location.MembersListPage"><![CDATA[Viewing members list.]]></item>
-		<item name="wcf.user.usersOnline.location.TeamPage"><![CDATA[Viewing list of staff members.]]></item>
-		<item name="wcf.user.usersOnline.location.DashboardPage"><![CDATA[Viewing dashboard.]]></item>
-		<item name="wcf.user.usersOnline.location.RegisterForm"><![CDATA[Registering themself.]]></item>
-		<item name="wcf.user.usersOnline.location.LostPasswordForm"><![CDATA[Requesting a new password.]]></item>
-		<item name="wcf.user.usersOnline.location.LoginForm"><![CDATA[Logins themself.]]></item>
-		<item name="wcf.user.usersOnline.location.AccountManagementForm"><![CDATA[Managing their account.]]></item>
-		<item name="wcf.user.usersOnline.location.AvatarEditForm"><![CDATA[Editing their avatar.]]></item>
-		<item name="wcf.user.usersOnline.location.SettingsForm"><![CDATA[Editing their settings.]]></item>
-		<item name="wcf.user.usersOnline.location.SignatureEditForm"><![CDATA[Editing their signature.]]></item>
+		<item name="wcf.user.usersOnline.location.UserPage"><![CDATA[Viewing user profile <a href="{link controller='User' object=$user}{/link}" class="userLink" data-user-id="{@$user->userID}">{$user->username}</a>]]></item>
+		<item name="wcf.user.usersOnline.location.UsersOnlineListPage"><![CDATA[Viewing users online]]></item>
+		<item name="wcf.user.usersOnline.location.MembersListPage"><![CDATA[Viewing members list]]></item>
+		<item name="wcf.user.usersOnline.location.TeamPage"><![CDATA[Viewing list of staff members]]></item>
+		<item name="wcf.user.usersOnline.location.DashboardPage"><![CDATA[Viewing dashboard]]></item>
+		<item name="wcf.user.usersOnline.location.RegisterForm"><![CDATA[Registering themself]]></item>
+		<item name="wcf.user.usersOnline.location.LostPasswordForm"><![CDATA[Requesting a new password]]></item>
+		<item name="wcf.user.usersOnline.location.LoginForm"><![CDATA[Logins themself]]></item>
+		<item name="wcf.user.usersOnline.location.AccountManagementForm"><![CDATA[Managing their account]]></item>
+		<item name="wcf.user.usersOnline.location.AvatarEditForm"><![CDATA[Editing their avatar]]></item>
+		<item name="wcf.user.usersOnline.location.SettingsForm"><![CDATA[Editing their settings]]></item>
+		<item name="wcf.user.usersOnline.location.SignatureEditForm"><![CDATA[Editing their signature]]></item>
 		<item name="wcf.user.usersOnline.guests"><![CDATA[Guests]]></item>
 		<item name="wcf.user.usersOnline.location"><![CDATA[Location]]></item>
 		<item name="wcf.user.usersOnline.ipAddress"><![CDATA[IP Address]]></item>
@@ -3026,7 +3059,7 @@ You can safely ignore this email if you did not register with the website: {@PAG
 		<item name="wcf.user.avatar.type.custom"><![CDATA[Upload Own Avatar]]></item>
 		<item name="wcf.user.avatar.type.custom.crop"><![CDATA[Crop Avatar]]></item>
 		<item name="wcf.user.avatar.type.custom.crop.description"><![CDATA[The scaled versions of your avatar are based on a square cutout. You may specify an individual cutout by holding down your mouse button and moving the highlighted area to the desired position.]]></item>
-		<item name="wcf.user.avatar.type.custom.description"><![CDATA[You may use the following file extensions “{"\n"|str_replace:', ':$__wcf->session->getPermission('user.profile.avatar.allowedFileExtensions')}” for your avatar with a maximum file size of {@$__wcf->session->getPermission('user.profile.avatar.maxSize')|filesize}. The minimum dimensions are 48×48 pixel, it is recommended to provide a dimension of {@MAX_AVATAR_WIDTH}×{@MAX_AVATAR_HEIGHT} pixel. Any avatar that exceeds this limit will be scaled down if possible.]]></item>
+		<item name="wcf.user.avatar.type.custom.description"><![CDATA[You may use the following file extensions “{"\n"|str_replace:', ':$__wcf->session->getPermission('user.profile.avatar.allowedFileExtensions')}” for your avatar with a maximum file size of {@$__wcf->session->getPermission('user.profile.avatar.maxSize')|filesize}. The minimum dimensions are 96×96 pixel, it is recommended to provide a dimension of {@MAX_AVATAR_WIDTH}×{@MAX_AVATAR_HEIGHT} pixel. Any avatar that exceeds this limit will be scaled down if possible.]]></item>
 		<item name="wcf.user.avatar.type.gravatar"><![CDATA[Use Gravatar]]></item>
 		<item name="wcf.user.avatar.type.gravatar.description"><![CDATA[Gravatar (Global Recognized Avatar) provides a globally reusable avatar connected with your email address “{$__wcf->user->email}”. Visit <a href="http://www.gravatar.com" class="externalURL"{if EXTERNAL_LINK_TARGET_BLANK} target="_blank"{/if}>www.gravatar.com</a> to set up or change your avatar.]]></item>
 		<item name="wcf.user.avatar.type.gravatar.error.notFound"><![CDATA[Your email address is not connected with a gravatar.]]></item>

@@ -4,7 +4,7 @@
  * Namespace for moderation related classes.
  * 
  * @author	Alexander Ebert
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  */
 WCF.Moderation = { };
@@ -571,7 +571,7 @@ WCF.Moderation.Report.Content = Class.extend({
 	 */
 	_submit: function() {
 		var $text = this._dialog.find('.jsReportMessage').val();
-		if ($text == '') {
+		if ($.trim($text) == '') {
 			this._dialog.find('fieldset > dl').addClass('formError');
 			
 			if (!this._dialog.find('.innerError').length) {

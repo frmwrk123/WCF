@@ -4,13 +4,14 @@ use wcf\data\dashboard\box\DashboardBox;
 use wcf\data\user\UserProfileList;
 use wcf\page\IPage;
 use wcf\system\cache\builder\MostActiveMembersCacheBuilder;
+use wcf\system\request\LinkHandler;
 use wcf\system\WCF;
 
 /**
  * Shows a list of the most active members.
  * 
  * @author	Marcel Werk
- * @copyright	2001-2014 WoltLab GmbH
+ * @copyright	2001-2015 WoltLab GmbH
  * @license	GNU Lesser General Public License <http://opensource.org/licenses/lgpl-license.php>
  * @package	com.woltlab.wcf
  * @subpackage	system.dashboard.box
@@ -48,6 +49,9 @@ class MostActiveMembersDashboardBox extends AbstractSidebarDashboardBox {
 	protected function render() {
 		if ($this->userProfileList == null) return '';
 		
+		if (MODULE_MEMBERS_LIST) {
+			$this->titleLink = LinkHandler::getInstance()->getLink('MembersList', array(), 'sortField=activityPoints&sortOrder=DESC');
+		}
 		WCF::getTPL()->assign(array(
 			'mostActiveMembers' => $this->userProfileList
 		));
