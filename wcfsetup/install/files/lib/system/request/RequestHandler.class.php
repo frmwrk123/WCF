@@ -263,8 +263,8 @@ class RequestHandler extends SingletonFactory {
 		
 		// append the remaining query parameters
 		foreach ($_GET as $key => $value) {
-			if (!empty($value)) {
-				$linkData[$key] = $value;
+			if (!empty($value) && $key != 'controller') {
+				$routeData[$key] = $value;
 			}
 		}
 		

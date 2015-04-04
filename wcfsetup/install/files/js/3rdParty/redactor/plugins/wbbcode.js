@@ -290,13 +290,14 @@ RedactorPlugins.wbbcode = function() {
 			
 			// preserve code listings
 			var $cachedCodeListings = { };
-			html = html.replace(/<div class="codeBox[^"]+"(.*?)>\n*<div>[\s\S]+?<ol start="(\d+)">([\s\S]+?)<\/ol>\n*<\/div>\n*<\/div>/g, function(match, codeBoxAttributes, lineNumber, codeContent) {
+			html = html.replace(/<div([^>]+?)class="codeBox[^"]+"([^>]*?)>\n*<div>[\s\S]+?<ol start="(\d+)">([\s\S]+?)<\/ol>\n*<\/div>\n*<\/div>/g, function(match, codeBoxAttributes1, codeBoxAttributes2, lineNumber, codeContent) {
+				var $attributes = codeBoxAttributes1 + ' ' + codeBoxAttributes2;
 				var $highlighter = '';
 				var $filename = '';
-				if (codeBoxAttributes.match(/data-highlighter="([a-zA-Z]+)"/)) {
+				if ($attributes.match(/data-highlighter="([a-zA-Z]+)"/)) {
 					$highlighter = RegExp.$1;
 				}
-				if (codeBoxAttributes.match(/data-filename="([^"]+)"/)) {
+				if ($attributes.match(/data-filename="([^"]+)"/)) {
 					$filename = $.trim(RegExp.$1);
 				}
 				
@@ -404,7 +405,7 @@ RedactorPlugins.wbbcode = function() {
 				
 				return $quote;
 			});
-			html = html.replace(/(?:\n*)<\/blockquote>\n?/gi, '[/quote]\n');
+			html = html.replace(/(?:\n*)<\/blockquote>\n?/gi, '\n[/quote]\n');
 			
 			// [email]
 			html = html.replace(/<a [^>]*?href=(["'])mailto:(.+?)\1.*?>([\s\S]+?)<\/a>/gi, '[email=$2]$3[/email]');
@@ -615,7 +616,7 @@ RedactorPlugins.wbbcode = function() {
 			html = html.replace(/ ?<img [^>]*?class="smiley"[^>]*?alt="([^"]+?)"[^>]*?> ?/gi, ' $1 '); // chrome, ie
 			
 			// attachments
-			html = html.replace(/<img(.*?)class="[^"]*redactorEmbeddedAttachment[^"]*"(.*?)>/gi, function(match, attributesBefore, attributesAfter) {
+			html = html.replace(/<img([^>]*?)class="[^"]*redactorEmbeddedAttachment[^"]*"([^>]*?)>/gi, function(match, attributesBefore, attributesAfter) {
 				var $attributes = attributesBefore + ' ' + attributesAfter;
 				var $attachmentID;
 				if ($attributes.match(/data-attachment-id="(\d+)"/)) {
@@ -653,7 +654,7 @@ RedactorPlugins.wbbcode = function() {
 			});
 			
 			// [img]
-			html = html.replace(/<img [^>]*?src=(["'])([^"']+?)\1.*?style="([^"]+)".*?>/gi, function(match, quotationMarks, source, style) {
+			html = html.replace(/<img [^>]*?src=(["'])([^"']+?)\1[^>]*?style="([^"]+)"[^>]*?>/gi, function(match, quotationMarks, source, style) {
 				var $float = 'none';
 				var $width = 0;
 				
@@ -678,7 +679,7 @@ RedactorPlugins.wbbcode = function() {
 				return "[img]" + source + "[/img]";
 			});
 			
-			html = html.replace(/<img [^>]*?src=(["'])([^"']+?)\1.*?>/gi, '[img]$2[/img]');
+			html = html.replace(/<img [^>]*?src=(["'])([^"']+?)\1[^>]*?>/gi, '[img]$2[/img]');
 			
 			// [*]
 			html = html.replace(/<li>/gi, '[*]');
@@ -765,14 +766,13 @@ RedactorPlugins.wbbcode = function() {
 						break;
 						
 						case 2:
-							if (listing.highlighter) {
-								$attributes = listing.highlighter;
+							if (listing.lineNumber) {
+								$attributes = listing.lineNumber;
 							}
 							
-							if (listing.lineNumber) {
+							if (listing.highlighter) {
 								if ($attributes.length) $attributes += ',';
-								
-								$attributes += listing.lineNumber;
+								$attributes += listing.highlighter;
 							}
 							
 							if (listing.filename) {
@@ -877,7 +877,7 @@ RedactorPlugins.wbbcode = function() {
 			
 			// [s]
 			data = data.replace(/\[s\]([\s\S]*?)\[\/s]/gi, (function(match, content) {
-				return this.wbbcode._expandFormatting(content, '<strike>', '</strike>');
+				return this.wbbcode._expandFormatting(content, '<del>', '</del>');
 			}).bind(this));
 			
 			// [sub]
@@ -932,8 +932,8 @@ RedactorPlugins.wbbcode = function() {
 			}).bind(this));
 			
 			// [align]
-			data = data.replace(/\[align=(left|right|center|justify)\]([\s\S]*?)\[\/align\]\n?/gi, (function(match, alignment, content) {
-				return this.wbbcode._expandFormatting(content, '<div style="text-align: ' + alignment + '">', '</div>');
+			data = data.replace(/\[align=(left|right|center|justify)\]([\s\S]*?)\[\/align\]/gi, (function(match, alignment, content) {
+				return this.wbbcode._expandFormatting(content, '<p style="text-align: ' + alignment + '">', '</p>');
 			}).bind(this));
 			
 			// search for [*] not preceeded by [list by searching for the first occurence of [list and then check the left
@@ -1198,6 +1198,11 @@ RedactorPlugins.wbbcode = function() {
 				}
 			}
 			
+			// fix newlines in tables represented with <p>...</p> instead of <br>
+			data = data.replace(/<td>([\s\S]+?)<\/td>/g, function(match, content) {
+				return '<td>' + content.replace(/<p>/g, '').replace(/<\/p>/g, '<br>').replace(/<br>$/, '') + '</td>';
+			});
+			
 			// insert list items
 			if ($listItems.length) {
 				for (var $i = $listItems.length - 1; $i >= 0; $i--) {
@@ -1298,10 +1303,38 @@ RedactorPlugins.wbbcode = function() {
 					var $value = $cachedCode.value;
 					
 					// [tt]
-					//$value = $value.replace(/^\[tt\](.*)\[\/tt\]/, '<span class="inlineCode">$1</span>');
+					$value = $value.replace(/^\[tt\]([\s\S]+)\[\/tt\]/, (function(match, content) {
+						var $tmp = content.split("\n");
+						content = '';
+						
+						for (var $i = 0, $length = $tmp.length; $i < $length; $i++) {
+							var $line = $tmp[$i];
+							
+							if ($line.length) {
+								if (content.length) content += '</p><p>';
+								
+								content += '[tt]' + $line + '[/tt]';
+							}
+							else {
+								if ($i === 0 || ($i + 1) === $length) {
+									// ignore the first and last empty element
+									continue;
+								}
+								
+								if (content.match(/\[\/tt\]$/)) {
+									content += '</p><p>' + this.opts.invisibleSpace + '';
+								}
+								else {
+									content += '</p><p><br>';
+								}
+							}
+						}
+						
+						return content;
+					}).bind(this));
 					
 					// [code]
-					$value = $value.replace(/^\[code([^\]]*)\]([\S\s]*)\[\/code\]$/, function(matches, parameters, content) {
+					$value = $value.replace(/^\[code([^\]]*)\]([\S\s]*)\[\/code\]$/, (function(matches, parameters, content) {
 						var $highlighter = 'plain';
 						var $lineNumber = 0;
 						var $filename = '';
@@ -1311,8 +1344,8 @@ RedactorPlugins.wbbcode = function() {
 							parameters = parameters.split(',');
 							
 							var $isNumber = function(string) { return string.match(/^\d+$/); };
-							var $isFilename = function(string) { return (string.indexOf('.') !== -1); };
-							var $isHighlighter = function(string) { return  (__REDACTOR_CODE_HIGHLIGHTERS[parameters[0]] !== undefined); };
+							var $isFilename = function(string) { return (string.indexOf('.') !== -1) || (string.match(/^(["']).*\1$/)); };
+							var $isHighlighter = function(string) { return  (__REDACTOR_CODE_HIGHLIGHTERS[string] !== undefined); };
 							
 							var $unquoteFilename = function(filename) {
 								return filename.replace(/^(["'])(.*)\1$/, '$2');
@@ -1335,11 +1368,11 @@ RedactorPlugins.wbbcode = function() {
 									if ($isNumber(parameters[0])) {
 										$lineNumber = (parseInt(parameters[0]) > 1) ? parameters[0] : 0;
 										
-										if ($isFilename(parameters[1])) {
-											$filename = $unquoteFilename(parameters[1]);
-										}
-										else if ($isHighlighter(parameters[1])) {
+										if ($isHighlighter(parameters[1])) {
 											$highlighter = parameters[1];
+										}
+										else if ($isFilename(parameters[1])) {
+											$filename = $unquoteFilename(parameters[1]);
 										}
 									}
 									else {
@@ -1359,7 +1392,12 @@ RedactorPlugins.wbbcode = function() {
 						content = content.replace(/^\n+/, '').replace(/\n+$/, '').split(/\n/);
 						var $lines = '';
 						for (var $i = 0; $i < content.length; $i++) {
-							$lines += '<li>' + content[$i] + '</li>';
+							var $line = content[$i];
+							if (!$line.length) {
+								$line = this.opts.invisibleSpace;
+							}
+							
+							$lines += '<li>' + $line + '</li>';
 						}
 						
 						return '<div class="codeBox container" contenteditable="false" data-highlighter="' + $highlighter + '"' + ($filename ? ' data-filename="' + WCF.String.escapeHTML($filename) + '"' : '' ) + '>'
@@ -1372,8 +1410,9 @@ RedactorPlugins.wbbcode = function() {
 								+ '</ol>'
 							+ '</div>'
 						+ '</div>';
-					});
+					}).bind(this));
 					
+					data = data.replace(new RegExp('(?:<p>)?(@@' + $cachedCode.key + '@@)(?:<\/p>)?', 'g'), '$1');
 					data = data.replace($regex, $value);
 				}
 			}
@@ -1400,9 +1439,13 @@ RedactorPlugins.wbbcode = function() {
 			content = '';
 			
 			for (var $i = 0, $length = $tmp.length; $i < $length; $i++) {
-				if (content.length) content += '\n';
+				var $line = $tmp[$i];
+				if ($line.length === 0) {
+					$line = this.opts.invisibleSpace;
+				}
 				
-				content += openingTag + $tmp[$i] + closingTag;
+				if (content.length) content += '\n';
+				content += openingTag + $line + closingTag;
 			}
 			
 			return content;
@@ -1995,7 +2038,7 @@ RedactorPlugins.wbbcode = function() {
 			var $link = quote.attr('cite');
 			if ($link) $link = WCF.String.escapeHTML($link);
 			
-			quote.find('> div > header > h3').empty().append(this.wbbcode._buildQuoteHeader($author, $link));	
+			quote.find('> header > h3').empty().append(this.wbbcode._buildQuoteHeader($author, $link));	
 		},
 		
 		/**
@@ -2031,7 +2074,29 @@ RedactorPlugins.wbbcode = function() {
 				// assign a unique id in order to recognize the inserted quote
 				$html = $html.replace(/<blockquote/, '<blockquote id="' + $id + '"');
 				
+				var $originalRange = window.getSelection().getRangeAt(0).cloneRange();
+				
+				this.wutil.restoreSelection();
+				var $selection = window.getSelection().getRangeAt(0);
+				var $current = $selection.startContainer;
+				while ($current) {
+					var $parent = $current.parentNode;
+					if ($parent === this.$editor[0]) {
+						break;
+					}
+					
+					$current = $parent;
+				}
+				
+				if ($current && $current.parentNode === this.$editor[0]) {
+					if ($current.innerHTML.length) {
+						this.wutil.setCaretAfter($current);
+					}
+				}
+				
 				this.insert.html($html, false);
+				
+				$originalRange.deleteContents();
 				
 				$quote = this.$editor.find('#' + $id);
 				if ($quote.length) {
@@ -2140,6 +2205,11 @@ RedactorPlugins.wbbcode = function() {
 					
 					var $codeFilename = $.trim($filename.val().replace(/['"]/g, ''));
 					var $bbcode = '[code=' + $highlighter.val() + ',' + $lineNumber.val() + ($codeFilename.length ? ",'" + $codeFilename + "'" : '') + ']';
+					if ($bbcode.match(/\[code=([^,]+),(\d+)\]/)) {
+						// reverse line number and highlighter
+						$bbcode = '[code=' + RegExp.$2 + ',' + RegExp.$1 + ']';
+					}
+					
 					$bbcode += $codeBoxContent;
 					$bbcode += '[/code]';
 					
@@ -2148,6 +2218,7 @@ RedactorPlugins.wbbcode = function() {
 					var $html = this.wbbcode.convertToHtml($bbcode);
 					
 					this.buffer.set();
+					
 					this.insert.html($html, false);
 					
 					// set caret after code listing
@@ -2237,35 +2308,28 @@ RedactorPlugins.wbbcode = function() {
 		},
 		
 		/**
-		 * Ensures that there is a paragraph in front of each block-level element because you cannot click in between two of them.
+		 * Inserting block-level elements (e.g. quotes or code bbcode) can lead to void paragraphs.
 		 */
 		fixBlockLevelElements: function() {
-			return;
-			var $addSpacing = (function(referenceElement, target) {
-				var $tagName = 'P';
-				
-				// fix reference element if a block element is within a quote (wrapped by <div>...</div>)
-				if (referenceElement.parentElement.tagName === 'DIV' && referenceElement.parentElement !== this.$editor[0]) {
-					referenceElement = referenceElement.parentElement;
-					$tagName = 'DIV';
-				}
-				
-				// no previous/next element or it is not a <p> (default) or <div> (within quotes)
-				if (referenceElement[target] === null || referenceElement[target].tagName !== $tagName) {
-					$('<' + $tagName + '>' + this.opts.invisibleSpace + '</' + $tagName + '>')[(target === 'previousElementSibling' ? 'insertBefore' : 'insertAfter')](referenceElement);
-				}
-				else if (referenceElement.previousElementSibling.tagName === $tagName) {
-					// previous/next element is empty or contains an empty <p></p> (block element is a direct children of the editor)
-					if (!referenceElement[target].innerHTML.length || referenceElement[target].innerHTML.toLowerCase() === '<p></p>') {
-						$(referenceElement[target]).html(this.opts.invisibleSpace);
+			var $removeVoidElements = (function(referenceElement, position) {
+				var $sibling = referenceElement[position];
+				if ($sibling && $sibling.nodeType === Node.ELEMENT_NODE && $sibling.tagName === 'P') {
+					if (!$sibling.innerHTML.length) {
+						$sibling.parentElement.removeChild($sibling);
+					}
+					else if ($sibling.innerHTML === '\u200b') {
+						var $adjacentSibling = $sibling[position];
+						if ($adjacentSibling && $adjacentSibling.nodeType === Node.ELEMENT_NODE && $adjacentSibling.tagName === 'P' && $adjacentSibling.innerHTML.length) {
+							$sibling.parentElement.removeChild($sibling);
+						}
 					}
 				}
 			}).bind(this);
 			
-			this.$editor.find('blockquote, .codeBox').each((function(index, blockElement) {
-				$addSpacing(blockElement, 'previousElementSibling');
-				$addSpacing(blockElement, 'nextElementSibling');
-			}).bind(this));
+			this.$editor.find('blockquote, .codeBox').each(function() {
+				$removeVoidElements(this, 'previousElementSibling');
+				$removeVoidElements(this, 'nextElementSibling');
+			});
 		},
 		
 		/**

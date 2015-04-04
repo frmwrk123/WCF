@@ -22,7 +22,8 @@ WCF.Location.Util = {
 	 * @param	integer		timeout
 	 */
 	getLocation: function(callback, timeout) {
-		if (navigator.geolocation) {
+		var $accessUserLocation = WCF.Location.GoogleMaps.Settings.get('accessUserLocation');
+		if (navigator.geolocation && $accessUserLocation !== null && $accessUserLocation) {
 			navigator.geolocation.getCurrentPosition(function(position) {
 				callback(position.coords.latitude, position.coords.longitude);
 			}, function() {
@@ -363,6 +364,19 @@ WCF.Location.GoogleMaps.Map = Class.extend({
 		}
 		
 		this._markers = [ ];
+	},
+	
+	/**
+	 * Changes the bounds of the map.
+	 * 
+	 * @param	object		northEast
+	 * @param	object		southWest
+	 */
+	setBounds: function(northEast, southWest) {
+		this._map.fitBounds(new google.maps.LatLngBounds(
+			new google.maps.LatLng(southWest.latitude, southWest.longitude),
+			new google.maps.LatLng(northEast.latitude, northEast.longitude)
+		));
 	},
 	
 	/**

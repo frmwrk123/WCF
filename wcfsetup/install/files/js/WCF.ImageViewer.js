@@ -558,6 +558,24 @@ $.widget('ui.wcfImageViewer', {
 			});
 			
 			var $item = this._ui.imageList.children('li:eq(' + $i + ')');
+			
+			// check if currently active image does not exist anymore
+			if (this._active !== -1) {
+				var $clear = false;
+				if (this._active != $item.data('index')) {
+					$clear = true;
+				}
+				
+				if (this._ui.images[this._activeImage].prop('src') != this._images[this._active].image.url) {
+					$clear = true;
+				}
+				
+				if ($clear) {
+					// reset active state
+					this._active = -1;
+				}
+			}
+			
 			$item.trigger('click');
 			this.moveToImage($item.data('index'));
 		}
@@ -720,24 +738,13 @@ $.widget('ui.wcfImageViewer', {
 		}
 		
 		if (this.options.staticViewer && !imageData.image.height && $image[0].complete) {
-			var $img = new Image();
-			$img.src = imageData.image.url;
+			$image.css({
+				height: 'auto',
+				width: 'auto'
+			});
 			
-			// Chrome on iOS seems to not fetch images from cache
-			if (navigator.userAgent.match(/CriOS/)) {
-				var self = this;
-				$img.onload = function() {
-					imageData.image.height = this.height;
-					imageData.image.width = this.width;
-					
-					self._renderImage(targetIndex, imageData, containerDimensions);
-				};
-				
-				return;
-			}
-			
-			imageData.image.height = $img.height;
-			imageData.image.width = $img.width;
+			imageData.image.height = $image[0].height;
+			imageData.image.width = $image[0].width;
 		}
 		
 		var $height = imageData.image.height;

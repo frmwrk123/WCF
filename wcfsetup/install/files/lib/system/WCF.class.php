@@ -38,7 +38,7 @@ if (!@ini_get('date.timezone')) {
 }
 
 // define current wcf version
-define('WCF_VERSION', '2.1.1 (Typhoon)');
+define('WCF_VERSION', '2.1.2 pl 1 (Typhoon)');
 
 // define current unix timestamp
 define('TIME_NOW', time());
@@ -764,12 +764,10 @@ class WCF {
 			return $baseHref . $path;
 		}
 		else {
-			$queryString = $_SERVER['QUERY_STRING'];
-			if (!StringUtil::isUTF8($queryString)) {
-				$queryString = StringUtil::convertEncoding('ISO-8859-1', 'UTF-8', $queryString);
-			}
+			$url = preg_replace('~^(https?://[^/]+)(?:/.*)?$~', '$1', self::getTPL()->get('baseHref'));
+			$url .= $_SERVER['REQUEST_URI'];
 			
-			return self::getTPL()->get('baseHref') . ($queryString ? '?' . $queryString : '');
+			return $url;
 		}
 	}
 	

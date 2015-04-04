@@ -763,9 +763,10 @@ RedactorPlugins.wutil = function() {
 						this.wutil.selectionEndOfEditor();
 					}
 					else {
-						var $p = $('<p><br></p>').insertAfter($insertAfter);
+						this.caret.setAfter($insertAfter);
+						/*var $p = $('<p><br></p>').insertAfter($insertAfter);
 						
-						this.caret.setEnd($p);
+						this.caret.setEnd($p);*/
 					}
 				}
 			}
@@ -996,6 +997,10 @@ RedactorPlugins.wutil = function() {
 					var $parent = $listItem.parentElement;
 					if ($parent.children.length > 1) {
 						$listItem.parentElement.removeChild($listItem);
+						
+						// node list is live
+						$i--;
+						$length--;
 					}
 				}
 			}
@@ -1005,6 +1010,15 @@ RedactorPlugins.wutil = function() {
 				var $child = this.$editor[0].children[$i];
 				if ($child.nodeType !== Node.ELEMENT_NODE || $child.tagName !== 'P') {
 					// not a <p> element
+					continue;
+				}
+				
+				if ($child.innerHTML === "\n") {
+					$child.parentElement.removeChild($child);
+					
+					$i--;
+					$length--;
+					
 					continue;
 				}
 				
