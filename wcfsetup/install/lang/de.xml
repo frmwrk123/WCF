@@ -2569,6 +2569,7 @@ Fehler sind beispielsweise:
 		<item name="wcf.page.com.woltlab.wcf.MembersListPage"><![CDATA[Mitglieder]]></item>
 		<item name="wcf.page.com.woltlab.wcf.ModerationListPage"><![CDATA[Moderation]]></item>
 		<item name="wcf.page.com.woltlab.wcf.NotificationListPage"><![CDATA[Benachrichtigungen]]></item>
+		<item name="wcf.page.com.woltlab.wcf.PaidSubscriptionListPage"><![CDATA[Bezahlte Mitgliedschaften]]></item>
 		<item name="wcf.page.com.woltlab.wcf.PrivacyPolicyPage"><![CDATA[Datenschutzerklärung]]></item>
 		<item name="wcf.page.com.woltlab.wcf.RecentActivityListPage"><![CDATA[Letzte Aktivitäten]]></item>
 		<item name="wcf.page.com.woltlab.wcf.SearchResultPage"><![CDATA[Suchergebnisse]]></item>
@@ -2707,7 +2708,7 @@ Fehler sind beispielsweise:
 		<item name="wcf.user.option.error.birthdayTooYoung"><![CDATA[Sie sind zu jung. Für eine Anmeldung auf dieser Seite müssen Sie mindestens {#REGISTER_MIN_USER_AGE} Jahre alt sein.]]></item>
 		<item name="wcf.user.option.error.censoredWordsFound"><![CDATA[Ihr Text enthält folgende zensierte Wörter: {implode from=$censoredWords key=censoredWord item=number}{$censoredWord}{if $number > 1} ({#$number}×){/if}{/implode}]]></item>
 		<item name="wcf.user.error.isBanned"><![CDATA[Ihr Benutzeraccount wurde{if $__wcf->user->banExpires != 0} bis zum {@$__wcf->user->banExpires|plainTime}{/if} gesperrt{if $__wcf->user->banReason}: {@$__wcf->user->banReason|htmlspecialchars|nl2br}{else}.{/if}]]></item>
- 		<item name="wcf.user.access.everyone"><![CDATA[Jeder]]></item>
+		<item name="wcf.user.access.everyone"><![CDATA[Jeder]]></item>
 		<item name="wcf.user.access.following"><![CDATA[Benutzer, denen ich folge]]></item>
 		<item name="wcf.user.access.nobody"><![CDATA[Keiner]]></item>
 		<item name="wcf.user.access.registered"><![CDATA[Registrierte Benutzer]]></item>
@@ -3062,7 +3063,6 @@ Sollten Sie sich nicht auf der Website: {@PAGE_TITLE|language} angemeldet haben,
 	
 	<category name="wcf.user.avatar">
 		<item name="wcf.user.avatar"><![CDATA[Avatar]]></item>
-		<item name="wcf.user.avatar.alt"><![CDATA[Benutzer-Avatarbild]]></item>
 		<item name="wcf.user.avatar.edit"><![CDATA[Avatar verwalten]]></item>
 		<item name="wcf.user.avatar.error.disabled"><![CDATA[Der Administrator hat{if $__wcf->user->avatarID || $__wcf->user->enableGravatar} Ihren derzeitigen Avatar gesperrt und{/if} Ihnen die weitere Nutzungsberechtigung der Avatar-Funktion {if !$__wcf->user->disableAvatarReason}entzogen.{else} aus folgenden Gründen entzogen: {$__wcf->user->disableAvatarReason}{/if}]]></item>
 		<item name="wcf.user.avatar.type.custom"><![CDATA[Eigenen Avatar hochladen]]></item>

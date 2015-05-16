@@ -109,7 +109,8 @@ class MembersListPage extends SortablePage {
 		}
 		
 		if (!empty($_POST)) {
-			HeaderUtil::redirect(LinkHandler::getInstance()->getLink('MembersList', array(), 'sortField=' . $this->sortField . '&sortOrder=' . $this->sortOrder));
+			$parameters = http_build_query($_POST, '', '&');
+			HeaderUtil::redirect(LinkHandler::getInstance()->getLink('MembersList', array(), $parameters));
 			exit;
 		}
 	}
@@ -159,5 +160,9 @@ class MembersListPage extends SortablePage {
 			'sidebarName' => 'com.woltlab.wcf.user.MembersListPage',
 			'allowSpidersToIndexThisPage' => true
 		));
+		
+		if (count($this->objectList) === 0) {
+			@header('HTTP/1.0 404 Not Found');
+		}
 	}
 }

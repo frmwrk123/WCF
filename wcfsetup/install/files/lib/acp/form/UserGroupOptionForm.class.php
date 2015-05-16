@@ -169,7 +169,7 @@ class UserGroupOptionForm extends AbstractForm {
 				$this->optionType->validate($this->userGroupOption, $optionValue);
 			}
 			catch (UserInputException $e) {
-				$this->errorType[$e->getField()] = $e->getType();
+				$this->errorType[$groupID] = $e->getType();
 			}
 			
 			if (!$isAdmin && $this->optionType->compare($optionValue, WCF::getSession()->getPermission($this->userGroupOption->optionName)) == 1) {
@@ -215,7 +215,7 @@ class UserGroupOptionForm extends AbstractForm {
 		
 		// create form elements for each group
 		foreach ($this->groups as $group) {
-			$optionValue = (isset($this->values[$group->groupID])) ? $this->values[$group->groupID] : $this->userGroupOption->defaultValue;
+			$optionValue = (isset($this->values[$group->groupID])) ? $this->values[$group->groupID] : '';
 			$this->formElements[$group->groupID] = $this->optionType->getFormElement($this->userGroupOption, $optionValue);
 		}
 	}

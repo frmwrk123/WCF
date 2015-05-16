@@ -227,17 +227,33 @@ RedactorPlugins.wbbcode = function() {
 					}
 				}
 				
+				var $isSpace = function(sibling) {
+					if (sibling === null) return false;
+					
+					if ((sibling.nodeType === Node.ELEMENT_NODE && sibling.nodeName === 'SPAN') || sibling.nodeType === Node.TEXT_NODE) {
+						if (sibling.textContent === "\u00A0") {
+							return true;
+						}
+					}
+					
+					return false;
+				};
+				
 				// add spaces as paddings
 				var $parent = $smiley.parentElement;
-				var $node = document.createTextNode('\u00A0');
-				$parent.insertBefore($node, $smiley);
-				
-				var $node = document.createTextNode('\u00A0');
-				if ($parent.lastChild === $smiley) {
-					$parent.appendChild($node);
+				if (!$isSpace($smiley.previousSibling)) {
+					var $node = document.createTextNode('\u00A0');
+					$parent.insertBefore($node, $smiley);
 				}
-				else {
-					$parent.insertBefore($node, $smiley.nextSibling);
+				
+				if (!$isSpace($smiley.nextSibling)) {
+					var $node = document.createTextNode('\u00A0');
+					if ($parent.lastChild === $smiley) {
+						$parent.appendChild($node);
+					}
+					else {
+						$parent.insertBefore($node, $smiley.nextSibling);
+					}
 				}
 			}
 			else {
@@ -654,7 +670,13 @@ RedactorPlugins.wbbcode = function() {
 			});
 			
 			// [img]
-			html = html.replace(/<img [^>]*?src=(["'])([^"']+?)\1[^>]*?style="([^"]+)"[^>]*?>/gi, function(match, quotationMarks, source, style) {
+			html = html.replace(/<img([^>]*)?src=(["'])([^"']+?)\2([^>]*)?>/gi, function(match, attributesBefore, quotationMarks, source, attributesAfter) {
+				var attrs = attributesBefore + " " + attributesAfter;
+				var style = '';
+				if (attrs.match(/style="([^"]+)"/)) {
+					style = RegExp.$1;
+				}
+				
 				var $float = 'none';
 				var $width = 0;
 				
@@ -678,8 +700,6 @@ RedactorPlugins.wbbcode = function() {
 				
 				return "[img]" + source + "[/img]";
 			});
-			
-			html = html.replace(/<img [^>]*?src=(["'])([^"']+?)\1[^>]*?>/gi, '[img]$2[/img]');
 			
 			// [*]
 			html = html.replace(/<li>/gi, '[*]');
@@ -1299,7 +1319,6 @@ RedactorPlugins.wbbcode = function() {
 				for (var $i = $cachedCodes.length - 1; $i >= 0; $i--) {
 					var $cachedCode = $cachedCodes[$i];
 					var $regex = new RegExp('@@' + $cachedCode.key + '@@', 'g');
-					
 					var $value = $cachedCode.value;
 					
 					// [tt]
@@ -1412,7 +1431,6 @@ RedactorPlugins.wbbcode = function() {
 						+ '</div>';
 					}).bind(this));
 					
-					data = data.replace(new RegExp('(?:<p>)?(@@' + $cachedCode.key + '@@)(?:<\/p>)?', 'g'), '$1');
 					data = data.replace($regex, $value);
 				}
 			}
@@ -1433,6 +1451,15 @@ RedactorPlugins.wbbcode = function() {
 		_expandFormatting: function(content, openingTag, closingTag) {
 			if (!content.length) {
 				return openingTag + this.opts.invisibleSpace + closingTag;
+			}
+			
+			// check for unclosed tags in tables
+			var $index = content.indexOf('[/td]');
+			if ($index !== -1) {
+				var $tmp = content.substring(0, $index);
+				if ($tmp.indexOf('[td]') === -1) {
+					return openingTag + $tmp + closingTag + content.substring($index);
+				}
 			}
 			
 			var $tmp = content.split("\n");
@@ -1514,6 +1541,11 @@ RedactorPlugins.wbbcode = function() {
 			html = html.replace(/<(div|p)([^>]+)?><(div|p)([^>]+)?>/g, '<p>');
 			html = html.replace(/<\/(div|p)><\/(div|p)>/g, '</p>');
 			//html = html.replace(/<(div|p)><br><\/(div|p)>/g, '<p>');
+			
+			// strip classes from certain elements
+			html = html.replace(/<(?:div|p|span)[^>]+>/gi, function(match) {
+				return match.replace(/ class="[^"]+"/, '');
+			});
 			
 			// drop <wbr>
 			html = html.replace(/<\/?wbr[^>]*>/g, '');
@@ -1843,7 +1875,7 @@ RedactorPlugins.wbbcode = function() {
 							$submitEditor = true;
 						}
 					}
-					else if (data.event.altKey) {
+					else if (data.event.altKey && !data.event.ctrlKey) {
 						$submitEditor = true;
 					}
 					
@@ -2065,16 +2097,36 @@ RedactorPlugins.wbbcode = function() {
 			
 			var $quote = null;
 			if (this.wutil.inWysiwygMode()) {
-				var $innerHTML = (plainText) ? this.wbbcode.convertToHtml(plainText) : html;
 				var $id = WCF.getUUID();
-				var $html = this.wbbcode.convertToHtml($openTag + $id + $closingTag);
-				$html = $html.replace($id, $innerHTML.replace(/^<p>/, '').replace(/<\/p>$/, ''));
+				var $html = '';
+				if (plainText) {
+					$html = this.wbbcode.convertToHtml($openTag + plainText + $closingTag);
+				}
+				else {
+					$html = this.wbbcode.convertToHtml($openTag + $id + $closingTag);
+					$html = $html.replace($id, html.replace(/^<p>/, '').replace(/<\/p>$/, ''));
+				}
+				
 				$html = $html.replace(/^<p>/, '').replace(/<\/p>$/, '');
 				
 				// assign a unique id in order to recognize the inserted quote
 				$html = $html.replace(/<blockquote/, '<blockquote id="' + $id + '"');
 				
-				var $originalRange = window.getSelection().getRangeAt(0).cloneRange();
+				if (!window.getSelection().rangeCount) {
+					this.wutil.restoreSelection();
+					
+					if (!window.getSelection().rangeCount) {
+						this.$editor.focus();
+						
+						if (!window.getSelection().rangeCount) {
+							this.wutil.selectionEndOfEditor();
+						}
+						
+						this.wutil.saveSelection();
+					}
+				}
+				
+				window.getSelection().getRangeAt(0).deleteContents();
 				
 				this.wutil.restoreSelection();
 				var $selection = window.getSelection().getRangeAt(0);
@@ -2095,8 +2147,6 @@ RedactorPlugins.wbbcode = function() {
 				}
 				
 				this.insert.html($html, false);
-				
-				$originalRange.deleteContents();
 				
 				$quote = this.$editor.find('#' + $id);
 				if ($quote.length) {
@@ -2258,7 +2308,7 @@ RedactorPlugins.wbbcode = function() {
 				
 				var $code = '';
 				$list.children('li').each(function(index, listItem) {
-					$code += $(listItem).text() + "\n";
+					$code += $(listItem).text().replace(/^\u200b$/, '') + "\n";
 				});
 				$codeBox.val($code.replace(/^\n+/, '').replace(/\n+$/, ''));
 				

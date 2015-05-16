@@ -1085,9 +1085,39 @@ RedactorPlugins.wmonkeypatch = function() {
 				}
 			}).bind(this);
 			
+			var $fixSelection = function() {
+				var $selection = window.getSelection();
+				if (!$selection.rangeCount) {
+					return;
+				}
+				
+				var $range = $selection.getRangeAt(0);
+				if (!$range.collapsed) {
+					return;
+				}
+				
+				var $element = $range.startContainer;
+				if ($element.nodeType === Node.ELEMENT_NODE && $element.tagName === 'DIV') {
+					var $parentNode = $element.parentNode;
+					if ($parentNode !== null && $parentNode.tagName === 'BLOCKQUOTE' && $parentNode.classList.contains('quoteBox')) {
+						var $endContainer = $range.startContainer.childNodes[$range.startContainer.childNodes.length - 1];
+						var $newRange = document.createRange();
+						$newRange.setStart($range.startContainer.childNodes[0], 0);
+						
+						$newRange.setEnd($endContainer, $endContainer.length);
+						$newRange.collapse(false);
+						
+						$selection.removeAllRanges();
+						$selection.addRange($newRange);
+					}
+				}
+			};
+			
 			// paste.insert
 			var $mpInsert = this.paste.insert;
 			this.paste.insert = (function(html) {
+				$fixSelection();
+				
 				$mpInsert.call(this, html);
 				
 				setTimeout((function() {
@@ -1095,6 +1125,13 @@ RedactorPlugins.wmonkeypatch = function() {
 					
 					if ($.browser.msie) {
 						getSelection().getRangeAt(0).collapse(false);
+					}
+					else if ($.browser.mozilla) {
+						// bugfix for Firefox setting the caret somewhere in the void
+						var $range = getSelection().getRangeAt(0);
+						if ($range.startContainer === this.$editor[0] && $range.endContainer === this.$editor[0]) {
+							this.wutil.selectionEndOfEditor();
+						}
 					}
 					
 					this.wutil.saveSelection();

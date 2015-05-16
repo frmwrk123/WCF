@@ -458,7 +458,9 @@ WCF.Location.GoogleMaps.LargeMap = WCF.Location.GoogleMaps.Map.extend({
 		}
 		
 		this._markerClusterer = new MarkerClusterer(this._map, this._markers, {
-			maxZoom: 17
+			maxZoom: 17,
+			// replace default value for https support
+			imagePath: '//google-maps-utility-library-v3.googlecode.com/svn/trunk/markerclusterer/images/m'
 		});
 		
 		this._markerSpiderfier = new OverlappingMarkerSpiderfier(this._map, {
@@ -711,6 +713,7 @@ WCF.Location.GoogleMaps.LocationSearch = WCF.Search.Base.extend({
 	init: function(searchInput, callback, excludedSearchValues, commaSeperated, showLoadingOverlay) {
 		this._super(searchInput, callback, excludedSearchValues, commaSeperated, showLoadingOverlay);
 		
+		this.setDelay(500);
 		this._geocoder = new google.maps.Geocoder();
 	},
 	
@@ -757,11 +760,25 @@ WCF.Location.GoogleMaps.LocationSearch = WCF.Search.Base.extend({
 			this._clearList(true);
 		}
 		else if ($content.length >= this._triggerLength) {
-			this._clearList(false);
-			
-			this._geocoder.geocode({
-				address: $content
-			}, $.proxy(this._success, this));
+			if (this._delay) {
+				if (this._timer !== null) {
+					this._timer.stop();
+				}
+				
+				this._timer = new WCF.PeriodicalExecuter($.proxy(function() {
+					this._geocoder.geocode({
+						address: $content
+					}, $.proxy(this._success, this));
+					
+					this._timer.stop();
+					this._timer = null;
+				}, this), this._delay);
+			}
+			else {
+				this._geocoder.geocode({
+					address: $content
+				}, $.proxy(this._success, this));
+			}
 		}
 		else {
 			// input below trigger length
@@ -776,6 +793,8 @@ WCF.Location.GoogleMaps.LocationSearch = WCF.Search.Base.extend({
 	 * @param	integer		status
 	 */
 	_success: function(results, status) {
+		this._clearList(false);
+		
 		if (status != google.maps.GeocoderStatus.OK) {
 			return;
 		}

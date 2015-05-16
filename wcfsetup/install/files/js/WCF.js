@@ -2410,13 +2410,33 @@ WCF.PeriodicalExecuter = Class.extend({
 	
 	/**
 	 * Resumes the interval-based callback execution.
+	 * 
+	 * @deprecated	2.1 - use restart() instead
 	 */
 	resume: function() {
+		this.restart();
+	},
+	
+	/**
+	 * Restarts the interval-based callback execution.
+	 */
+	restart: function() {
 		if (this._intervalID) {
 			this.stop();
 		}
 		
 		this._intervalID = setInterval($.proxy(this._execute, this), this._interval);
+	},
+	
+	/**
+	 * Sets the interval and restarts the interval.
+	 * 
+	 * @param	integer		interval
+	 */
+	setInterval: function(interval) {
+		this._interval = interval;
+		
+		this.restart();
 	}
 });
 
@@ -6318,7 +6338,7 @@ WCF.PageVisibilityHandler = {
 /**
  * Namespace for table related classes.
  */
-WCF.Table = {};
+WCF.Table = { };
 
 /**
  * Handles empty tables which can be used in combination with WCF.Action.Proxy.
@@ -6358,47 +6378,68 @@ WCF.Table.EmptyTableHandler = Class.extend({
 	},
 	
 	/**
+	 * Returns the current number of table rows.
+	 * 
+	 * @return	integer
+	 */
+	_getRowCount: function() {
+		return this._tableContainer.find('table tr.' + this._rowClassName).length;
+	},
+	
+	/**
+	 * Handles an empty table.
+	 */
+	_handleEmptyTable: function() {
+		if (this._options.emptyMessage) {
+			// insert message
+			this._tableContainer.replaceWith($('<p />').addClass(this._options.messageType).text(this._options.emptyMessage));
+		}
+		else if (this._options.refreshPage) {
+			// refresh page
+			if (this._options.updatePageNumber) {
+				// calculate the new page number
+				var pageNumberURLComponents = window.location.href.match(/(\?|&)pageNo=(\d+)/g);
+				if (pageNumberURLComponents) {
+					var currentPageNumber = pageNumberURLComponents[pageNumberURLComponents.length - 1].match(/\d+/g);
+					if (this._options.updatePageNumber > 0) {
+						currentPageNumber++;
+					}
+					else {
+						currentPageNumber--;
+					}
+					
+					window.location = window.location.href.replace(pageNumberURLComponents[pageNumberURLComponents.length - 1], pageNumberURLComponents[pageNumberURLComponents.length - 1][0] + 'pageNo=' + currentPageNumber);
+				}
+			}
+			else {
+				window.location.reload();
+			}
+		}
+		else {
+			// simply remove the table container
+			this._tableContainer.remove();
+		}
+	},
+	
+	/**
 	 * Handles the removal of a DOM node.
 	 */
 	_remove: function(event) {
-		var element = $(event.target);
-		
-		// check if DOM element is relevant
-		if (element.hasClass(this._rowClassName)) {
-			var tbody = element.parents('tbody:eq(0)');
+		if ($.getLength(event)) {
+			var element = $(event.target);
 			
-			// check if table will be empty if DOM node is removed
-			if (tbody.children('tr').length == 1) {
-				if (this._options.emptyMessage) {
-					// insert message
-					this._tableContainer.replaceWith($('<p />').addClass(this._options.messageType).text(this._options.emptyMessage));
-				}
-				else if (this._options.refreshPage) {
-					// refresh page
-					if (this._options.updatePageNumber) {
-						// calculate the new page number
-						var pageNumberURLComponents = window.location.href.match(/(\?|&)pageNo=(\d+)/g);
-						if (pageNumberURLComponents) {
-							var currentPageNumber = pageNumberURLComponents[pageNumberURLComponents.length - 1].match(/\d+/g);
-							if (this._options.updatePageNumber > 0) {
-								currentPageNumber++;
-							}
-							else {
-								currentPageNumber--;
-							}
-							
-							window.location = window.location.href.replace(pageNumberURLComponents[pageNumberURLComponents.length - 1], pageNumberURLComponents[pageNumberURLComponents.length - 1][0] + 'pageNo=' + currentPageNumber);
-						}
-					}
-					else {
-						window.location.reload();
-					}
-				}
-				else {
-					// simply remove the table container
-					this._tableContainer.remove();
+			// check if DOM element is relevant
+			if (element.hasClass(this._rowClassName)) {
+				var tbody = element.parents('tbody:eq(0)');
+				
+				// check if table will be empty if DOM node is removed
+				if (tbody.children('tr').length == 1) {
+					this._handleEmptyTable();
 				}
 			}
+		}
+		else if (!this._getRowCount()) {
+			this._handleEmptyTable();
 		}
 	}
 });
@@ -10264,7 +10305,7 @@ WCF.EditableItemList = Class.extend({
 	 */
 	_keyPress: function(event) {
 		// 44 = [,] (charCode != keyCode)
-		if (event === null || event.charCode === 44 || event.charCode === $.ui.keyCode.ENTER) {
+		if (event === null || event.charCode === 44 || event.charCode === $.ui.keyCode.ENTER || ($.browser.mozilla && event.keyCode === $.ui.keyCode.ENTER)) {
 			if (event !== null && event.charCode === $.ui.keyCode.ENTER && this._search) {
 				if (this._search._itemIndex !== -1) {
 					return false;
@@ -11280,9 +11321,9 @@ $.widget('ui.wcfDialog', {
 		// set dialog to be fully opaque, prevents weird bugs in WebKit
 		this._container.show().css('opacity', 1.0);
 		
-		// handle positioning of form submit controls
+		// handle positioning of visible form submit controls
 		var $heightDifference = 0;
-		if (this._content.find('.formSubmit').length) {
+		if (this._content.find('.formSubmit:visible').length) {
 			$heightDifference = this._content.find('.formSubmit').outerHeight();
 			
 			this._content.addClass('dialogForm').css({ marginBottom: $heightDifference + 'px' });

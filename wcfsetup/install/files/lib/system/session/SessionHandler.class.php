@@ -811,6 +811,14 @@ class SessionHandler extends SingletonFactory {
 					
 					// inherit existing session
 					$this->session = $session;
+					
+					// inherit security token
+					$variables = @unserialize($this->session->sessionVariables);
+					if (is_array($variables) && !empty($variables['__SECURITY_TOKEN'])) {
+						$this->register('__SECURITY_TOKEN', $variables['__SECURITY_TOKEN']);
+					}
+					
+					HeaderUtil::setCookie('cookieHash', $this->session->sessionID);
 				}
 			break;
 		}

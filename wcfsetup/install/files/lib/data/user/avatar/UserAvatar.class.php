@@ -130,11 +130,13 @@ class UserAvatar extends DatabaseObject implements IUserAvatar {
 			
 			case 64:
 			case 96:
-				$retinaSize = 128;
+				if ($this->width >= 128 && $this->height >= 128) {
+					$retinaSize = 128;
+				}
 			break;
 		}
 		
-		return '<img src="'.StringUtil::encodeHTML($this->getURL($size)).'" '.($retinaSize !== null ? ('srcset="'.StringUtil::encodeHTML($this->getURL($retinaSize)).' 2x" ') : '').'style="width: '.$width.'px; height: '.$height.'px" alt="'.WCF::getLanguage()->get('wcf.user.avatar.alt').'" class="userAvatarImage" />';
+		return '<img src="'.StringUtil::encodeHTML($this->getURL($size)).'" '.($retinaSize !== null ? ('srcset="'.StringUtil::encodeHTML($this->getURL($retinaSize)).' 2x" ') : '').'style="width: '.$width.'px; height: '.$height.'px" alt="" class="userAvatarImage" />';
 	}
 	
 	/**

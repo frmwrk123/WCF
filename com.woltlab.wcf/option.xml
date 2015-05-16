@@ -278,12 +278,13 @@
 				<defaultvalue>1</defaultvalue>
 			</option>
 			
+			<!--
 			<option name="enable_pluginstore_widget">
 				<categoryname>module.system</categoryname>
 				<optiontype>boolean</optiontype>
-				<!-- TODO: change this to "1" once the widget goes live -->
 				<defaultvalue>0</defaultvalue>
 			</option>
+			 -->
 			
 			<option name="module_system_recaptcha"><!-- @deprecated -->
 				<categoryname>module.system</categoryname>
@@ -1185,7 +1186,8 @@ retro:wcf.acp.option.gravatar_default_type.retro]]></selectoptions>
 				<selectoptions><![CDATA[username:wcf.user.username
 registrationDate:wcf.user.registrationDate
 activityPoints:wcf.user.activityPoint
-likesReceived:wcf.like.likesReceived]]></selectoptions>
+likesReceived:wcf.like.likesReceived
+lastActivityTime:wcf.user.usersOnline.lastActivity]]></selectoptions>
 			</option>
 			<option name="members_list_default_sort_order">
 				<categoryname>user.list.members</categoryname>
@@ -1407,6 +1409,6 @@ DESC:wcf.global.sortOrder.descending]]></selectoptions>
 	<delete>
 		<option name="cache_source_memcached_use_pconnect" />
 		<option name="http_gzip_level" />
-		<option name="url_to_lowercase" />
+		<option name="enable_pluginstore_widget" />
 	</delete>
 </data>

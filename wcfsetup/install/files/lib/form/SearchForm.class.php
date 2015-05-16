@@ -286,11 +286,25 @@ class SearchForm extends AbstractCaptchaForm {
 	 * Throws a NamedUserException on search failure.
 	 */
 	public function throwNoMatchesException() {
+		@header('HTTP/1.0 404 Not Found');
+		
 		if (empty($this->query)) {
 			throw new NamedUserException(WCF::getLanguage()->get('wcf.search.error.user.noMatches'));
 		}
 		else {
 			throw new NamedUserException(WCF::getLanguage()->getDynamicVariable('wcf.search.error.noMatches', array('query' => $this->query)));
+		}
+	}
+	
+	/**
+	 * @see wcf\form\IForm::submit()
+	 */
+	public function submit() {
+		try {
+			parent::submit();
+		}
+		catch (NamedUserException $e) {
+			WCF::getTPL()->assign('errorMessage', $e->getMessage());
 		}
 	}
 	
